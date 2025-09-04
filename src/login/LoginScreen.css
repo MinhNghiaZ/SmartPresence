@@ -1,0 +1,296 @@
+/* Login Screen Styles */
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@200;300;400;500;600;700&display=swap');
+
+html,
+body {
+  font-family: 'Oswald', sans-serif;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.auth-page-wrapper {
+  position: relative;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.auth-one-bg-position {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('/EIU_Background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+
+.auth-one-bg-position::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+.auth-page-content {
+  position: relative;
+  z-index: 2;
+}
+
+.auth-logo img {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  transition: transform 0.3s ease;
+  max-width: 100%;
+  height: auto;
+  max-height: 120px;
+}
+
+.auth-logo img:hover {
+  transform: scale(1.05);
+}
+
+.card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.card-body {
+  padding: 2rem;
+}
+
+.text-primary {
+  color: #6f42c1 !important;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-control {
+  border-radius: 0.5rem;
+  border: 2px solid #e9ecef;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  font-family: 'Oswald', sans-serif;
+}
+
+.form-control:focus {
+  border-color: #6f42c1;
+  box-shadow: 0 0 0 0.2rem rgba(111, 66, 193, 0.25);
+  transform: translateY(-2px);
+}
+
+.form-label {
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 0.5rem;
+  font-family: 'Oswald', sans-serif;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+  font-family: 'Oswald', sans-serif;
+  text-transform: uppercase;
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #218838, #1e9c85);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+}
+
+.btn-success:active {
+  transform: translateY(0);
+}
+
+.form-check-input:checked {
+  background-color: #6f42c1;
+  border-color: #6f42c1;
+}
+
+.form-check-label {
+  font-family: 'Oswald', sans-serif;
+  color: #495057;
+}
+
+.text-muted {
+  color: #6c757d !important;
+}
+
+.text-white-50 {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Bright styling for register text */
+.register-text {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-weight: 500;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  font-family: 'Oswald', sans-serif;
+}
+
+.register-link {
+  color: #00d4ff !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+}
+
+.register-link:hover {
+  color: #00bfff !important;
+  text-decoration: underline !important;
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+.footer {
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem 0;
+  position: relative;
+  z-index: 2;
+}
+
+.footer p {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-family: 'Oswald', sans-serif;
+}
+
+.auth-pass-inputgroup {
+  position: relative;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .card-body {
+    padding: 1.5rem;
+  }
+  
+  .auth-logo {
+    padding-top: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  .auth-logo img {
+    height: 90px !important;
+    max-height: 90px;
+  }
+  
+  .text-primary {
+    font-size: 1.2rem;
+  }
+  
+  /* Add padding bottom for "Don't have account" text on mobile */
+  .mt-4.text-center:last-child {
+    padding-bottom: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* Ensure register text is visible on mobile */
+  .register-text {
+    font-size: 0.95rem;
+  }
+  
+  .register-link {
+    font-size: 0.95rem;
+  }
+  
+  /* Additional mobile spacing improvements */
+  .auth-page-content {
+    padding: 1rem 0;
+  }
+  
+  .card {
+    margin: 1rem;
+  }
+  
+  /* Ensure proper spacing on very small screens */
+  @media (max-width: 480px) {
+    .auth-logo {
+      padding-top: 1.5rem;
+    }
+    
+    .auth-logo img {
+      height: 75px !important;
+      max-height: 75px;
+    }
+    
+    .mt-4.text-center:last-child {
+      padding-bottom: 1.5rem;
+    }
+  }
+}
+
+/* Animation for smooth entrance */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.auth-logo {
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+/* Particles canvas */
+.particles-js-canvas-el {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Link styles */
+a {
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.text-primary a,
+a.text-primary {
+  color: #6f42c1 !important;
+}
+
+.text-primary a:hover,
+a.text-primary:hover {
+  color: #5a2d91 !important;
+}
