@@ -108,10 +108,17 @@ const LoginScreen: React.FC = () => {
               </div>
               
               <div className="mt-4 text-center">
-                <p className="mb-0 register-text">
-                  Don't have an account?{' '}
-                  <a href="#" className="fw-semibold register-link">
-                    Register Now
+                <p className="mb-0 mt-2">
+                  <a 
+                    href="#" 
+                    className="change-password-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      console.log('Chuyển đến màn hình đổi mật khẩu');
+                      // onChangePassword(); // Uncomment when prop is added
+                    }}
+                  >
+                    🔑 Đổi mật khẩu 🔑
                   </a>
                 </p>
               </div>

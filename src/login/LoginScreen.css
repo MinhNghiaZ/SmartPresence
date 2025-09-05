@@ -294,3 +294,22 @@ a.text-primary {
 a.text-primary:hover {
   color: #5a2d91 !important;
 }
+
+/* Change Password Link Styles */
+.change-password-link {
+  color: #ffc107 !important;
+  font-weight: bold !important;
+  font-size: 1.1rem !important;
+  text-decoration: none !important;
+  text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+  transition: all 0.3s ease;
+  display: inline-block;
+  font-family: 'Oswald', sans-serif;
+}
+
+.change-password-link:hover {
+  color: #ff6b35 !important;
+  text-shadow: 0 0 15px rgba(255, 107, 53, 0.7);
+  text-decoration: none !important;
+  transform: translateY(-1px);
+}
