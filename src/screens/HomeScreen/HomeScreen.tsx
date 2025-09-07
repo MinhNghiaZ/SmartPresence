@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import './HomeScreen.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { GPSService } from '../../Services/GPSService/GpsService';
-import type { Location } from '../../Services/GPSService/GpsService';
+import { CheckInService } from '../../Services/CheckInService';
+import type { SubjectInfo } from '../../Services/CheckInService';
 import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
 import ProfileModal from '../../components/ProfileModal';
 
@@ -11,14 +11,6 @@ interface User {
   name: string;
   email: string;
   faceEmbedding?: any;
-}
-
-interface CurrentSubjectInfo {
-  name: string;
-  code: string;
-  time: string;
-  room: string;
-  instructor: string;
 }
 
 interface WeeklyStats {
@@ -42,14 +34,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     email: 'nguyenvana@eiu.edu.vn',
   });
 
-  const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({
+  const [weeklyStats] = useState<WeeklyStats>({
     present: 12,
     absent: 2,
     late: 1,
     remain: 3
   });
 
-  const currentSubject: CurrentSubjectInfo = {
+  const currentSubject: SubjectInfo = {
     name: 'Mobile Development',
     code: 'CS401',
     time: '7:30 AM - 9:30 AM',
@@ -59,63 +51,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
   const handleCheckIn = async () => {
     setIsCheckingIn(true);
-    setGpsStatus('Getting location...');
     
     try {
-      // Step 1: Get current location using GPS service
-      console.log('Getting current location...');
-      
-      let currentLocation: Location;
-      try {
-        currentLocation = await GPSService.getCurrentLocation();
-        console.log('Current location:', currentLocation);
-        setGpsStatus('Verifying location...');
-      } catch (locationError) {
-        console.error('Location error:', locationError);
-        setGpsStatus('');
-        alert(`GPS Error: ${(locationError as Error).message}\n\nPlease enable location services and try again.`);
-        return;
-      }
-
-      // Step 2: Check if location is within allowed area
-      const locationCheck = GPSService.isLocationAllowed(currentLocation);
-      console.log('Location check result:', locationCheck);
-
-      if (!locationCheck.allowed) {
-        setGpsStatus('');
-        alert(
-          `❌ Location Not Allowed!\n\n` +
-          `You are ${locationCheck.distance}m away from the allowed area.\n` +
-          `Please move closer to the campus to check in.\n\n` +
-          `Maximum allowed distance: ${GPSService.getAllowedArea().radius}m`
-        );
-        return;
-      }
-
-      // Step 3: If location is valid, proceed with check-in
-      console.log('Location verified successfully!');
-      setGpsStatus('Processing check-in...');
-      
-      // Simulate additional check-in processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Show success message with location info
-      alert(
-        `✅ Check-in Successful!\n\n` +
-        `Subject: ${currentSubject.name}\n` +
-        `Time: ${new Date().toLocaleTimeString()}\n` +
-        `Location: Verified (${locationCheck.distance}m from center)\n` +
-        `Status: Present`
+      const result = await CheckInService.performCheckIn(
+        currentSubject,
+        (progress) => {
+          setGpsStatus(progress.status);
+        }
       );
       
-      // Update stats
-      setWeeklyStats(prev => ({
-        ...prev,
-        present: prev.present + 1,
-        remain: prev.remain - 1
-      }));
-      
       setGpsStatus('');
+      alert(result.message);
       
     } catch (error) {
       console.error('Check-in error:', error);
@@ -150,12 +96,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
   const handleClearData = () => {
     if (window.confirm('This will clear all attendance records. Are you sure?')) {
-      setWeeklyStats({
-        present: 0,
-        absent: 0,
-        late: 0,
-        remain: 18
-      });
+      // TODO: Clear data via API call here
       alert('Data cleared successfully!');
     }
   };
@@ -163,21 +104,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   // Debug function to check current GPS location
   const handleCheckLocation = async () => {
     try {
-      const location = await GPSService.getCurrentLocation();
-      const check = GPSService.isLocationAllowed(location);
-      const allowedArea = GPSService.getAllowedArea();
-      
-      alert(
-        `📍 Current Location Debug:\n\n` +
-        `Latitude: ${location.latitude.toFixed(6)}\n` +
-        `Longitude: ${location.longitude.toFixed(6)}\n\n` +
-        `Allowed Area Center:\n` +
-        `Lat: ${allowedArea.latitude.toFixed(6)}\n` +
-        `Lng: ${allowedArea.longitude.toFixed(6)}\n` +
-        `Radius: ${allowedArea.radius}m\n\n` +
-        `Distance: ${check.distance}m\n` +
-        `Status: ${check.allowed ? '✅ Allowed' : '❌ Not Allowed'}`
-      );
+      const debugInfo = await CheckInService.getLocationDebugInfo();
+      alert(debugInfo);
     } catch (error) {
       alert(`GPS Error: ${(error as Error).message}`);
     }
