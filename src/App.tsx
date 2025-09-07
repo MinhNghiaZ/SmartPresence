@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import LoginScreen from './login/LoginScreen';
-import UserDashBoard from './Pages/UserDashBoard/UserDashBoard';
+import LoginScreen from './screens/LoginScreen/LoginScreen';
+import HomeScreen from './screens/HomeScreen/HomeScreen';
 import './App.css';
 
 function App() {
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'home'>('login');
 
   const handleLoginSuccess = () => {
-    setCurrentScreen('dashboard');
+    setCurrentScreen('home');
   };
 
   const handleLogout = () => {
@@ -19,7 +19,7 @@ function App() {
       {currentScreen === 'login' ? (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       ) : (
-        <UserDashBoard onLogout={handleLogout} />
+        <HomeScreen onLogout={handleLogout} />
       )}
     </div>
   );
