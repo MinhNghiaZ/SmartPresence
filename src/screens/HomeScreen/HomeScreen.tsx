@@ -9,6 +9,7 @@ import FaceRecognition, { type FaceRecognitionRef } from '../../components/Camer
 import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
 import ProfileModal from '../../components/ProfileModal';
 
+// Interfaces
 interface User {
   id: string;
   name: string;
@@ -29,6 +30,7 @@ interface HomeScreenProps {
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
+  // State
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
   const [showProfile, setShowProfile] = useState<boolean>(false);
@@ -36,14 +38,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  
+  // Refs
   const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
+  
+  // User data
   const [user] = useState<User>({
     id: 'SV001',
     name: 'Nguyen Van A',
     email: 'nguyenvana@eiu.edu.vn',
   });
 
-  // Helper function để xác định có muộn không
+  // Utils
   const isLateCheckIn = (currentTime: string, classStartTime: string): boolean => {
     const [currentHour, currentMin] = currentTime.split(':').map(Number);
     const [classHour, classMin] = classStartTime.split(':').map(Number);
@@ -51,10 +57,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     const currentMinutes = currentHour * 60 + currentMin;
     const classMinutes = classHour * 60 + classMin;
     
-    // Muộn nếu check-in sau 15 phút so với giờ bắt đầu
     return currentMinutes > classMinutes + 15;
   };
 
+  // Configuration
   const currentSubject: SubjectInfo = {
     name: 'Mobile Development',
     code: 'CS401',
@@ -63,30 +69,28 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     instructor: 'Dr. Nguyen Van A'
   };
 
+  // Handlers
   const handleCheckIn = async () => {
-    // Mở modal camera trước
+    // Open camera modal
     setShowFaceModal(true);
-    setIsProcessing(false); // Reset trạng thái processing
+    setIsProcessing(false);
     
     try {
-      // Khởi tạo face recognition service chỉ một lần
+      // Initialize face recognition
       if (!faceRecognizeService.isReady()) {
         setGpsStatus('Đang tải AI models...');
         await faceRecognizeService.initializeModels();
       }
       
-      // Load faces từ storage
       faceRecognizeService.loadFacesFromStorage();
       
-      // Kiểm tra user đã đăng ký khuôn mặt chưa
+      // Check registration status
       const isUserRegistered = faceRecognizeService.isUserRegistered(user.id);
       
       if (isUserRegistered) {
-        // Đã đăng ký -> xác thực
         setIsRegisterMode(false);
         setGpsStatus(`Xin chào ${user.name}! Vui lòng nhìn vào camera để xác thực...`);
       } else {
-        // Chưa đăng ký -> đăng ký
         setIsRegisterMode(true);
         setGpsStatus(`Xin chào ${user.name}! Bạn chưa đăng ký khuôn mặt. Vui lòng nhìn vào camera để đăng ký...`);
       }
@@ -99,11 +103,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
-  // Xử lý khi nhận dạng/đăng ký thành công
   const handleFaceRecognitionSuccess = async (result: FaceRecognitionResult) => {
-    if (isProcessing || isCheckingIn) return; // Ngăn gọi lặp lại
+    if (isProcessing || isCheckingIn) return;
     
-    // Tắt camera trước khi đóng modal
+    // Stop camera and close modal
     if (faceRecognitionRef.current) {
       faceRecognitionRef.current.stopCamera();
     }
@@ -112,6 +115,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     setGpsStatus(`Xác thực thành công! Chào ${result.person?.name || user.name}`);
     
     try {
+      // Perform check-in
       const checkInResult = await CheckInService.performCheckIn(
         currentSubject,
         (progress) => {
@@ -119,12 +123,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         }
       );
       
-      // Chỉ lưu lịch sử khi check-in thành công
+      // Save attendance history
       if (checkInResult.success) {
-        // Xác định trạng thái dựa trên thời gian
         const now = new Date();
-        const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
-        const classStartTime = currentSubject.time.split(' - ')[0]; // Lấy giờ bắt đầu
+        const currentTime = now.toTimeString().slice(0, 5);
+        const classStartTime = currentSubject.time.split(' - ')[0];
         
         const status = isLateCheckIn(currentTime, classStartTime) ? 'Late' : 'Present';
         
@@ -151,9 +154,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
-  // Xử lý đăng ký khuôn mặt
   const handleFaceRegistration = async () => {
-    if (isProcessing) return; // Ngăn gọi lặp lại
+    if (isProcessing) return;
     
     try {
       setIsProcessing(true);
@@ -166,9 +168,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         
         setGpsStatus(`✅ Đăng ký khuôn mặt thành công cho ${user.name}!`);
         
-        // Tự động tiếp tục check-in sau khi đăng ký
+        // Auto continue check-in after registration
         setTimeout(() => {
-          // Tắt camera trước khi đóng modal
           if (faceRecognitionRef.current) {
             faceRecognitionRef.current.stopCamera();
           }
@@ -187,9 +188,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
-  // Thực hiện check-in sau khi đăng ký thành công
   const performCheckIn = async () => {
-    if (isCheckingIn) return; // Ngăn gọi lặp lại
+    if (isCheckingIn) return;
     
     try {
       setIsCheckingIn(true);
@@ -202,12 +202,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         }
       );
       
-      // Chỉ lưu lịch sử khi check-in thành công
+      // Save attendance history on success
       if (result.success) {
-        // Xác định trạng thái dựa trên thời gian
         const now = new Date();
-        const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
-        const classStartTime = currentSubject.time.split(' - ')[0]; // Lấy giờ bắt đầu
+        const currentTime = now.toTimeString().slice(0, 5);
+        const classStartTime = currentSubject.time.split(' - ')[0];
         
         const status = isLateCheckIn(currentTime, classStartTime) ? 'Late' : 'Present';
         
@@ -234,15 +233,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
-  // Hủy face recognition
   const handleFaceRecognitionCancel = () => {
-    // Tắt camera trước khi đóng modal
+    // Stop camera before closing
     if (faceRecognitionRef.current) {
       faceRecognitionRef.current.stopCamera();
     }
     setShowFaceModal(false);
     setGpsStatus('');
-    setIsProcessing(false); // Reset trạng thái processing
+    setIsProcessing(false);
   };
 
   const handleProfile = () => {
@@ -259,12 +257,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
   const handleClearData = () => {
     if (window.confirm('This will clear all attendance records. Are you sure?')) {
-      // TODO: Clear data via API call here
       alert('Data cleared successfully!');
     }
   };
 
-  // Debug function to check current GPS location
   const handleCheckLocation = async () => {
     try {
       const debugInfo = await CheckInService.getLocationDebugInfo();
@@ -274,10 +270,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
+  // Render
   return (
     <div className="home-container">
       <div className="home-content">
-        {/* Top Bar */}
+        {/* Header */}
         <div className="top-bar">
           <SimpleAvatarDropdown
             userName={user.name}
@@ -294,7 +291,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           <p className="sub-text">You have 3 subjects left</p>
           <p className="user-info">MSSV: {user.id} | {user.email}</p>
           
-          {/* Debug button - Remove in production */}
+          {/* Debug Controls */}
           <div className="debug-buttons">
             <button className="debug-button" onClick={handleClearData}>
               🗑️ Clear Data (Debug)
@@ -305,7 +302,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           </div>
         </div>
 
-        {/* Current Subject Section */}
+        {/* Current Subject */}
         <div className="section">
           <div className="subject-card">
             <div className="subject-info">
@@ -331,12 +328,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           </div>
         </div>
 
-        {/* History Attendant Section */}
+        {/* Section Title */}
         <div className="section">
           <h2 className="hi-text">History Attendant</h2>
         </div>
 
-        {/* Attendance History Section */}
+        {/* Attendance History */}
         <div className="section">
           <div className="history-container">
             <h3 className="title-text">Lịch sử điểm danh</h3>
@@ -379,6 +376,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       {showFaceModal && (
         <div className="face-modal-overlay">
           <div className="face-modal">
+            {/* Modal Header */}
             <div className="face-modal-header">
               <h3>{isRegisterMode ? '📝 Đăng ký khuôn mặt' : '🔍 Xác thực khuôn mặt'}</h3>
               <button 
@@ -389,20 +387,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
               </button>
             </div>
             
+            {/* Modal Content */}
             <div className="face-modal-content">
               <div className="face-recognition-area">
                 <FaceRecognition 
                   ref={faceRecognitionRef} 
                   onRecognitionResult={(results) => {
-                    if (isProcessing) return; // Ngăn xử lý khi đang processing
+                    if (isProcessing) return;
                     
                     if (isRegisterMode) {
-                      // Chế độ đăng ký - tự động đăng ký khi phát hiện khuôn mặt
+                      // Registration mode
                       if (results.length > 0) {
                         handleFaceRegistration();
                       }
                     } else {
-                      // Chế độ xác thực
+                      // Authentication mode
                       if (results.length > 0 && results[0].isMatch) {
                         handleFaceRecognitionSuccess(results[0]);
                       }
@@ -419,10 +418,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                 />
               </div>
               
+              {/* Status Display */}
               <div className="status-display">
                 {gpsStatus && <p className="status-text">{gpsStatus}</p>}
               </div>
               
+              {/* Modal Controls */}
               <div className="face-controls" style={{ marginTop: '20px' }}>
                 <button 
                   className="face-btn cancel"

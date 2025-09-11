@@ -7,21 +7,23 @@ interface LoginScreenProps {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+  // State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
+  // Handlers
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Kiểm tra thông tin đăng nhập (demo - có thể thay thế bằng API call)
+    // Validation
     if (username && password) {
       console.log('Login attempt:', { username, password, rememberMe });
       
-      // Giả lập đăng nhập thành công
+      // Demo login success
       setTimeout(() => {
         alert('Đăng nhập thành công! 🎉');
-        onLoginSuccess(); // Chuyển sang dashboard
+        onLoginSuccess();
       }, 1000);
     } else {
       alert('Vui lòng nhập đầy đủ thông tin đăng nhập!');
@@ -35,9 +37,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         <canvas className="particles-js-canvas-el"></canvas>
       </div>
       
-      {/* Content */}
+      {/* Main Content */}
       <div className="auth-page-content flex-grow-1 d-flex align-items-center">
         <div className="container">
+          {/* Logo Section */}
           <div className="row">
             <div className="col-lg-12">
               <div className="text-center mt-sm-5 mb-4 text-white-50">
@@ -55,13 +58,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <div className="col-md-8 col-lg-6 col-xl-5">
               <div className="card mt-4">
                 <div className="card-body p-4">
+                  {/* Header */}
                   <div className="text-center mt-2">
                     <h5 className="text-primary">! 💕 Welcome Back 💕 !</h5>
                     <p className="text-muted">💕 Sign in to access your account 💕</p>
                   </div>
                   
+                  {/* Form */}
                   <div className="p-2 mt-4">
                     <form onSubmit={handleLogin}>
+                      {/* Username Field */}
                       <div className="mb-3">
                         <label htmlFor="username" className="form-label">
                           Username or Email
@@ -77,6 +83,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                         />
                       </div>
                       
+                      {/* Password Field */}
                       <div className="mb-3">
                         <div className="float-end">
                           <a href="#" className="text-muted">
@@ -99,6 +106,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                         </div>
                       </div>
 
+                      {/* Remember Me */}
                       <div className="form-check">
                         <input
                           className="form-check-input"
@@ -112,6 +120,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                         </label>
                       </div>
 
+                      {/* Submit Button */}
                       <div className="mt-4">
                         <button className="btn btn-success w-100" type="submit">
                           Sign In!
@@ -122,6 +131,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </div>
               </div>
               
+              {/* Change Password Link */}
               <div className="mt-4 text-center">
                 <p className="mb-0 mt-2">
                   <a 
@@ -130,7 +140,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     onClick={(e) => {
                       e.preventDefault();
                       console.log('Chuyển đến màn hình đổi mật khẩu');
-                      // onChangePassword(); // Uncomment when prop is added
                     }}
                   >
                     🔑 Đổi mật khẩu 🔑
