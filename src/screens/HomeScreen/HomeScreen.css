@@ -202,6 +202,11 @@
   gap: 8px;
 }
 
+.check-in-icon {
+  font-size: 1.2rem;
+  margin-right: 8px;
+}
+
 .spinner {
   width: 16px;
   height: 16px;
@@ -428,4 +433,436 @@
   .nav-label {
     font-size: 0.8rem;
   }
+}
+
+/* Face Recognition Modal Styles */
+.face-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.face-modal {
+  background: white;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.face-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px 20px 0 0;
+}
+
+.face-modal-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.face-modal-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.face-modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.face-modal-content {
+  padding: 30px;
+}
+
+.face-recognition-area {
+  text-align: center;
+}
+
+/* Override styles for FaceRecognition inside modal */
+.face-recognition-area .face-recognition {
+  padding: 0;
+  margin: 0;
+  max-width: 100%;
+}
+
+.face-recognition-area .camera-container {
+  margin-bottom: 15px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid #e9ecef;
+  transition: border-color 0.3s ease;
+  animation: cameraGlow 2s infinite alternate;
+}
+
+@keyframes cameraGlow {
+  0% {
+    border-color: #e9ecef;
+    box-shadow: 0 0 0 rgba(0, 123, 255, 0);
+  }
+  100% {
+    border-color: #007bff;
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.3);
+  }
+}
+
+.face-recognition-area .status-bar {
+  display: none; /* Ẩn status bar để giao diện đẹp hơn */
+}
+
+.face-recognition-area .controls {
+  display: none; /* Ẩn controls mặc định của FaceRecognition */
+}
+
+.face-recognition-area .results-panel,
+.face-recognition-area .registered-panel {
+  display: none; /* Ẩn panels không cần thiết trong modal */
+}
+
+.camera-placeholder {
+  background: #f8f9fa;
+  border: 3px dashed #dee2e6;
+  border-radius: 15px;
+  padding: 40px 20px;
+  margin-bottom: 20px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-icon {
+  font-size: 4rem;
+  margin-bottom: 15px;
+  opacity: 0.7;
+}
+
+.camera-placeholder p {
+  margin: 5px 0;
+  color: #6c757d;
+}
+
+.instruction {
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.face-controls {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.face-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 150px;
+}
+
+.face-btn.start-camera {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.face-btn.start-camera:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.face-btn.register {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+
+.face-btn.register:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+}
+
+.face-btn.cancel {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  color: white;
+  box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+}
+
+.face-btn.cancel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+}
+
+.face-result {
+  text-align: center;
+  padding: 20px;
+}
+
+.success-result {
+  color: #28a745;
+}
+
+.error-result {
+  color: #dc3545;
+}
+
+.success-icon, .error-icon {
+  font-size: 4rem;
+  margin-bottom: 15px;
+}
+
+.face-result h4 {
+  margin: 15px 0 10px 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.face-result p {
+  margin: 5px 0;
+  font-size: 1rem;
+}
+
+.status-display {
+  margin-top: 20px;
+  padding: 15px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid #dee2e6;
+}
+
+.status-text {
+  margin: 0;
+  color: #495057;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .face-modal {
+    width: 95%;
+    margin: 10px;
+  }
+  
+  .face-modal-content {
+    padding: 20px;
+  }
+  
+  .camera-placeholder {
+    padding: 30px 15px;
+    min-height: 150px;
+  }
+  
+  .camera-icon {
+    font-size: 3rem;
+  }
+  
+  .face-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .face-btn {
+    width: 100%;
+    max-width: 250px;
+  }
+}
+
+/* Face Recognition Modal Styles */
+.face-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(5px);
+}
+
+.face-modal {
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
+  max-width: 700px;
+  width: 95%;
+  max-height: 95vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.face-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.face-modal-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+  padding: 5px;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.face-modal-content {
+  text-align: center;
+}
+
+.face-recognition-area {
+  margin-bottom: 20px;
+  width: 100%;
+  min-height: 400px;
+}
+
+.face-recognition-area video {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 400px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.face-recognition-area canvas {
+  width: 100% !important;
+  height: auto !important;
+  border-radius: 10px;
+}
+
+.status-display {
+  margin: 15px 0;
+  min-height: 30px;
+}
+
+.status-text {
+  margin: 0;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #333;
+  font-weight: 500;
+}
+
+.status-text.error {
+  background: #fee;
+  color: #dc2626;
+}
+
+.face-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.face-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.face-btn.register {
+  background: #10b981;
+  color: white;
+}
+
+.face-btn.register:hover {
+  background: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.face-btn.cancel {
+  background: #ef4444;
+  color: white;
+}
+
+.face-btn.cancel:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }

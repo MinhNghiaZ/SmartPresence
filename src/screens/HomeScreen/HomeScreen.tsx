@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import './HomeScreen.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { CheckInService } from '../../Services/CheckInService';
 import type { SubjectInfo } from '../../Services/CheckInService';
-import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
-import ProfileModal from '../../components/ProfileModal';
+import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
+import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService';
+import FaceRecognition, { type FaceRecognitionRef } from '../../Components/CameraScreen/FaceRecognition';
+import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
+import ProfileModal from '../../Components/ProfileModal';
 
 interface User {
   id: string;
@@ -28,6 +31,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
   const [showProfile, setShowProfile] = useState<boolean>(false);
+  const [showFaceModal, setShowFaceModal] = useState<boolean>(false);
+  const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
   const [user] = useState<User>({
     id: 'SV001',
     name: 'Nguyen Van A',
@@ -50,9 +57,117 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   };
 
   const handleCheckIn = async () => {
-    setIsCheckingIn(true);
+    // Mở modal camera trước
+    setShowFaceModal(true);
+    setIsProcessing(false); // Reset trạng thái processing
     
     try {
+      // Khởi tạo face recognition service chỉ một lần
+      if (!faceRecognizeService.isReady()) {
+        setGpsStatus('Đang tải AI models...');
+        await faceRecognizeService.initializeModels();
+      }
+      
+      // Load faces từ storage
+      faceRecognizeService.loadFacesFromStorage();
+      
+      // Kiểm tra user đã đăng ký khuôn mặt chưa
+      const isUserRegistered = faceRecognizeService.isUserRegistered(user.id);
+      
+      if (isUserRegistered) {
+        // Đã đăng ký -> xác thực
+        setIsRegisterMode(false);
+        setGpsStatus(`Xin chào ${user.name}! Vui lòng nhìn vào camera để xác thực...`);
+      } else {
+        // Chưa đăng ký -> đăng ký
+        setIsRegisterMode(true);
+        setGpsStatus(`Xin chào ${user.name}! Bạn chưa đăng ký khuôn mặt. Vui lòng nhìn vào camera để đăng ký...`);
+      }
+      
+    } catch (error) {
+      console.error('Face recognition setup error:', error);
+      setGpsStatus('');
+      setShowFaceModal(false);
+      alert('❌ Không thể khởi tạo nhận dạng khuôn mặt. Vui lòng thử lại.');
+    }
+  };
+
+  // Xử lý khi nhận dạng/đăng ký thành công
+  const handleFaceRecognitionSuccess = async (result: FaceRecognitionResult) => {
+    if (isProcessing || isCheckingIn) return; // Ngăn gọi lặp lại
+    
+    // Tắt camera trước khi đóng modal
+    if (faceRecognitionRef.current) {
+      faceRecognitionRef.current.stopCamera();
+    }
+    setShowFaceModal(false);
+    setIsCheckingIn(true);
+    setGpsStatus(`Xác thực thành công! Chào ${result.person?.name || user.name}`);
+    
+    try {
+      const checkInResult = await CheckInService.performCheckIn(
+        currentSubject,
+        (progress) => {
+          setGpsStatus(progress.status);
+        }
+      );
+      
+      setGpsStatus('');
+      alert(checkInResult.message);
+      
+    } catch (error) {
+      console.error('Check-in error:', error);
+      setGpsStatus('');
+      alert('❌ Check-in failed. Please try again.');
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
+  // Xử lý đăng ký khuôn mặt
+  const handleFaceRegistration = async () => {
+    if (isProcessing) return; // Ngăn gọi lặp lại
+    
+    try {
+      setIsProcessing(true);
+      setGpsStatus('Đang đăng ký khuôn mặt...');
+      
+      const video = document.querySelector('video') as HTMLVideoElement;
+      if (video) {
+        await faceRecognizeService.registerFace(video, user.id, user.name);
+        faceRecognizeService.saveFacesToStorage();
+        
+        setGpsStatus(`✅ Đăng ký khuôn mặt thành công cho ${user.name}!`);
+        
+        // Tự động tiếp tục check-in sau khi đăng ký
+        setTimeout(() => {
+          // Tắt camera trước khi đóng modal
+          if (faceRecognitionRef.current) {
+            faceRecognitionRef.current.stopCamera();
+          }
+          setShowFaceModal(false);
+          setIsCheckingIn(true);
+          performCheckIn();
+        }, 2000);
+        
+      } else {
+        throw new Error('Không tìm thấy video element');
+      }
+    } catch (error) {
+      console.error('Face registration error:', error);
+      setGpsStatus('❌ Lỗi khi đăng ký: ' + (error as Error).message);
+      setIsProcessing(false);
+    }
+  };
+
+  // Thực hiện check-in sau khi đăng ký thành công
+  const performCheckIn = async () => {
+    if (isCheckingIn) return; // Ngăn gọi lặp lại
+    
+    try {
+      setIsCheckingIn(true);
+      setGpsStatus(`Chào mừng ${user.name}! Đang thực hiện check-in...`);
+      
       const result = await CheckInService.performCheckIn(
         currentSubject,
         (progress) => {
@@ -66,10 +181,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     } catch (error) {
       console.error('Check-in error:', error);
       setGpsStatus('');
-      alert('❌ Check-in failed due to unexpected error. Please try again.');
+      alert('❌ Check-in failed. Please try again.');
     } finally {
       setIsCheckingIn(false);
     }
+  };
+
+  // Hủy face recognition
+  const handleFaceRecognitionCancel = () => {
+    // Tắt camera trước khi đóng modal
+    if (faceRecognitionRef.current) {
+      faceRecognitionRef.current.stopCamera();
+    }
+    setShowFaceModal(false);
+    setGpsStatus('');
+    setIsProcessing(false); // Reset trạng thái processing
   };
 
   const handleCalendar = () => {
@@ -217,6 +343,67 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           </button>
         </div>
       </div>
+
+      {/* Face Recognition Modal */}
+      {showFaceModal && (
+        <div className="face-modal-overlay">
+          <div className="face-modal">
+            <div className="face-modal-header">
+              <h3>{isRegisterMode ? '📝 Đăng ký khuôn mặt' : '🔍 Xác thực khuôn mặt'}</h3>
+              <button 
+                className="close-btn"
+                onClick={handleFaceRecognitionCancel}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="face-modal-content">
+              <div className="face-recognition-area">
+                <FaceRecognition 
+                  ref={faceRecognitionRef} 
+                  onRecognitionResult={(results) => {
+                    if (isProcessing) return; // Ngăn xử lý khi đang processing
+                    
+                    if (isRegisterMode) {
+                      // Chế độ đăng ký - tự động đăng ký khi phát hiện khuôn mặt
+                      if (results.length > 0) {
+                        handleFaceRegistration();
+                      }
+                    } else {
+                      // Chế độ xác thực
+                      if (results.length > 0 && results[0].isMatch) {
+                        handleFaceRecognitionSuccess(results[0]);
+                      }
+                    }
+                  }}
+                  onError={(error) => {
+                    console.error('Face recognition error:', error);
+                    alert('❌ Lỗi nhận dạng khuôn mặt: ' + error);
+                    handleFaceRecognitionCancel();
+                  }}
+                  autoRecognize={true}
+                  recognizeInterval={3000}
+                  autoStartCamera={true}
+                />
+              </div>
+              
+              <div className="status-display">
+                {gpsStatus && <p className="status-text">{gpsStatus}</p>}
+              </div>
+              
+              <div className="face-controls" style={{ marginTop: '20px' }}>
+                <button 
+                  className="face-btn cancel"
+                  onClick={handleFaceRecognitionCancel}
+                >
+                  ❌ Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profile Modal */}
       <ProfileModal
