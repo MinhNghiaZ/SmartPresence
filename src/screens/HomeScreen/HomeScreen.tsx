@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './HomeScreen.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { CheckInService } from '../../Services/CheckInService';
-import { AuthService } from '../../Services/AuthService';
 import type { SubjectInfo } from '../../Services/CheckInService';
 import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
 import ProfileModal from '../../components/ProfileModal';
@@ -14,12 +13,11 @@ interface User {
   faceEmbedding?: any;
 }
 
-interface AttendanceRecord {
-  id: string;
-  subject: string;
-  timestamp: string;
-  location: string;
-  status: 'Present' | 'Late' | 'Absent';
+interface WeeklyStats {
+  present: number;
+  absent: number;
+  late: number;
+  remain: number;
 }
 
 interface HomeScreenProps {
@@ -30,36 +28,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
   const [showProfile, setShowProfile] = useState<boolean>(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [user] = useState<User>({
+    id: 'SV001',
+    name: 'Nguyen Van A',
+    email: 'nguyenvana@eiu.edu.vn',
+  });
 
-  // Load user data from AuthService
-  useEffect(() => {
-    const currentUser = AuthService.getCurrentUser();
-    if (currentUser) {
-      setUser({
-        id: currentUser.id,
-        name: currentUser.name,
-        email: currentUser.email,
-        faceEmbedding: undefined
-      });
-      
-      // Extend session if remember me is enabled
-      AuthService.extendSession();
-    }
-  }, []);
-
-  // Helper function để xác định có muộn không
-  const isLateCheckIn = (currentTime: string, classStartTime: string): boolean => {
-    const [currentHour, currentMin] = currentTime.split(':').map(Number);
-    const [classHour, classMin] = classStartTime.split(':').map(Number);
-    
-    const currentMinutes = currentHour * 60 + currentMin;
-    const classMinutes = classHour * 60 + classMin;
-    
-    // Muộn nếu check-in sau 15 phút so với giờ bắt đầu
-    return currentMinutes > classMinutes + 15;
-  };
+  const [weeklyStats] = useState<WeeklyStats>({
+    present: 12,
+    absent: 2,
+    late: 1,
+    remain: 3
+  });
 
   const currentSubject: SubjectInfo = {
     name: 'Mobile Development',
@@ -81,28 +61,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       );
       
       setGpsStatus('');
-      
-      // Chỉ lưu lịch sử khi check-in thành công
-      if (result.success) {
-        // Xác định trạng thái dựa trên thời gian
-        const now = new Date();
-        const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
-        const classStartTime = currentSubject.time.split(' - ')[0]; // Lấy giờ bắt đầu
-        
-        // Logic đơn giản: nếu check-in sau 15 phút thì coi là muộn
-        const status = isLateCheckIn(currentTime, classStartTime) ? 'Late' : 'Present';
-        
-        const newRecord: AttendanceRecord = {
-          id: Date.now().toString(),
-          subject: `${currentSubject.name} (${currentSubject.code})`,
-          timestamp: new Date().toLocaleString('vi-VN'),
-          location: currentSubject.room,
-          status: status
-        };
-        
-        setAttendanceHistory(prev => [newRecord, ...prev]);
-      }
-      
       alert(result.message);
       
     } catch (error) {
@@ -112,6 +70,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     } finally {
       setIsCheckingIn(false);
     }
+  };
+
+  const handleCalendar = () => {
+    // Navigate to calendar page
+    console.log('Navigate to Calendar');
+  };
+
+  const handleHistory = () => {
+    // Navigate to history page
+    console.log('Navigate to History');
   };
 
   const handleProfile = () => {
@@ -142,20 +110,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       alert(`GPS Error: ${(error as Error).message}`);
     }
   };
-
-  // Show loading if user data is not yet loaded
-  if (!user) {
-    return (
-      <div className="home-container d-flex justify-content-center align-items-center">
-        <div className="text-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-2 text-muted">Đang tải thông tin người dùng...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="home-container">
@@ -214,58 +168,62 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           </div>
         </div>
 
-        {/* History Attendant Section */}
+        {/* Weekly Review Section */}
         <div className="section">
-          <h2 className="hi-text">History Attendant</h2>
+          <h2 className="hi-text">Weekly Review</h2>
         </div>
 
-        {/* Attendance History Section */}
+        {/* Stats Section */}
         <div className="section">
-          <div className="history-container">
-            <h3 className="title-text">Lịch sử điểm danh</h3>
-            {attendanceHistory.length === 0 ? (
-              <div className="no-history">
-                <div className="empty-state">
-                  <div className="empty-icon">📚</div>
-                  <h4 className="empty-title">Chưa có lịch sử điểm danh</h4>
-                  <p className="empty-description">
-                    Hãy thực hiện điểm danh đầu tiên để bắt đầu ghi lại lịch sử của bạn.
-                    Lịch sử sẽ giúp bạn theo dõi quá trình học tập một cách chi tiết.
-                  </p>
-                  <div className="empty-tips">
-                    <p className="tip-item">💡 Mẹo: Điểm danh đúng giờ để tránh bị đánh dấu muộn</p>
-                    <p className="tip-item">📍 Đảm bảo GPS được bật và ở trong khuôn viên trường</p>
-                  </div>
-                </div>
+          <div className="status-container">
+            <div className="col">
+              <div className="status-card present-card">
+                <h3 className="title-text">{weeklyStats.present}</h3>
+                <p className="sub-line">Present</p>
               </div>
-            ) : (
-              <div className="history-list">
-                {attendanceHistory.map((record: AttendanceRecord, index: number) => (
-                  <div key={index} className="history-item">
-                    <div className="history-info">
-                      <h4 className="history-subject">{record.subject}</h4>
-                      <p className="history-time">{record.timestamp}</p>
-                      <p className="history-location">{record.location}</p>
-                    </div>
-                    <div className={`history-status ${record.status.toLowerCase()}`}>
-                      {record.status}
-                    </div>
-                  </div>
-                ))}
+
+              <div className="status-card absent-card">
+                <h3 className="title-text">{weeklyStats.absent}</h3>
+                <p className="sub-line">Absent</p>
               </div>
-            )}
+            </div>
+
+            <div className="col">
+              <div className="status-card late-card">
+                <h3 className="title-text">{weeklyStats.late}</h3>
+                <p className="sub-line">Late</p>
+              </div>
+
+              <div className="status-card remain-card">
+                <h3 className="title-text">{weeklyStats.remain}</h3>
+                <p className="sub-line">Remain</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Fixed Navigation Bar */}
+      <div className="fixed-navigation">
+        <div className="navigation-divider"></div>
+        <div className="navigation-bar">
+          <button className="nav-button calendar-button" onClick={handleCalendar}>
+            <div className="nav-icon">📅</div>
+            <span className="nav-label">Calendar</span>
+          </button>
+          <button className="nav-button history-button" onClick={handleHistory}>
+            <div className="nav-icon">📋</div>
+            <span className="nav-label">History</span>
+          </button>
+        </div>
+      </div>
+
       {/* Profile Modal */}
-      {user && (
-        <ProfileModal
-          user={user}
-          isOpen={showProfile}
-          onClose={handleCloseProfile}
-        />
-      )}
+      <ProfileModal
+        user={user}
+        isOpen={showProfile}
+        onClose={handleCloseProfile}
+      />
     </div>
   );
 };

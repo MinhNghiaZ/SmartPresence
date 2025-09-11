@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './LoginScreen.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { AuthService } from '../../Services/AuthService';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -11,48 +10,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Auto-fill username if remember me was enabled previously
-  useEffect(() => {
-    const savedUsername = AuthService.getSavedUsername();
-    const wasRemembered = AuthService.wasRememberMeEnabled();
-    
-    if (savedUsername && wasRemembered) {
-      setUsername(savedUsername);
-      setRememberMe(true);
-      console.log('Auto-filled username from remember me:', savedUsername);
-    }
-  }, []);
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!username || !password) {
-      alert('Vui lòng nhập đầy đủ thông tin đăng nhập!');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      const result = await AuthService.login({
-        username: username.trim(),
-        password: password.trim(),
-        rememberMe
-      });
-
-      if (result.success) {
-        alert(result.message);
+    // Kiểm tra thông tin đăng nhập (demo - có thể thay thế bằng API call)
+    if (username && password) {
+      console.log('Login attempt:', { username, password, rememberMe });
+      
+      // Giả lập đăng nhập thành công
+      setTimeout(() => {
+        alert('Đăng nhập thành công! 🎉');
         onLoginSuccess(); // Chuyển sang dashboard
-      } else {
-        alert(result.message);
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      alert('Lỗi kết nối. Vui lòng thử lại!');
-    } finally {
-      setIsLoading(false);
+      }, 1000);
+    } else {
+      alert('Vui lòng nhập đầy đủ thông tin đăng nhập!');
     }
   };
 
@@ -141,19 +113,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       </div>
 
                       <div className="mt-4">
-                        <button 
-                          className="btn btn-success w-100" 
-                          type="submit"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? (
-                            <>
-                              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                              Đang đăng nhập...
-                            </>
-                          ) : (
-                            'Sign In!'
-                          )}
+                        <button className="btn btn-success w-100" type="submit">
+                          Sign In!
                         </button>
                       </div>
                     </form>
