@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import LoginScreen from './screens/LoginScreen/LoginScreen';
 import HomeScreen from './screens/HomeScreen/HomeScreen';
+import DemoHistory from './screens/demoHistory/demoHistory';
 import './App.css';
 
 function App() {
@@ -8,7 +9,7 @@ function App() {
   const LOADING_TIME = 2000;
   
   // State
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'home'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'home' | 'demo-history'>('login');
   const [isLoading, setIsLoading] = useState(true);
 
   // Effects
@@ -27,6 +28,14 @@ function App() {
 
   const handleLogout = () => {
     setCurrentScreen('login');
+  };
+
+  const handleNavigateToDemo = () => {
+    setCurrentScreen('demo-history');
+  };
+
+  const handleBackToHome = () => {
+    setCurrentScreen('home');
   };
 
   // Loading screen
@@ -62,8 +71,10 @@ function App() {
     <div className="App">
       {currentScreen === 'login' ? (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
+      ) : currentScreen === 'home' ? (
+        <HomeScreen onLogout={handleLogout} onNavigateToDemo={handleNavigateToDemo} />
       ) : (
-        <HomeScreen onLogout={handleLogout} />
+        <DemoHistory onBackToHome={handleBackToHome} />
       )}
     </div>
   );

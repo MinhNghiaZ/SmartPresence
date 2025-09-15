@@ -5,13 +5,15 @@ interface AvatarDropdownProps {
   userName: string;
   onProfile: () => void;
   onSettings: () => void;
+  onDemo?: () => void;
   onLogout: () => void;
 }
 
 const AvatarDropdown: React.FC<AvatarDropdownProps> = ({ 
   userName,
   onProfile, 
-  onSettings, 
+  onSettings,
+  onDemo, 
   onLogout 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -62,6 +64,15 @@ const AvatarDropdown: React.FC<AvatarDropdownProps> = ({
           >
             ⚙️ Cài đặt
           </button>
+          
+          {onDemo && (
+            <button 
+              className="simple-dropdown-item"
+              onClick={() => handleMenuClick(onDemo)}
+            >
+              📸 Demo History
+            </button>
+          )}
           
           <hr className="simple-divider" />
           

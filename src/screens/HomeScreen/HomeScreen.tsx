@@ -5,9 +5,10 @@ import { CheckInService } from '../../Services/CheckInService';
 import type { SubjectInfo } from '../../Services/CheckInService';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService';
-import FaceRecognition, { type FaceRecognitionRef } from '../../components/CameraScreen/FaceRecognition';
-import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
-import ProfileModal from '../../components/ProfileModal';
+import FaceRecognition, { type FaceRecognitionRef } from '../../Components/CameraScreen/FaceRecognition';
+import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
+import ProfileModal from '../../Components/ProfileModal';
+import { captureFaceImage } from '../../utils/imageCaptureUtils';
 
 // Interfaces
 interface User {
@@ -27,9 +28,10 @@ interface AttendanceRecord {
 
 interface HomeScreenProps {
   onLogout?: () => void;
+  onNavigateToDemo?: () => void;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) => {
   // State
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
@@ -105,6 +107,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
   const handleFaceRecognitionSuccess = async (result: FaceRecognitionResult) => {
     if (isProcessing || isCheckingIn) return;
+    
+    // Capture face image before proceeding
+    try {
+      const video = document.querySelector('video') as HTMLVideoElement;
+      if (video) {
+        const captureId = captureFaceImage(
+          video,
+          user.id,
+          user.name,
+          result.confidence,
+          'success'
+        );
+        console.log('📸 Face image captured with ID:', captureId);
+      }
+    } catch (error) {
+      console.error('Error capturing face image:', error);
+    }
     
     // Stop camera and close modal
     if (faceRecognitionRef.current) {
@@ -280,6 +299,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
             userName={user.name}
             onProfile={handleProfile}
             onSettings={handleSettings}
+            onDemo={onNavigateToDemo}
             onLogout={onLogout || (() => {})}
           />
         </div>
