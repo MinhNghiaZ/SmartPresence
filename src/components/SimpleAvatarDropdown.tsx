@@ -3,6 +3,7 @@ import './SimpleAvatarDropdown.css';
 
 interface AvatarDropdownProps {
   userName: string;
+  avatarUrl?: string; // Thêm prop để nhận avatar URL
   onProfile: () => void;
   onSettings: () => void;
   onDemo?: () => void;
@@ -11,6 +12,7 @@ interface AvatarDropdownProps {
 
 const AvatarDropdown: React.FC<AvatarDropdownProps> = ({ 
   userName,
+  avatarUrl,
   onProfile, 
   onSettings,
   onDemo, 
@@ -42,7 +44,11 @@ const AvatarDropdown: React.FC<AvatarDropdownProps> = ({
         className="simple-avatar-btn"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <img src="/avatar.png" alt="Avatar" className="simple-avatar-img" />
+        <img 
+          src={avatarUrl || "/avatar.png"} 
+          alt="Avatar" 
+          className="simple-avatar-img" 
+        />
       </button>
 
       {isOpen && (

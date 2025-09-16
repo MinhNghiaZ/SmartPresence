@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './HomeScreen.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { CheckInService } from '../../Services/CheckInService';
@@ -8,7 +8,7 @@ import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/
 import FaceRecognition, { type FaceRecognitionRef } from '../../Components/CameraScreen/FaceRecognition';
 import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
 import ProfileModal from '../../Components/ProfileModal';
-import { captureFaceImage } from '../../utils/imageCaptureUtils';
+import { captureFaceImage, getCapturedImagesByUser } from '../../utils/imageCaptureUtils';
 
 // Interfaces
 interface User {
@@ -40,6 +40,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [userAvatar, setUserAvatar] = useState<string>('');
   
   // Refs
   const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
@@ -50,6 +51,46 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     name: 'Nguyen Van A',
     email: 'nguyenvana@eiu.edu.vn',
   });
+
+  // Get user's first registered face image
+  const getUserRegisteredFaceImage = (): string => {
+    try {
+      // Lấy ảnh từ captured images (ảnh đăng ký thành công)
+      const userImages = getCapturedImagesByUser(user.id);
+      const successImages = userImages.filter(img => img.checkInStatus === 'success');
+      
+      if (successImages.length > 0) {
+        // Trả về ảnh đầu tiên (mới nhất)
+        return successImages[0].imageData;
+      }
+      
+      return '';
+    } catch (error) {
+      console.error('Error getting user face image:', error);
+      return '';
+    }
+  };
+
+  // Load user avatar on component mount
+  useEffect(() => {
+    const loadUserAvatar = () => {
+      const faceImage = getUserRegisteredFaceImage();
+      setUserAvatar(faceImage);
+    };
+
+    loadUserAvatar();
+
+    // Listen for new face captures
+    const handleNewFaceCapture = () => {
+      loadUserAvatar();
+    };
+
+    window.addEventListener('newFaceCapture', handleNewFaceCapture);
+    
+    return () => {
+      window.removeEventListener('newFaceCapture', handleNewFaceCapture);
+    };
+  }, [user.id]);
 
   // Utils
   const isLateCheckIn = (currentTime: string, classStartTime: string): boolean => {
@@ -297,6 +338,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
         <div className="top-bar">
           <SimpleAvatarDropdown
             userName={user.name}
+            avatarUrl={userAvatar}
             onProfile={handleProfile}
             onSettings={handleSettings}
             onDemo={onNavigateToDemo}
