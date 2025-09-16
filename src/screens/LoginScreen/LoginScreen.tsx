@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './LoginScreen.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { authService } from '../../Services/AuthService';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -8,25 +9,38 @@ interface LoginScreenProps {
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   // State
-  const [username, setUsername] = useState('');
+  const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Handlers
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent double submission
+    if (isLoading) return;
+    
     // Validation
-    if (username && password) {
-      console.log('Login attempt:', { username, password, rememberMe });
+    if (!studentId || !password) {
+      alert('Vui lòng nhập đầy đủ MSSV và mật khẩu!');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const result = await authService.login(studentId, password);
       
-      // Demo login success
-      setTimeout(() => {
-        alert('Đăng nhập thành công! 🎉');
+      if (result.success) {
+        // Chỉ chuyển màn hình, không cần alert
         onLoginSuccess();
-      }, 1000);
-    } else {
-      alert('Vui lòng nhập đầy đủ thông tin đăng nhập!');
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert('Lỗi kết nối. Vui lòng thử lại!');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -46,7 +60,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <div className="text-center mt-sm-5 mb-4 text-white-50">
                 <div>
                   <a href="#" className="d-inline-block auth-logo">
-                    <img src="/Logo2eiu.png" alt="EIU Logo" height="120" />
+                    <img src="/Logo2eiu.png" alt="EIU Logo" height="150" />
                   </a>
                 </div>
               </div>
@@ -67,18 +81,18 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   {/* Form */}
                   <div className="p-2 mt-4">
                     <form onSubmit={handleLogin}>
-                      {/* Username Field */}
+                      {/* Student ID Field */}
                       <div className="mb-3">
-                        <label htmlFor="username" className="form-label">
-                          Username or Email
+                        <label htmlFor="studentId" className="form-label">
+                          Mã số sinh viên (MSSV)
                         </label>
                         <input
                           type="text"
                           className="form-control"
-                          id="username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder="Please enter your username"
+                          id="studentId"
+                          value={studentId}
+                          onChange={(e) => setStudentId(e.target.value)}
+                          placeholder="Nhập MSSV (VD: SV001)"
                           required
                         />
                       </div>
@@ -87,11 +101,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       <div className="mb-3">
                         <div className="float-end">
                           <a href="#" className="text-muted">
-                            Forgot Password?
+                            Quên mật khẩu?
                           </a>
                         </div>
                         <label className="form-label" htmlFor="password-input">
-                          Password
+                          Mật khẩu
                         </label>
                         <div className="position-relative auth-pass-inputgroup mb-3">
                           <input
@@ -99,32 +113,41 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                             className="form-control pe-5"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Please enter your password"
+                            placeholder="Nhập mật khẩu"
                             id="password"
                             required
                           />
                         </div>
                       </div>
 
-                      {/* Remember Me */}
-                      <div className="form-check">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          id="auth-remember-check"
-                        />
-                        <label className="form-check-label" htmlFor="auth-remember-check">
-                          Remember me
-                        </label>
+                      {/* Submit Button */}
+                      <div className="mt-4">{/* Remove remember me section completely */}
+                        <button 
+                          className="btn btn-success w-100" 
+                          type="submit"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <>
+                              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                              Đang đăng nhập...
+                            </>
+                          ) : (
+                            'Đăng nhập'
+                          )}
+                        </button>
                       </div>
 
-                      {/* Submit Button */}
-                      <div className="mt-4">
-                        <button className="btn btn-success w-100" type="submit">
-                          Sign In!
-                        </button>
+                      {/* Demo Info */}
+                      <div className="mt-3">
+                        <div className="alert alert-info">
+                          <small>
+                            <strong>Thông tin demo:</strong><br/>
+                            • MSSV: SV001 đến SV030<br/>
+                            • Mật khẩu: 1<br/>
+                            • VD: SV001 / 1
+                          </small>
+                        </div>
                       </div>
                     </form>
                   </div>

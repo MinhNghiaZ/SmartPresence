@@ -24,6 +24,7 @@ export interface SubjectInfo {
   time: string;
   room: string;
   instructor: string;
+  schedule?: string; // Thêm schedule field
 }
 
 export class CheckInService {

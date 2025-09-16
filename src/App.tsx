@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import LoginScreen from './screens/LoginScreen/LoginScreen';
 import HomeScreen from './screens/HomeScreen/HomeScreen';
 import DemoHistory from './screens/demoHistory/demoHistory';
+import { authService } from './Services/AuthService';
 import './App.css';
 
 function App() {
@@ -16,6 +17,9 @@ function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
+      // Luôn bắt đầu với trang đăng nhập
+      // Xóa session cũ để đảm bảo user phải đăng nhập lại
+      authService.logout();
     }, LOADING_TIME);
 
     return () => clearTimeout(timer);

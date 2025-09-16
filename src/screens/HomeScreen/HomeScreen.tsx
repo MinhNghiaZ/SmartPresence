@@ -9,6 +9,7 @@ import FaceRecognition, { type FaceRecognitionRef } from '../../Components/Camer
 import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
 import ProfileModal from '../../Components/ProfileModal';
 import { captureFaceImage, getCapturedImagesByUser } from '../../utils/imageCaptureUtils';
+import { authService } from '../../Services/AuthService';
 
 // Interfaces
 interface User {
@@ -45,11 +46,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   // Refs
   const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
   
-  // User data
+  // Get current student from AuthService
+  const currentStudent = authService.getCurrentStudent();
+  
+  // User data (convert from Student to User interface)
   const [user] = useState<User>({
-    id: 'SV001',
-    name: 'Nguyen Van A',
-    email: 'nguyenvana@eiu.edu.vn',
+    id: currentStudent?.id || 'SV001',
+    name: currentStudent?.name || 'Unknown User',
+    email: currentStudent?.email || 'unknown@eiu.edu.vn',
   });
 
   // Get user's first registered face image
@@ -103,14 +107,35 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     return currentMinutes > classMinutes + 15;
   };
 
-  // Configuration
-  const currentSubject: SubjectInfo = {
-    name: 'Mobile Development',
-    code: 'CS401',
-    time: '7:30 AM - 9:30 AM',
-    room: '211 - B.08',
-    instructor: 'Dr. Nguyen Van A'
-  };
+  // Configuration - All available subjects
+  const allSubjects: SubjectInfo[] = [
+    {
+      name: 'Toán Tin Ứng Dụng',
+      code: 'CSE 107',
+      time: '7:30 AM - 9:30 AM',
+      room: '211 - B.08',
+      instructor: 'Dr. Nguyen Van A',
+      schedule: 'Thứ 2, Thứ 5'
+    },
+    {
+      name: 'Cấu Trúc Dữ Liệu Giải Thuật',
+      code: 'CSE 201', 
+      time: '9:30 AM - 11:30 AM',
+      room: '212 - B.08',
+      instructor: 'Dr. Tran Thi B',
+      schedule: 'Thứ 2, Thứ 5'
+    }
+  ];
+
+  // Filter subjects based on student registration
+  const studentRegisteredSubjects = authService.getStudentRegisteredSubjects();
+  const availableSubjects = allSubjects.filter(subject => 
+    studentRegisteredSubjects.includes(subject.code)
+  );
+
+  const [selectedSubject, setSelectedSubject] = useState<SubjectInfo>(
+    availableSubjects.length > 0 ? availableSubjects[0] : allSubjects[0]
+  );
 
   // Handlers
   const handleCheckIn = async () => {
@@ -177,7 +202,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     try {
       // Perform check-in
       const checkInResult = await CheckInService.performCheckIn(
-        currentSubject,
+        selectedSubject,
         (progress) => {
           setGpsStatus(progress.status);
         }
@@ -187,15 +212,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       if (checkInResult.success) {
         const now = new Date();
         const currentTime = now.toTimeString().slice(0, 5);
-        const classStartTime = currentSubject.time.split(' - ')[0];
+        const classStartTime = selectedSubject.time.split(' - ')[0];
         
         const status = isLateCheckIn(currentTime, classStartTime) ? 'Late' : 'Present';
         
         const newRecord: AttendanceRecord = {
           id: Date.now().toString(),
-          subject: `${currentSubject.name} (${currentSubject.code})`,
+          subject: `${selectedSubject.name} (${selectedSubject.code})`,
           timestamp: new Date().toLocaleString('vi-VN'),
-          location: currentSubject.room,
+          location: selectedSubject.room,
           status: status
         };
         
@@ -203,7 +228,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       }
       
       setGpsStatus('');
-      alert(checkInResult.message);
+      // Chỉ hiển thị alert cho check-in trực tiếp, không phải sau face recognition
+      if (!isRegisterMode) {
+        alert(checkInResult.message);
+      }
       
     } catch (error) {
       console.error('Check-in error:', error);
@@ -234,8 +262,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
             faceRecognitionRef.current.stopCamera();
           }
           setShowFaceModal(false);
-          setIsCheckingIn(true);
-          performCheckIn();
+          // Gọi performCheckIn mà không hiển thị alert duplicate
+          performCheckInSilent();
         }, 2000);
         
       } else {
@@ -248,7 +276,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     }
   };
 
-  const performCheckIn = async () => {
+  // Check-in function - được gọi sau face registration để tránh duplicate alert
+  const performCheckInSilent = async () => {
     if (isCheckingIn) return;
     
     try {
@@ -256,7 +285,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       setGpsStatus(`Chào mừng ${user.name}! Đang thực hiện check-in...`);
       
       const result = await CheckInService.performCheckIn(
-        currentSubject,
+        selectedSubject,
         (progress) => {
           setGpsStatus(progress.status);
         }
@@ -266,15 +295,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       if (result.success) {
         const now = new Date();
         const currentTime = now.toTimeString().slice(0, 5);
-        const classStartTime = currentSubject.time.split(' - ')[0];
+        const classStartTime = selectedSubject.time.split(' - ')[0];
         
         const status = isLateCheckIn(currentTime, classStartTime) ? 'Late' : 'Present';
         
         const newRecord: AttendanceRecord = {
           id: Date.now().toString(),
-          subject: `${currentSubject.name} (${currentSubject.code})`,
+          subject: `${selectedSubject.name} (${selectedSubject.code})`,
           timestamp: new Date().toLocaleString('vi-VN'),
-          location: currentSubject.room,
+          location: selectedSubject.room,
           status: status
         };
         
@@ -282,11 +311,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       }
       
       setGpsStatus('');
-      alert(result.message);
+      // Không hiển thị alert để tránh duplicate
       
     } catch (error) {
       console.error('Check-in error:', error);
       setGpsStatus('');
+      // Chỉ hiển thị alert nếu có lỗi thực sự
       alert('❌ Check-in failed. Please try again.');
     } finally {
       setIsCheckingIn(false);
@@ -301,6 +331,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     setShowFaceModal(false);
     setGpsStatus('');
     setIsProcessing(false);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    if (onLogout) {
+      onLogout();
+    }
   };
 
   const handleProfile = () => {
@@ -342,16 +379,25 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
             onProfile={handleProfile}
             onSettings={handleSettings}
             onDemo={onNavigateToDemo}
-            onLogout={onLogout || (() => {})}
+            onLogout={handleLogout}
           />
         </div>
 
         {/* Welcome Section */}
         <div className="section">
-          <h1 className="hi-text">Hi {user.name}</h1>
-          <p className="sub-text">Welcome to EIU SmartPresence Dashboard</p>
-          <p className="sub-text">You have 3 subjects left</p>
-          <p className="user-info">MSSV: {user.id} | {user.email}</p>
+          <h1 className="hi-text">Xin chào {user.name}</h1>
+          <p className="sub-text">Chào mừng đến với EIU SmartPresence Dashboard</p>
+          <p className="sub-text">MSSV: {user.id} | {user.email}</p>
+          {currentStudent && (
+            <p className="sub-text">Khóa: 20{currentStudent.cohort} | SĐT: {currentStudent.phone}</p>
+          )}
+          
+          {/* Registered Subjects Info */}
+          <div className="registered-subjects-info">
+            <p className="sub-text">
+              <strong>Môn học đã đăng ký:</strong> {studentRegisteredSubjects.join(', ') || 'Chưa đăng ký môn nào'}
+            </p>
+          </div>
           
           {/* Debug Controls */}
           <div className="debug-buttons">
@@ -366,28 +412,75 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
 
         {/* Current Subject */}
         <div className="section">
-          <div className="subject-card">
-            <div className="subject-info">
-              <h3 className="title-text">{currentSubject.name}</h3>
-              <p className="sub-line">{currentSubject.time}</p>
-              <p className="sub-line">Room: {currentSubject.room}</p>
-            </div>
-
-            <button
-              className={`check-in-btn ${isCheckingIn ? 'checking-in' : ''}`}
-              onClick={handleCheckIn}
-              disabled={isCheckingIn}
-            >
-              {isCheckingIn ? (
-                <div className="checking-container">
-                  <div className="spinner"></div>
-                  <span>{gpsStatus || 'Checking...'}</span>
+          {availableSubjects.length === 0 ? (
+            // No registered subjects
+            <div className="no-subjects-card">
+              <div className="no-subjects-content">
+                <div className="no-subjects-icon">📚</div>
+                <h3 className="no-subjects-title">Không có môn học để điểm danh</h3>
+                <p className="no-subjects-description">
+                  Bạn chưa đăng ký môn học nào hoặc không có môn nào khả dụng để điểm danh.
+                  Vui lòng liên hệ phòng đào tạo để biết thêm chi tiết.
+                </p>
+                <div className="contact-info">
+                  <p>📞 Phòng Đào tạo: (028) 3724 4271</p>
+                  <p>📧 Email: training@eiu.edu.vn</p>
                 </div>
-              ) : (
-                'Check In'
-              )}
-            </button>
-          </div>
+              </div>
+            </div>
+          ) : (
+            // Has registered subjects
+            <div className="subject-card">
+              <div className="subject-info">
+                {/* Subject Selector */}
+                <div className="subject-selector">
+                  <label htmlFor="subject-select" className="selector-label">
+                    Chọn môn học để điểm danh:
+                  </label>
+                  <select
+                    id="subject-select"
+                    className="subject-select"
+                    value={selectedSubject.code}
+                    onChange={(e) => {
+                      const subject = availableSubjects.find(s => s.code === e.target.value);
+                      if (subject) setSelectedSubject(subject);
+                    }}
+                  >
+                    {availableSubjects.map((subject) => (
+                      <option key={subject.code} value={subject.code}>
+                        {subject.code} - {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Selected Subject Info */}
+                <div className="subject-details">
+                  <h3 className="title-text">{selectedSubject.name}</h3>
+                  <p className="sub-line">Mã môn: {selectedSubject.code}</p>
+                  <p className="sub-line">Thời gian: {selectedSubject.time}</p>
+                  <p className="sub-line">Phòng: {selectedSubject.room}</p>
+                  <p className="sub-line">Lịch học: {selectedSubject.schedule}</p>
+                  <p className="sub-line">Giảng viên: {selectedSubject.instructor}</p>
+                </div>
+              </div>
+
+              <button
+                className={`check-in-btn ${isCheckingIn ? 'checking-in' : ''}`}
+                onClick={handleCheckIn}
+                disabled={isCheckingIn}
+              >
+                {isCheckingIn ? (
+                  <div className="checking-container">
+                    <div className="spinner"></div>
+                    <span>{gpsStatus || 'Checking...'}</span>
+                  </div>
+                ) : (
+                  'Check In'
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Section Title */}

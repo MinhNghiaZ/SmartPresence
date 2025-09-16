@@ -1,25 +1,6 @@
 import React from 'react';
 import './ProfileModal.css';
 
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  birthDate?: string;
-  gender?: string;
-  phone?: string;
-  studentCode?: string;
-  birthPlace?: string;
-  ethnicity?: string;
-  status?: string;
-  address?: string;
-  class?: string;
-  major?: string;
-  faculty?: string;
-  program?: string;
-  academicYear?: string;
-}
-
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,7 +25,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user }) =>
     ethnicity: 'Kinh',
     status: 'Đang học',
     address: '123 Nguyễn Trãi, Quận 1, TP.HCM',
-    class: 'SE2024A',
+    cohort: '24',
     major: 'Software Engineering',
     faculty: 'Information Technology',
     program: 'Đại học',
@@ -98,7 +79,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user }) =>
         <div className="info-section">
           <h3 className="section-title">Thông tin khóa học</h3>
           <div className="info-grid">
-            <InfoRow label="Lớp" value={profile.class} />
+            <InfoRow label="Khóa" value={`20${profile.cohort}`} />
             <InfoRow label="Ngành" value={profile.major} />
             <InfoRow label="Khoa" value={profile.faculty} />
             <InfoRow label="Bậc hệ đào tạo" value={profile.program} />

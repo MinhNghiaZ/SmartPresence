@@ -55,7 +55,7 @@
 }
 
 .loading-logo img {
-  width: 120px;
+  width: 150px; /* Tăng từ 120px lên 150px */
   height: auto;
   filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
 }
@@ -171,7 +171,7 @@
   }
   
   .loading-logo img {
-    width: 100px;
+    width: 130px; /* Tăng từ 100px lên 130px */
   }
   
   .loading-progress {
@@ -186,7 +186,7 @@
   }
   
   .loading-logo img {
-    width: 80px;
+    width: 110px; /* Tăng từ 80px lên 110px */
   }
   
   .loading-progress {
