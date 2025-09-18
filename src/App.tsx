@@ -49,6 +49,19 @@ function App() {
     if (urlParams.get('debug') === 'camera') {
       setCurrentScreen('camera-debug');
     }
+    
+    // Reset localStorage nếu có parameter reset=face
+    if (urlParams.get('reset') === 'face') {
+      localStorage.removeItem('registeredFaces');
+      localStorage.removeItem('capturedFaceImages');
+      console.log('🗑️ Đã reset localStorage registeredFaces và capturedFaceImages');
+      alert('✅ Đã reset dữ liệu khuôn mặt! Bạn có thể đăng ký lại từ đầu.');
+      
+      // Xóa parameter khỏi URL sau khi reset
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('reset');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
   }, []);
 
   // Loading screen

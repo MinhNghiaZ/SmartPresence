@@ -4,18 +4,31 @@ export interface Location {
 }
 
 export interface AllowedArea {
+    id: string;
+    name: string;
     latitude: number;
     longitude: number;
     radius: number; // bán kính tính bằng mét
 }
 
 export class GPSService {
-    // Tọa độ khu vực cho phép (ví dụ: khuôn viên trường đại học)
-    private static allowedArea: AllowedArea = {
-        latitude: 11.052845, // Thay đổi theo tọa độ thực tế
-        longitude: 106.665911, // Thay đổi theo tọa độ thực tế
-        radius: 500 // Bán kính cho phép (mét)
-    };
+    // Danh sách các khu vực cho phép
+    private static allowedAreas: AllowedArea[] = [
+        {
+            id: 'eiu_campus',
+            name: 'Eastern International University',
+            latitude: 11.052845,
+            longitude: 106.665911,
+            radius: 500
+        },
+        {
+            id: 'phuoc_hung_airport',
+            name: 'Phòng vé máy bay Phước Hưng',
+            latitude: 11.04558230, // Tọa độ thực tế từ GPS điện thoại
+            longitude: 106.73588590, // Độ chính xác: 12.9 mét
+            radius: 300 // Bán kính nhỏ hơn vì có tọa độ chính xác
+        }
+    ];
 
     // Tính khoảng cách giữa 2 điểm GPS (công thức Haversine)
     private static calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -82,27 +95,56 @@ export class GPSService {
     }
 
     // Kiểm tra vị trí có trong khu vực cho phép không
-    static isLocationAllowed(userLocation: Location): { allowed: boolean; distance: number } {
-        const distance = this.calculateDistance(
-            userLocation.latitude,
-            userLocation.longitude,
-            this.allowedArea.latitude,
-            this.allowedArea.longitude
-        );
+    static isLocationAllowed(userLocation: Location): { allowed: boolean; distance: number; nearestArea?: AllowedArea } {
+        let minDistance = Infinity;
+        let nearestArea: AllowedArea | undefined;
+        
+        // Kiểm tra tất cả các khu vực cho phép
+        for (const area of this.allowedAreas) {
+            const distance = this.calculateDistance(
+                userLocation.latitude,
+                userLocation.longitude,
+                area.latitude,
+                area.longitude
+            );
+            
+            // Nếu trong phạm vi cho phép của khu vực này
+            if (distance <= area.radius) {
+                return {
+                    allowed: true,
+                    distance: Math.round(distance),
+                    nearestArea: area
+                };
+            }
+            
+            // Cập nhật khu vực gần nhất
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestArea = area;
+            }
+        }
 
         return {
-            allowed: distance <= this.allowedArea.radius,
-            distance: Math.round(distance)
+            allowed: false,
+            distance: Math.round(minDistance),
+            nearestArea
         };
     }
 
-    // Cập nhật khu vực cho phép
-    static setAllowedArea(area: AllowedArea): void {
-        this.allowedArea = area;
+    // Lấy thông tin tất cả khu vực cho phép
+    static getAllowedAreas(): AllowedArea[] {
+        return [...this.allowedAreas];
     }
 
-    // Lấy thông tin khu vực cho phép
+    // Phương thức cũ để tương thích ngược
     static getAllowedArea(): AllowedArea {
-        return { ...this.allowedArea };
+        // Trả về khu vực đầu tiên để tương thích với code cũ
+        return this.allowedAreas[0] || {
+            id: 'default',
+            name: 'Default Area',
+            latitude: 11.052845,
+            longitude: 106.665911,
+            radius: 500
+        };
     }
 }
