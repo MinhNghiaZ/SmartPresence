@@ -60,7 +60,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <div className="text-center mt-sm-5 mb-4 text-white-50">
                 <div>
                   <a href="#" className="d-inline-block auth-logo">
-                    <img src="/Logo2eiu.png" alt="EIU Logo" height="150" />
+                    <img src="/Logo2eiu.png" alt="EIU Logo" height="110" />
                   </a>
                 </div>
               </div>

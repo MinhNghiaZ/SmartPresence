@@ -12,6 +12,7 @@ export default defineConfig({
     host: '0.0.0.0', // Allow external connections
     port: 5173,
     https: true, // Enable HTTPS with mkcert certificates
-    open: true
+    open: true,
+    strictPort: false,
   }
 })

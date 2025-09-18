@@ -5,9 +5,9 @@ import { CheckInService } from '../../Services/CheckInService';
 import type { SubjectInfo } from '../../Services/CheckInService';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService';
-import FaceRecognition, { type FaceRecognitionRef } from '../../Components/CameraScreen/FaceRecognition';
-import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
-import ProfileModal from '../../Components/ProfileModal';
+import FaceRecognition, { type FaceRecognitionRef } from '../../components/CameraScreen/FaceRecognition';
+import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
+import ProfileModal from '../../components/ProfileModal';
 import { captureFaceImage, getCapturedImagesByUser } from '../../utils/imageCaptureUtils';
 import { authService } from '../../Services/AuthService';
 

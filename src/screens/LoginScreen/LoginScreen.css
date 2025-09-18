@@ -49,7 +49,7 @@ body {
   transition: transform 0.3s ease;
   max-width: 100%;
   height: auto;
-  max-height: 150px; /* Tăng từ 120px lên 150px */
+  max-height: 110px; /* Giảm từ 150px xuống 110px để đồng bộ với loading */
 }
 
 .auth-logo img:hover {
@@ -196,8 +196,8 @@ body {
   }
   
   .auth-logo img {
-    height: 140px !important;
-    max-height: 140px;
+    height: 100px !important;
+    max-height: 100px;
   }
   
   .text-primary {
@@ -235,8 +235,8 @@ body {
     }
     
     .auth-logo img {
-      height: 120px !important;
-      max-height: 120px;
+      height: 90px !important;
+      max-height: 90px;
     }
     
     .mt-4.text-center:last-child {
