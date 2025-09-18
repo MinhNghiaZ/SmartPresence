@@ -1,5 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
+import { CameraPolyfill } from '../../Services/CameraPolyfill';
+import CameraRequirements from '../CameraRequirements';
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService';
 import './FaceRecognition.css';
 
@@ -15,6 +17,115 @@ export interface FaceRecognitionRef {
   stopCamera: () => void;
   startCamera: () => void;
 }
+
+// Mobile detection utility
+const isMobile = () => {
+  return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+// Get camera constraints optimized for mobile with fallbacks
+const getCameraConstraints = (fallback = false): MediaStreamConstraints => {
+  const mobile = isMobile();
+  
+  if (fallback) {
+    // Minimal constraints for maximum compatibility
+    return {
+      video: true,
+      audio: false
+    };
+  }
+  
+  if (mobile) {
+    return {
+      video: {
+        width: { ideal: 480, max: 640 },
+        height: { ideal: 360, max: 480 },
+        facingMode: 'user', // Front camera for mobile
+        frameRate: { ideal: 15, max: 24 } // Lower framerate for mobile performance
+      },
+      audio: false
+    };
+  } else {
+    return {
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        frameRate: { ideal: 30 }
+      },
+      audio: false
+    };
+  }
+};
+
+// Check if camera is available with comprehensive diagnostics using polyfill
+const checkCameraSupport = async (): Promise<{
+  supported: boolean;
+  details: string;
+  cameras: MediaDeviceInfo[];
+  diagnostics: any;
+}> => {
+  const result = {
+    supported: false,
+    details: '',
+    cameras: [] as MediaDeviceInfo[],
+    diagnostics: null as any
+  };
+
+  try {
+    // Get comprehensive diagnostics
+    const diagnostics = CameraPolyfill.getDiagnostics();
+    result.diagnostics = diagnostics;
+
+    // Check environment requirements
+    if (!diagnostics.isHTTPS && !diagnostics.isLocalhost) {
+      result.details = `HTTPS Required: Camera cần HTTPS. Hiện tại: ${diagnostics.protocol}//${location.hostname}`;
+      return result;
+    }
+
+    // Check API availability
+    if (!diagnostics.modernAPI && !diagnostics.legacyAPI) {
+      result.details = 'Browser không hỗ trợ camera API. Vui lòng cập nhật browser.';
+      return result;
+    }
+
+    // Try to enumerate devices (if modern API available)
+    if (diagnostics.modernAPI && navigator.mediaDevices.enumerateDevices) {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        result.cameras = devices.filter(device => device.kind === 'videoinput');
+        
+        if (result.cameras.length === 0) {
+          result.details = 'Không tìm thấy camera nào trên thiết bị';
+          return result;
+        }
+      } catch (enumError) {
+        result.details = 'Không thể liệt kê devices: ' + (enumError as Error).message;
+        return result;
+      }
+    }
+
+    // Test actual camera access using polyfill
+    const cameraTest = await CameraPolyfill.testCamera();
+    
+    if (cameraTest.success) {
+      result.supported = true;
+      result.details = cameraTest.details;
+      
+      // Clean up test stream
+      if (cameraTest.stream) {
+        cameraTest.stream.getTracks().forEach(track => track.stop());
+      }
+    } else {
+      result.details = cameraTest.details;
+    }
+
+    return result;
+
+  } catch (error) {
+    result.details = 'Lỗi kiểm tra camera: ' + (error as Error).message;
+    return result;
+  }
+};
 
 const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
   onRecognitionResult,
@@ -34,6 +145,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [lastResults, setLastResults] = useState<FaceRecognitionResult[]>([]);
+  const [showRequirements, setShowRequirements] = useState(false);
 
   // Khởi tạo models khi component mount
   useEffect(() => {
@@ -95,28 +207,171 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
   const startCamera = async () => {
     try {
       setError('');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 640 }, 
-          height: { ideal: 480 },
-          facingMode: 'user'
-        } 
+      
+      // Comprehensive camera check first
+      console.log('📹 Starting comprehensive camera check...');
+      const cameraCheck = await checkCameraSupport();
+      
+      if (!cameraCheck.supported) {
+        // Check if it's an HTTPS issue
+        if (cameraCheck.details.includes('HTTPS') || cameraCheck.details.includes('https')) {
+          setShowRequirements(true);
+          return;
+        }
+        throw new Error(cameraCheck.details);
+      }
+      
+      console.log('📹 Camera check passed:', cameraCheck.details);
+      console.log('📹 Available cameras:', cameraCheck.cameras.length);
+
+      let stream: MediaStream | null = null;
+      
+      // Try multiple camera access strategies using polyfill
+      const strategies = [
+        // Strategy 1: Mobile optimized with polyfill
+        () => CameraPolyfill.getUserMedia(getCameraConstraints(false)),
+        // Strategy 2: Basic fallback with polyfill
+        () => CameraPolyfill.getUserMedia(getCameraConstraints(true)),
+        // Strategy 3: Minimal constraints with polyfill
+        () => CameraPolyfill.getUserMedia({ video: true, audio: false }),
+        // Strategy 4: No constraints with polyfill
+        () => CameraPolyfill.getUserMedia({ video: {} })
+      ];
+      
+      for (let i = 0; i < strategies.length; i++) {
+        try {
+          console.log(`📹 Trying camera strategy ${i + 1}/${strategies.length}`);
+          stream = await strategies[i]();
+          console.log(`📹 Strategy ${i + 1} succeeded!`);
+          break;
+        } catch (strategyError) {
+          console.warn(`📹 Strategy ${i + 1} failed:`, strategyError);
+          if (i === strategies.length - 1) {
+            throw strategyError; // Last strategy failed, throw error
+          }
+        }
+      }
+      
+      if (!stream) {
+        throw new Error('Tất cả camera strategies đã thất bại');
+      }
+      
+      // Validate stream
+      const videoTracks = stream.getVideoTracks();
+      if (videoTracks.length === 0) {
+        stream.getTracks().forEach(track => track.stop());
+        throw new Error('Stream không chứa video track');
+      }
+      
+      const videoTrack = videoTracks[0];
+      console.log('📹 Video track info:', {
+        label: videoTrack.label,
+        kind: videoTrack.kind,
+        readyState: videoTrack.readyState,
+        settings: videoTrack.getSettings?.()
       });
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.playsInline = true;
+        videoRef.current.muted = true;
+        videoRef.current.autoplay = true;
         
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
-          setupCanvas();
-          setIsCameraActive(true);
-        };
+        // Wait for video to be ready
+        await new Promise<void>((resolve, reject) => {
+          const video = videoRef.current!;
+          const timeout = setTimeout(() => {
+            reject(new Error('Video load timeout - Camera có thể bị khóa hoặc đang được sử dụng'));
+          }, 20000); // Even longer timeout
+          
+          const onLoadedMetadata = () => {
+            clearTimeout(timeout);
+            cleanup();
+            
+            console.log('📹 Video metadata loaded:', {
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              duration: video.duration,
+              readyState: video.readyState
+            });
+            
+            // Force play
+            video.play()
+              .then(() => {
+                setupCanvas();
+                setIsCameraActive(true);
+                console.log('📹 Camera started successfully');
+                resolve();
+              })
+              .catch((playError) => {
+                console.error('Video play failed:', playError);
+                reject(new Error('Không thể phát video từ camera: ' + playError.message));
+              });
+          };
+          
+          const onError = (event: Event) => {
+            cleanup();
+            console.error('Video element error:', event);
+            reject(new Error('Lỗi video element'));
+          };
+          
+          const cleanup = () => {
+            clearTimeout(timeout);
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('error', onError);
+          };
+          
+          video.addEventListener('loadedmetadata', onLoadedMetadata);
+          video.addEventListener('error', onError);
+        });
       }
     } catch (err) {
-      const errorMsg = 'Không thể truy cập camera: ' + (err as Error).message;
+      console.error('📹 Camera Error:', err);
+      let errorMsg = 'Không thể truy cập camera';
+      
+      if (err instanceof Error) {
+        const errorName = (err as any).name || '';
+        
+        if (errorName === 'NotAllowedError') {
+          errorMsg = isMobile() ? 
+            '🚫 Camera Permission Required\n\n' +
+            'Các bước cấp quyền:\n' +
+            '• Chrome: Nhấn biểu tượng 🔒 trong thanh địa chỉ\n' +
+            '• Safari: Settings > Safari > Camera > Allow\n' +
+            '• Reload trang sau khi cấp quyền' :
+            '🚫 Camera Permission Denied\n\n' +
+            'Click the camera icon 📷 in the address bar\n' +
+            'and allow camera access.';
+        } else if (errorName === 'NotFoundError') {
+          errorMsg = '📷 No Camera Found\n\n' +
+            'Kiểm tra:\n' +
+            '• Camera có được kết nối không?\n' +
+            '• Đóng apps khác đang dùng camera\n' +
+            '• Thử camera khác nếu có';
+        } else if (errorName === 'NotSupportedError') {
+          errorMsg = '🚫 Camera Not Supported\n\n' +
+            (isMobile() ? 
+              'Yêu cầu:\n• Chrome hoặc Safari mới nhất\n• Kết nối HTTPS\n• Permissions đầy đủ' :
+              'Requirements:\n• Modern browser (Chrome/Firefox/Safari)\n• HTTPS connection\n• Camera permissions');
+        } else if (errorName === 'NotReadableError') {
+          errorMsg = '🔒 Camera In Use\n\n' +
+            'Camera đang được sử dụng bởi:\n' +
+            '• Tab browser khác\n' +
+            '• Ứng dụng khác (Zoom, Teams, etc.)\n' +
+            '• Đóng chúng và thử lại';
+        } else if (errorName === 'SecurityError') {
+          errorMsg = '🔐 Security Error\n\n' +
+            'Yêu cầu:\n' +
+            '• HTTPS connection (hiện tại: ' + location.protocol + ')\n' +
+            '• Proper camera permissions\n' +
+            '• Trusted domain';
+        } else {
+          errorMsg = '❌ Camera Error\n\n' + err.message;
+        }
+      }
+      
       setError(errorMsg);
       onError?.(errorMsg);
-      console.error(err);
     }
   };
 
@@ -148,9 +403,13 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       clearInterval(intervalRef.current);
     }
     
+    // Use longer interval for mobile to improve performance
+    const interval = isMobile() ? Math.max(recognizeInterval * 2, 3000) : recognizeInterval;
+    console.log('🔄 Starting auto recognition with interval:', interval, 'ms for', isMobile() ? 'mobile' : 'desktop');
+    
     intervalRef.current = setInterval(() => {
       recognizeFromVideo();
-    }, recognizeInterval);
+    }, interval);
   };
 
   const stopAutoRecognition = () => {
@@ -190,6 +449,52 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       setIsRecognizing(false);
     }
   }, [isModelLoaded, isRecognizing, onRecognitionResult, onError]);
+
+  // Test camera function for debugging
+  const testCamera = async () => {
+    console.log('🔧 Testing camera support...');
+    setError(''); // Clear previous errors
+    
+    try {
+      const cameraCheck = await checkCameraSupport();
+      
+      console.log('📹 Camera Check Result:', cameraCheck);
+      
+      let message = `📹 Camera Test Results:\n\n`;
+      message += `✅ Supported: ${cameraCheck.supported ? 'YES' : 'NO'}\n`;
+      message += `📋 Details: ${cameraCheck.details}\n\n`;
+      
+      if (cameraCheck.cameras.length > 0) {
+        message += `� Available Cameras (${cameraCheck.cameras.length}):\n`;
+        cameraCheck.cameras.forEach((camera, index) => {
+          message += `${index + 1}. ${camera.label || 'Unknown Camera'}\n`;
+        });
+      } else {
+        message += `📷 No cameras detected\n`;
+      }
+      
+      message += `\n🌐 Environment:\n`;
+      message += `• Protocol: ${location.protocol}\n`;
+      message += `• Host: ${location.hostname}\n`;
+      message += `• User Agent: ${navigator.userAgent.slice(0, 50)}...\n`;
+      message += `• Mobile: ${isMobile() ? 'YES' : 'NO'}`;
+      
+      alert(message);
+      
+      // Also set error message if camera not supported
+      if (!cameraCheck.supported) {
+        setError(`❌ Camera Test Failed: ${cameraCheck.details}`);
+      } else {
+        setError(`✅ Camera Test Passed: ${cameraCheck.details}`);
+      }
+      
+    } catch (error) {
+      console.error('🔧 Camera test failed:', error);
+      const errorMsg = `Camera test failed: ${(error as Error).message}`;
+      alert(errorMsg);
+      setError(errorMsg);
+    }
+  };
 
   const captureAndRegister = async () => {
     if (!videoRef.current || !isModelLoaded) return;
@@ -268,7 +573,19 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       {error && (
         <div className="error-message">
           <span className="error-icon">⚠️</span>
-          <span className="error-text">{error}</span>
+          <span className="error-text" style={{ whiteSpace: 'pre-line' }}>{error}</span>
+        </div>
+      )}
+
+      {/* HTTPS Warning */}
+      {location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && (
+        <div className="warning-message">
+          <span className="warning-icon">🔒</span>
+          <span className="warning-text">
+            ⚠️ HTTPS Required: Camera needs HTTPS to work. 
+            Current: {location.protocol}//{location.hostname}
+            {location.hostname.includes('192.168') && ' (Try using HTTPS or localhost instead)'}
+          </span>
         </div>
       )}
 
@@ -326,6 +643,16 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
           >
             <span className="btn-icon">⏹️</span>
             Tắt Camera
+          </button>
+
+          <button 
+            className="control-btn debug"
+            onClick={testCamera}
+            disabled={loading}
+            title="Test camera support and permissions"
+          >
+            <span className="btn-icon">🔧</span>
+            Test Camera
           </button>
         </div>
 
@@ -412,6 +739,11 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Camera Requirements Modal */}
+      {showRequirements && (
+        <CameraRequirements onClose={() => setShowRequirements(false)} />
       )}
     </div>
   );

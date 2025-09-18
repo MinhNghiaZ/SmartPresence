@@ -34,12 +34,22 @@ export class GPSService {
     }
 
     // Lấy vị trí hiện tại
-    static getCurrentLocation(): Promise<Location> {
+    static getCurrentLocation(options?: PositionOptions): Promise<Location> {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
                 reject(new Error('Trình duyệt không hỗ trợ GPS'));
                 return;
             }
+
+            // Default options with mobile considerations
+            const defaultOptions: PositionOptions = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            };
+
+            // Use provided options or defaults
+            const gpsOptions = options || defaultOptions;
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -66,11 +76,7 @@ export class GPSService {
                     }
                     reject(new Error(errorMessage));
                 },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
+                gpsOptions
             );
         });
     }

@@ -1,0 +1,1 @@
+export { CameraPolyfill } from './CameraPolyfill';
