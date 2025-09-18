@@ -21,17 +21,23 @@
 
 .status-indicators {
   display: flex;
-  gap: 15px;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .status-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 500;
+  min-width: 120px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .status-indicator.ready {
@@ -62,19 +68,6 @@
   background: #f8f9fa;
   color: #6c757d;
   border: 1px solid #dee2e6;
-}
-
-.registered-count {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #e7f3ff;
-  color: #0056b3;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  border: 1px solid #b3d9ff;
 }
 
 /* Error Message */
@@ -461,13 +454,15 @@
   }
 
   .status-indicator {
-    font-size: 13px;
-    padding: 6px 10px;
+    font-size: 12px;
+    padding: 8px 12px;
+    min-width: 100px;
+    gap: 4px;
   }
 
-  .registered-count {
-    font-size: 13px;
-    padding: 6px 10px;
+  .status-indicators {
+    gap: 8px;
+    justify-content: space-between;
   }
 }
 
@@ -545,11 +540,6 @@
   }
   
   .status-indicator {
-    font-size: 13px;
-    padding: 6px 10px;
-  }
-  
-  .registered-count {
     font-size: 13px;
     padding: 6px 10px;
   }

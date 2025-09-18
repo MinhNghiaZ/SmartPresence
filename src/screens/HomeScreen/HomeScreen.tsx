@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import './HomeScreen.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import './HomeScreen_modern.css';
 import { CheckInService } from '../../Services/CheckInService';
 import type { SubjectInfo } from '../../Services/CheckInService';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
@@ -367,79 +366,107 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     }
   };
 
-  // Render
+  // Render with modern design based on the HTML template
   return (
-    <div className="home-container">
-      <div className="home-content">
-        {/* Header */}
-        <div className="top-bar">
-          <SimpleAvatarDropdown
-            userName={user.name}
-            avatarUrl={userAvatar}
-            onProfile={handleProfile}
-            onSettings={handleSettings}
-            onDemo={onNavigateToDemo}
-            onLogout={handleLogout}
-          />
-        </div>
-
-        {/* Welcome Section */}
-        <div className="section">
-          <h1 className="hi-text">Xin chào {user.name}</h1>
-          <p className="sub-text">Chào mừng đến với EIU SmartPresence Dashboard</p>
-          <p className="sub-text">MSSV: {user.id} | {user.email}</p>
-          {currentStudent && (
-            <p className="sub-text">Khóa: 20{currentStudent.cohort} | SĐT: {currentStudent.phone}</p>
-          )}
-          
-          {/* Registered Subjects Info */}
-          <div className="registered-subjects-info">
-            <p className="sub-text">
-              <strong>Môn học đã đăng ký:</strong> {studentRegisteredSubjects.join(', ') || 'Chưa đăng ký môn nào'}
-            </p>
-          </div>
-          
-          {/* Debug Controls */}
-          <div className="debug-buttons">
-            <button className="debug-button" onClick={handleClearData}>
-              🗑️ Clear Data (Debug)
-            </button>
-            <button className="debug-button gps-debug" onClick={handleCheckLocation}>
-              📍 Check GPS (Debug)
-            </button>
-          </div>
-        </div>
-
-        {/* Current Subject */}
-        <div className="section">
-          {availableSubjects.length === 0 ? (
-            // No registered subjects
-            <div className="no-subjects-card">
-              <div className="no-subjects-content">
-                <div className="no-subjects-icon">📚</div>
-                <h3 className="no-subjects-title">Không có môn học để điểm danh</h3>
-                <p className="no-subjects-description">
-                  Bạn chưa đăng ký môn học nào hoặc không có môn nào khả dụng để điểm danh.
-                  Vui lòng liên hệ phòng đào tạo để biết thêm chi tiết.
-                </p>
-                <div className="contact-info">
-                  <p>📞 Phòng Đào tạo: (028) 3724 4271</p>
-                  <p>📧 Email: training@eiu.edu.vn</p>
-                </div>
+    <div className="min-h-screen bg-gray-100">
+      {/* Modern Navigation Bar */}
+      <nav className="bg-gradient-to-r from-gray-800 to-gray-900 shadow-lg border-b-2 border-gray-700">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between py-3 sm:py-4">
+            {/* Title Section */}
+            <div className="flex items-center">
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold text-white leading-tight">SmartPresence</h1>
+                <p className="text-xs sm:text-sm text-gray-300 leading-tight">EIU Attendance System</p>
               </div>
             </div>
-          ) : (
-            // Has registered subjects
-            <div className="subject-card">
-              <div className="subject-info">
+
+            {/* User Profile Dropdown */}
+            <div className="flex items-center space-x-4">
+              <SimpleAvatarDropdown
+                userName={user.name}
+                avatarUrl={userAvatar}
+                onProfile={handleProfile}
+                onSettings={handleSettings}
+                onDemo={onNavigateToDemo}
+                onLogout={handleLogout}
+              />
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content Container */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Welcome Banner Section */}
+        <div className="bg-gradient-to-r from-blue-100 to-blue-200 p-6 rounded-lg shadow-lg mb-6 transition-all duration-500 hover:shadow-xl">
+          <div className="grid grid-cols-1 gap-6">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-3 text-gray-800">
+                Xin chào {user.name}!
+              </h2>
+              <p className="text-gray-700 text-lg mb-2">
+                Chào mừng đến với EIU SmartPresence Dashboard
+              </p>
+              <p className="text-gray-600 mb-4">
+                MSSV: {user.id} | {user.email}
+              </p>
+
+              {/* Quick Actions */}
+              <div className="flex flex-wrap gap-2">
+                <button 
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition-colors duration-300 flex items-center"
+                  onClick={handleClearData}
+                >
+                  🗑️ Clear Data (Debug)
+                </button>
+                <button 
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors duration-300 flex items-center"
+                  onClick={handleCheckLocation}
+                >
+                  📍 Check GPS (Debug)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Check-in Section */}
+          <div className="lg:col-span-2">
+            {availableSubjects.length === 0 ? (
+              /* No Subjects Card */
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">📚</div>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                    Không có môn học để điểm danh
+                  </h3>
+                  <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                    Bạn chưa đăng ký môn học nào hoặc không có môn nào khả dụng để điểm danh.
+                    Vui lòng liên hệ phòng đào tạo để biết thêm chi tiết.
+                  </p>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <p className="text-blue-800">📞 Phòng Đào tạo: (028) 3724 4271</p>
+                    <p className="text-blue-800">📧 Email: training@eiu.edu.vn</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Subject Selection and Check-in Card */
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                  🎓 Điểm danh môn học
+                </h3>
+                
                 {/* Subject Selector */}
-                <div className="subject-selector">
-                  <label htmlFor="subject-select" className="selector-label">
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Chọn môn học để điểm danh:
                   </label>
                   <select
-                    id="subject-select"
-                    className="subject-select"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300"
                     value={selectedSubject.code}
                     onChange={(e) => {
                       const subject = availableSubjects.find(s => s.code === e.target.value);
@@ -454,88 +481,101 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                   </select>
                 </div>
 
-                {/* Selected Subject Info */}
-                <div className="subject-details">
-                  <h3 className="title-text">{selectedSubject.name}</h3>
-                  <p className="sub-line">Mã môn: {selectedSubject.code}</p>
-                  <p className="sub-line">Thời gian: {selectedSubject.time}</p>
-                  <p className="sub-line">Phòng: {selectedSubject.room}</p>
-                  <p className="sub-line">Lịch học: {selectedSubject.schedule}</p>
-                  <p className="sub-line">Giảng viên: {selectedSubject.instructor}</p>
-                </div>
-              </div>
-
-              <button
-                className={`check-in-btn ${isCheckingIn ? 'checking-in' : ''}`}
-                onClick={handleCheckIn}
-                disabled={isCheckingIn}
-              >
-                {isCheckingIn ? (
-                  <div className="checking-container">
-                    <div className="spinner"></div>
-                    <span>{gpsStatus || 'Checking...'}</span>
-                  </div>
-                ) : (
-                  'Check In'
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Section Title */}
-        <div className="section">
-          <h2 className="hi-text">History Attendant</h2>
-        </div>
-
-        {/* Attendance History */}
-        <div className="section">
-          <div className="history-container">
-            <h3 className="title-text">Lịch sử điểm danh</h3>
-            {attendanceHistory.length === 0 ? (
-              <div className="no-history">
-                <div className="empty-state">
-                  <div className="empty-icon">📚</div>
-                  <h4 className="empty-title">Chưa có lịch sử điểm danh</h4>
-                  <p className="empty-description">
-                    Hãy thực hiện điểm danh đầu tiên để bắt đầu ghi lại lịch sử của bạn.
-                    Lịch sử sẽ giúp bạn theo dõi quá trình học tập một cách chi tiết.
-                  </p>
-                  <div className="empty-tips">
-                    <p className="tip-item">💡 Mẹo: Điểm danh đúng giờ để tránh bị đánh dấu muộn</p>
-                    <p className="tip-item">📍 Đảm bảo GPS được bật và ở trong khuôn viên trường</p>
+                {/* Subject Details */}
+                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                  <h4 className="font-semibold text-gray-800 mb-2">{selectedSubject.name}</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
+                    <p><strong>Mã môn:</strong> {selectedSubject.code}</p>
+                    <p><strong>Thời gian:</strong> {selectedSubject.time}</p>
+                    <p><strong>Phòng:</strong> {selectedSubject.room}</p>
+                    <p><strong>Lịch học:</strong> {selectedSubject.schedule}</p>
+                    <p className="sm:col-span-2"><strong>Giảng viên:</strong> {selectedSubject.instructor}</p>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="history-list">
-                {attendanceHistory.map((record: AttendanceRecord, index: number) => (
-                  <div key={index} className="history-item">
-                    <div className="history-info">
-                      <h4 className="history-subject">{record.subject}</h4>
-                      <p className="history-time">{record.timestamp}</p>
-                      <p className="history-location">{record.location}</p>
+
+                {/* Check-in Button */}
+                <button
+                  className={`w-full py-4 px-6 rounded-lg text-white font-semibold text-lg transition-all duration-300 ${
+                    isCheckingIn
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 hover:shadow-lg transform hover:scale-105'
+                  }`}
+                  onClick={handleCheckIn}
+                  disabled={isCheckingIn}
+                >
+                  {isCheckingIn ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      <span>{gpsStatus || 'Checking...'}</span>
                     </div>
-                    <div className={`history-status ${record.status.toLowerCase()}`}>
-                      {record.status}
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <span className="mr-2">📸</span>
+                      Check In
                     </div>
-                  </div>
-                ))}
+                  )}
+                </button>
               </div>
             )}
+          </div>
+
+          {/* Attendance History Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="bg-white p-6 rounded-lg shadow-lg">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                📊 Lịch sử điểm danh
+              </h3>
+              
+              {attendanceHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-3">📚</div>
+                  <h4 className="font-medium text-gray-600 mb-2">Chưa có lịch sử</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Thực hiện điểm danh đầu tiên để bắt đầu ghi lại lịch sử của bạn.
+                  </p>
+                  <div className="text-xs text-gray-400 space-y-1">
+                    <p>💡 Điểm danh đúng giờ để tránh muộn</p>
+                    <p>📍 Đảm bảo GPS được bật</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {attendanceHistory.map((record, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow duration-300">
+                      <h4 className="font-medium text-gray-800 text-sm mb-1">
+                        {record.subject}
+                      </h4>
+                      <p className="text-xs text-gray-600 mb-1">{record.timestamp}</p>
+                      <p className="text-xs text-gray-600 mb-2">{record.location}</p>
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                        record.status === 'Present' 
+                          ? 'bg-green-100 text-green-800'
+                          : record.status === 'Late'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {record.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Face Recognition Modal */}
       {showFaceModal && (
-        <div className="face-modal-overlay">
-          <div className="face-modal">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="face-modal-header">
-              <h3>{isRegisterMode ? '📝 Đăng ký khuôn mặt' : '🔍 Xác thực khuôn mặt'}</h3>
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-xl font-semibold text-gray-800">
+                {isRegisterMode ? '📝 Đăng ký khuôn mặt' : '🔍 Xác thực khuôn mặt'}
+              </h3>
               <button 
-                className="close-btn"
+                className="text-gray-400 hover:text-gray-600 text-2xl"
                 onClick={handleFaceRecognitionCancel}
               >
                 ✕
@@ -543,8 +583,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
             </div>
             
             {/* Modal Content */}
-            <div className="face-modal-content">
-              <div className="face-recognition-area">
+            <div className="p-6">
+              <div className="mb-4">
                 <FaceRecognition 
                   ref={faceRecognitionRef} 
                   onRecognitionResult={(results) => {
@@ -574,14 +614,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
               </div>
               
               {/* Status Display */}
-              <div className="status-display">
-                {gpsStatus && <p className="status-text">{gpsStatus}</p>}
-              </div>
+              {gpsStatus && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-blue-800">{gpsStatus}</p>
+                </div>
+              )}
               
               {/* Modal Controls */}
-              <div className="face-controls" style={{ marginTop: '20px' }}>
+              <div className="flex justify-end">
                 <button 
-                  className="face-btn cancel"
+                  className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition-colors duration-300"
                   onClick={handleFaceRecognitionCancel}
                 >
                   ❌ Đóng

@@ -52,12 +52,16 @@
 .loading-logo {
   margin-bottom: 30px;
   animation: logoFloat 2s ease-in-out infinite;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .loading-logo img {
   width: 150px; /* Tăng từ 120px lên 150px */
   height: auto;
   filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+  display: block;
 }
 
 /* Spinner */

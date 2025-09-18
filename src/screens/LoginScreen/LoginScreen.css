@@ -200,6 +200,11 @@ body {
     max-height: 100px;
   }
   
+  /* Reduce logo section bottom margin on mobile */
+  .text-center.mb-4 {
+    margin-bottom: 1rem !important;
+  }
+  
   .text-primary {
     font-size: 1.2rem;
   }
@@ -237,6 +242,11 @@ body {
     .auth-logo img {
       height: 90px !important;
       max-height: 90px;
+    }
+    
+    /* Further reduce logo bottom margin on very small screens */
+    .text-center.mb-4 {
+      margin-bottom: 0.5rem !important;
     }
     
     .mt-4.text-center:last-child {

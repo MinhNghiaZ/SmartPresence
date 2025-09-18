@@ -562,11 +562,6 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
             </span>
           </div>
         </div>
-
-        <div className="registered-count">
-          <span className="count-icon">👥</span>
-          <span className="count-text">{registeredFaces.length} người đã đăng ký</span>
-        </div>
       </div>
 
       {/* Error Display */}
