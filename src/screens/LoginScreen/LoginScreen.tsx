@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './LoginScreen.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { authService } from '../../Services/AuthService';
+import { useNotifications } from '../../context/NotificationContext';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -12,6 +13,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const notify = useNotifications();
 
   // Handlers
   const handleLogin = async (e: React.FormEvent) => {
@@ -22,7 +24,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     
     // Validation
     if (!studentId || !password) {
-      alert('Vui lòng nhập đầy đủ MSSV và mật khẩu!');
+      notify.push('Vui lòng nhập đầy đủ MSSV và mật khẩu!', 'warning');
       return;
     }
 
@@ -32,13 +34,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       const result = await authService.login(studentId, password);
       
       if (result.success) {
-        // Chỉ chuyển màn hình, không cần alert
         onLoginSuccess();
+        notify.push(result.message, 'success');
       } else {
-        alert(result.message);
+        notify.push(result.message, 'error');
       }
     } catch (error) {
-      alert('Lỗi kết nối. Vui lòng thử lại!');
+      notify.push('Lỗi kết nối. Vui lòng thử lại!', 'error');
     } finally {
       setIsLoading(false);
     }

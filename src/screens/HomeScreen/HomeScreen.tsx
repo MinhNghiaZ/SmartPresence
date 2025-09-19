@@ -9,6 +9,7 @@ import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
 import ProfileModal from '../../components/ProfileModal';
 import { captureFaceImage, getCapturedImagesByUser } from '../../utils/imageCaptureUtils';
 import { authService } from '../../Services/AuthService';
+import { useNotifications } from '../../context/NotificationContext';
 
 // Interfaces
 interface User {
@@ -32,6 +33,7 @@ interface HomeScreenProps {
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) => {
+  const notify = useNotifications();
   // State
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
@@ -166,7 +168,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       console.error('Face recognition setup error:', error);
       setGpsStatus('');
       setShowFaceModal(false);
-      alert('❌ Không thể khởi tạo nhận dạng khuôn mặt. Vui lòng thử lại.');
+      notify.push('❌ Không thể khởi tạo nhận dạng khuôn mặt. Vui lòng thử lại.', 'error');
     }
   };
 
@@ -229,13 +231,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       setGpsStatus('');
       // Chỉ hiển thị alert cho check-in trực tiếp, không phải sau face recognition
       if (!isRegisterMode) {
-        alert(checkInResult.message);
+    notify.push(checkInResult.message, checkInResult.success ? 'success' : 'error');
       }
       
     } catch (error) {
       console.error('Check-in error:', error);
       setGpsStatus('');
-      alert('❌ Check-in failed. Please try again.');
+      notify.push('❌ Check-in failed. Please try again.', 'error');
     } finally {
       setIsCheckingIn(false);
     }
@@ -316,7 +318,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       console.error('Check-in error:', error);
       setGpsStatus('');
       // Chỉ hiển thị alert nếu có lỗi thực sự
-      alert('❌ Check-in failed. Please try again.');
+      notify.push('❌ Check-in failed. Please try again.', 'error');
     } finally {
       setIsCheckingIn(false);
     }
@@ -344,7 +346,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   };
 
   const handleSettings = () => {
-    alert('Settings feature will be implemented here');
+    notify.push('Settings feature will be implemented here', 'info');
   };
 
   const handleCloseProfile = () => {
@@ -353,16 +355,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
 
   const handleClearData = () => {
     if (window.confirm('This will clear all attendance records. Are you sure?')) {
-      alert('Data cleared successfully!');
+      notify.push('Data cleared successfully!', 'success');
     }
   };
 
   const handleCheckLocation = async () => {
     try {
       const debugInfo = await CheckInService.getLocationDebugInfo();
-      alert(debugInfo);
+      notify.push('GPS info copied to console/log.', 'info');
+      console.log(debugInfo);
     } catch (error) {
-      alert(`GPS Error: ${(error as Error).message}`);
+      notify.push(`GPS Error: ${(error as Error).message}`, 'error');
     }
   };
 
@@ -604,7 +607,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                   }}
                   onError={(error) => {
                     console.error('Face recognition error:', error);
-                    alert('❌ Lỗi nhận dạng khuôn mặt: ' + error);
+                    notify.push('❌ Lỗi nhận dạng khuôn mặt: ' + error, 'error');
                     handleFaceRecognitionCancel();
                   }}
                   autoRecognize={true}

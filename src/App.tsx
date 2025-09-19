@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNotifications } from './context/NotificationContext';
 import LoginScreen from './screens/LoginScreen/LoginScreen';
 import HomeScreen from './screens/HomeScreen/HomeScreen';
 import DemoHistory from './screens/demoHistory/demoHistory';
@@ -7,6 +8,7 @@ import { authService } from './Services/AuthService';
 import './App.css';
 
 function App() {
+  const notify = useNotifications();
   // Configuration
   const LOADING_TIME = 2000;
   
@@ -55,7 +57,7 @@ function App() {
       localStorage.removeItem('registeredFaces');
       localStorage.removeItem('capturedFaceImages');
       console.log('🗑️ Đã reset localStorage registeredFaces và capturedFaceImages');
-      alert('✅ Đã reset dữ liệu khuôn mặt! Bạn có thể đăng ký lại từ đầu.');
+      notify.push('✅ Đã reset dữ liệu khuôn mặt! Bạn có thể đăng ký lại từ đầu.', 'success');
       
       // Xóa parameter khỏi URL sau khi reset
       const newUrl = new URL(window.location.href);

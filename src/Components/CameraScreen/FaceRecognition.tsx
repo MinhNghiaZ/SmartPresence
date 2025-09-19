@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useNotifications } from '../../context/NotificationContext';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
 import { CameraPolyfill } from '../../Services/CameraPolyfill';
 import CameraRequirements from '../CameraRequirements';
@@ -134,10 +135,29 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
   recognizeInterval = 1000,
   autoStartCamera = false
 }, ref) => {
+  const notify = useNotifications();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<number | null>(null);
+  // Prevent duplicate side-effects (React StrictMode double-invoke in dev) & error spam
+  const autoStartTimeoutRef = useRef<number | null>(null);
+  const isStartingCameraRef = useRef(false);
+  const lastErrorRef = useRef<{ msg: string; ts: number } | null>(null);
+
+  // Centralized error emitter with de-duplication (2s window)
+  const emitError = useCallback((rawMsg: string) => {
+    const msg = rawMsg.trim();
+    const now = Date.now();
+    const last = lastErrorRef.current;
+    if (last && last.msg === msg && now - last.ts < 2000) {
+      // Skip duplicate
+      return;
+    }
+    lastErrorRef.current = { msg, ts: now };
+    setError(msg);
+    onError?.(msg);
+  }, [onError]);
   
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -154,6 +174,10 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       stopCamera();
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+      }
+      if (autoStartTimeoutRef.current) {
+        clearTimeout(autoStartTimeoutRef.current);
+        autoStartTimeoutRef.current = null;
       }
     };
   }, []);
@@ -190,21 +214,31 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       
       // Tự động khởi động camera nếu được yêu cầu
       if (autoStartCamera) {
-        setTimeout(() => {
+        if (autoStartTimeoutRef.current) {
+          clearTimeout(autoStartTimeoutRef.current);
+        }
+        autoStartTimeoutRef.current = window.setTimeout(() => {
           startCamera();
-        }, 500); // Delay một chút để đảm bảo UI đã render
+        }, 500);
       }
     } catch (err) {
-      const errorMsg = 'Không thể khởi tạo face recognition service: ' + (err as Error).message;
-      setError(errorMsg);
-      onError?.(errorMsg);
-      console.error(err);
+      // Error propagation contract:
+      //  - This component sets local error state & calls onError
+      //  - Parent (e.g. HomeScreen) is solely responsible for user-facing notifications
+      //  - Do NOT push notifications here to avoid duplicate toasts
+  const errorMsg = 'Không thể khởi tạo face recognition service: ' + (err as Error).message;
+  emitError(errorMsg);
+  console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
   const startCamera = async () => {
+    if (isStartingCameraRef.current || isCameraActive) {
+      return; // Guard against re-entry / duplicate start
+    }
+    isStartingCameraRef.current = true;
     try {
       setError('');
       
@@ -326,7 +360,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         });
       }
     } catch (err) {
-      console.error('📹 Camera Error:', err);
+    console.error('📹 Camera Error:', err);
       let errorMsg = 'Không thể truy cập camera';
       
       if (err instanceof Error) {
@@ -370,8 +404,11 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         }
       }
       
-      setError(errorMsg);
-      onError?.(errorMsg);
+  // Avoid double notification: rely on onError callback for parent UI
+  emitError(errorMsg);
+    }
+    finally {
+      isStartingCameraRef.current = false;
     }
   };
 
@@ -441,10 +478,9 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       onRecognitionResult?.(results);
       
     } catch (err) {
-      const errorMsg = 'Lỗi khi nhận dạng: ' + (err as Error).message;
-      setError(errorMsg);
-      onError?.(errorMsg);
-      console.error(err);
+  const errorMsg = 'Lỗi khi nhận dạng: ' + (err as Error).message;
+  emitError(errorMsg);
+  console.error(err);
     } finally {
       setIsRecognizing(false);
     }
@@ -479,7 +515,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       message += `• User Agent: ${navigator.userAgent.slice(0, 50)}...\n`;
       message += `• Mobile: ${isMobile() ? 'YES' : 'NO'}`;
       
-      alert(message);
+      notify.push('Camera test complete – check console for details', cameraCheck.supported ? 'success' : 'error');
       
       // Also set error message if camera not supported
       if (!cameraCheck.supported) {
@@ -491,8 +527,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     } catch (error) {
       console.error('🔧 Camera test failed:', error);
       const errorMsg = `Camera test failed: ${(error as Error).message}`;
-      alert(errorMsg);
-      setError(errorMsg);
+      emitError(errorMsg);
     }
   };
 
@@ -508,12 +543,12 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       setError('');
       await faceRecognizeService.registerFace(videoRef.current, personId, personName);
       faceRecognizeService.saveFacesToStorage();
-      alert(`Đã đăng ký thành công khuôn mặt cho ${personName}`);
+      notify.push(`Đã đăng ký thành công khuôn mặt cho ${personName}`, 'success');
     } catch (err) {
       const errorMsg = 'Lỗi khi đăng ký: ' + (err as Error).message;
-      setError(errorMsg);
-      onError?.(errorMsg);
+      emitError(errorMsg);
       console.error(err);
+      // Parent will surface error; avoid duplicate notification
     }
   };
 
