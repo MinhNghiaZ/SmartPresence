@@ -145,9 +145,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                         <div className="alert alert-info">
                           <small>
                             <strong>Thông tin demo:</strong><br/>
-                            • MSSV: SV001 đến SV030<br/>
-                            • Mật khẩu: 1<br/>
-                            • VD: SV001 / 1
+                            • Sinh viên: SV001 .. SV030 / mật khẩu: 1<br/>
+                            • Admin: ID: ADMIN / mật khẩu: admin123<br/>
+                            • Ví dụ: ADMIN / admin123
                           </small>
                         </div>
                       </div>

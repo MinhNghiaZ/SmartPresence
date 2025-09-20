@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNotifications } from './context/NotificationContext';
 import LoginScreen from './screens/LoginScreen/LoginScreen';
 import HomeScreen from './screens/HomeScreen/HomeScreen';
+import AdminScreen from './screens/AdminScreen/AdminScreen';
 import DemoHistory from './screens/demoHistory/demoHistory';
 import CameraDebugScreen from './screens/CameraDebugScreen/CameraDebugScreen';
 import { authService } from './Services/AuthService';
@@ -13,7 +14,7 @@ function App() {
   const LOADING_TIME = 2000;
   
   // State
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'home' | 'demo-history' | 'camera-debug'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'home' | 'demo-history' | 'camera-debug' | 'admin'>('login');
   const [isLoading, setIsLoading] = useState(true);
 
   // Effects
@@ -30,7 +31,11 @@ function App() {
 
   // Handlers
   const handleLoginSuccess = () => {
-    setCurrentScreen('home');
+    if (authService.isAdmin()) {
+      setCurrentScreen('admin');
+    } else {
+      setCurrentScreen('home');
+    }
   };
 
   const handleLogout = () => {
@@ -42,7 +47,11 @@ function App() {
   };
 
   const handleBackToHome = () => {
-    setCurrentScreen('home');
+    if (authService.isAdmin()) {
+      setCurrentScreen('admin');
+    } else {
+      setCurrentScreen('home');
+    }
   };
 
   // Check for camera debug URL parameter
@@ -97,13 +106,19 @@ function App() {
   // Main render
   return (
     <div className="App">
-      {currentScreen === 'login' ? (
+      {currentScreen === 'login' && (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
-      ) : currentScreen === 'home' ? (
+      )}
+      {currentScreen === 'home' && (
         <HomeScreen onLogout={handleLogout} onNavigateToDemo={handleNavigateToDemo} />
-      ) : currentScreen === 'camera-debug' ? (
+      )}
+      {currentScreen === 'admin' && (
+        <AdminScreen onBackToHome={() => setCurrentScreen('login')} />
+      )}
+      {currentScreen === 'camera-debug' && (
         <CameraDebugScreen />
-      ) : (
+      )}
+      {currentScreen === 'demo-history' && (
         <DemoHistory onBackToHome={handleBackToHome} />
       )}
     </div>

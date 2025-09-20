@@ -9,6 +9,7 @@ export interface Student {
   cohort: string; // Khóa học (23, 24, 25)
   phone: string;
   avatar?: string;
+  role?: 'student' | 'admin';
 }
 
 export interface LoginResult {
@@ -19,6 +20,17 @@ export interface LoginResult {
 
 // Mock data 30 sinh viên
 const MOCK_STUDENTS: Student[] = [
+  // Admin user (login: admin / admin123)
+  {
+    id: 'ADMIN',
+    name: 'System Administrator',
+    email: 'admin@eiu.edu.vn',
+    password: 'admin123',
+    registeredSubjects: [],
+    cohort: 'N/A',
+    phone: '0000000000',
+    role: 'admin'
+  },
   // Học cả 2 môn (10 sinh viên)
   {
     id: "SV001",
@@ -27,7 +39,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "23",
-    phone: "0901234567"
+    phone: "0901234567",
+    role: 'student'
   },
   {
     id: "SV002", 
@@ -36,7 +49,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "24",
-    phone: "0901234568"
+    phone: "0901234568",
+    role: 'student'
   },
   {
     id: "SV003",
@@ -45,7 +59,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "25",
-    phone: "0901234569"
+    phone: "0901234569",
+    role: 'student'
   },
   {
     id: "SV004",
@@ -54,7 +69,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1", 
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "23",
-    phone: "0901234570"
+    phone: "0901234570",
+    role: 'student'
   },
   {
     id: "SV005",
@@ -63,7 +79,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "24",
-    phone: "0901234571"
+    phone: "0901234571",
+    role: 'student'
   },
   {
     id: "SV006",
@@ -72,7 +89,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107", "CSE 201"], 
     cohort: "25",
-    phone: "0901234572"
+    phone: "0901234572",
+    role: 'student'
   },
   {
     id: "SV007",
@@ -81,7 +99,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "23", 
-    phone: "0901234573"
+    phone: "0901234573",
+    role: 'student'
   },
   {
     id: "SV008",
@@ -90,7 +109,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "24",
-    phone: "0901234574"
+    phone: "0901234574",
+    role: 'student'
   },
   {
     id: "SV009", 
@@ -99,7 +119,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "25",
-    phone: "0901234575"
+    phone: "0901234575",
+    role: 'student'
   },
   {
     id: "SV010",
@@ -108,7 +129,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1", 
     registeredSubjects: ["CSE 107", "CSE 201"],
     cohort: "23",
-    phone: "0901234576"
+    phone: "0901234576",
+    role: 'student'
   },
 
   // Chỉ học CSE 107 (10 sinh viên)
@@ -119,7 +141,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "24",
-    phone: "0901234577"
+    phone: "0901234577",
+    role: 'student'
   },
   {
     id: "SV012",
@@ -128,7 +151,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "25",
-    phone: "0901234578"
+    phone: "0901234578",
+    role: 'student'
   },
   {
     id: "SV013",
@@ -137,7 +161,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "23",
-    phone: "0901234579"
+    phone: "0901234579",
+    role: 'student'
   },
   {
     id: "SV014",
@@ -146,7 +171,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "24",
-    phone: "0901234580"
+    phone: "0901234580",
+    role: 'student'
   },
   {
     id: "SV015",
@@ -155,7 +181,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "25",
-    phone: "0901234581"
+    phone: "0901234581",
+    role: 'student'
   },
   {
     id: "SV016",
@@ -164,7 +191,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "23", 
-    phone: "0901234582"
+    phone: "0901234582",
+    role: 'student'
   },
   {
     id: "SV017",
@@ -173,7 +201,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "24",
-    phone: "0901234583"
+    phone: "0901234583",
+    role: 'student'
   },
   {
     id: "SV018",
@@ -182,7 +211,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "25",
-    phone: "0901234584"
+    phone: "0901234584",
+    role: 'student'
   },
   {
     id: "SV019",
@@ -191,7 +221,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "23",
-    phone: "0901234585"
+    phone: "0901234585",
+    role: 'student'
   },
   {
     id: "SV020",
@@ -200,7 +231,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 107"],
     cohort: "24",
-    phone: "0901234586"
+    phone: "0901234586",
+    role: 'student'
   },
 
   // Chỉ học CSE 201 (10 sinh viên)
@@ -211,7 +243,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "25",
-    phone: "0901234587"
+    phone: "0901234587",
+    role: 'student'
   },
   {
     id: "SV022",
@@ -220,7 +253,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "23", 
-    phone: "0901234588"
+    phone: "0901234588",
+    role: 'student'
   },
   {
     id: "SV023",
@@ -229,7 +263,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "24",
-    phone: "0901234589"
+    phone: "0901234589",
+    role: 'student'
   },
   {
     id: "SV024", 
@@ -238,7 +273,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "25",
-    phone: "0901234590"
+    phone: "0901234590",
+    role: 'student'
   },
   {
     id: "SV025",
@@ -247,7 +283,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "23",
-    phone: "0901234591"
+    phone: "0901234591",
+    role: 'student'
   },
   {
     id: "SV026",
@@ -256,7 +293,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "24",
-    phone: "0901234592"
+    phone: "0901234592",
+    role: 'student'
   },
   {
     id: "SV027",
@@ -265,7 +303,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "25",
-    phone: "0901234593"
+    phone: "0901234593",
+    role: 'student'
   },
   {
     id: "SV028",
@@ -274,7 +313,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "23",
-    phone: "0901234594"
+    phone: "0901234594",
+    role: 'student'
   },
   {
     id: "SV029",
@@ -283,7 +323,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1", 
     registeredSubjects: ["CSE 201"],
     cohort: "24",
-    phone: "0901234595"
+    phone: "0901234595",
+    role: 'student'
   },
   {
     id: "SV030",
@@ -292,7 +333,8 @@ const MOCK_STUDENTS: Student[] = [
     password: "1",
     registeredSubjects: ["CSE 201"],
     cohort: "25",
-    phone: "0901234596"
+    phone: "0901234596",
+    role: 'student'
   }
 ];
 
@@ -363,6 +405,14 @@ export class AuthService {
    */
   static isLoggedIn(): boolean {
     return this.getCurrentStudent() !== null;
+  }
+
+  /**
+   * Kiểm tra quyền admin
+   */
+  static isAdmin(): boolean {
+    const user = this.getCurrentStudent();
+    return user?.role === 'admin';
   }
 
   /**
