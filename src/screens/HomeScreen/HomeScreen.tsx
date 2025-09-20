@@ -4,9 +4,9 @@ import { CheckInService } from '../../Services/CheckInService';
 import type { SubjectInfo } from '../../Services/CheckInService';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService';
-import FaceRecognition, { type FaceRecognitionRef } from '../../components/CameraScreen/FaceRecognition';
-import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
-import ProfileModal from '../../components/ProfileModal';
+import FaceRecognition, { type FaceRecognitionRef } from '../../Components/CameraScreen/FaceRecognition';
+import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
+import ProfileModal from '../../Components/ProfileModal';
 import { captureFaceImage, getCapturedImagesByUser } from '../../utils/imageCaptureUtils';
 import { authService } from '../../Services/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
@@ -608,7 +608,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                   onError={(error) => {
                     console.error('Face recognition error:', error);
                     notify.push('❌ Lỗi nhận dạng khuôn mặt: ' + error, 'error');
-                    handleFaceRecognitionCancel();
+                    // Không đóng modal khi có lỗi để người dùng có thể thử lại
+                    setGpsStatus('❌ Lỗi camera: ' + error);
+                    setIsProcessing(false);
                   }}
                   autoRecognize={true}
                   recognizeInterval={3000}

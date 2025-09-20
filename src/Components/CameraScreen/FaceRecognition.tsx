@@ -400,7 +400,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
             '• Proper camera permissions\n' +
             '• Trusted domain';
         } else {
-          errorMsg = '❌ Camera Error\n\n' + err.message;
+          errorMsg = '❌' + err.message;
         }
       }
       
@@ -579,28 +579,28 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
               {loading ? '⏳' : isModelLoaded ? '✅' : '❌'}
             </span>
             <span className="status-text">
-              {loading ? 'Đang tải...' : isModelLoaded ? 'Models sẵn sàng' : 'Models chưa sẵn sàng'}
+              {loading ? 'Đang tải...' : isModelLoaded ? 'AI nhận diện khuôn mặt' : 'AI chưa sẵn sàng'}
             </span>
           </div>
           
           <div className={`status-indicator ${isCameraActive ? 'active' : 'inactive'}`}>
             <span className="status-icon">📹</span>
             <span className="status-text">
-              Camera: {isCameraActive ? 'Hoạt động' : 'Tắt'}
+              Camera nhận diện khuôn mặt: {isCameraActive ? 'Hoạt động' : 'Tắt'}
             </span>
           </div>
 
           <div className={`status-indicator ${isRecognizing ? 'active' : 'inactive'}`}>
             <span className="status-icon">🔍</span>
             <span className="status-text">
-              {isRecognizing ? 'Đang nhận dạng...' : 'Sẵn sàng'}
+              GPS thông minh
             </span>
           </div>
         </div>
       </div>
 
-      {/* Error Display */}
-      {error && (
+      {/* Error Display - Hidden */}
+      {false && error && (
         <div className="error-message">
           <span className="error-icon">⚠️</span>
           <span className="error-text" style={{ whiteSpace: 'pre-line' }}>{error}</span>
@@ -654,7 +654,22 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Camera Control */}
+      {!isCameraActive && (
+        <div className="camera-control">
+          <button 
+            className="control-btn primary"
+            onClick={startCamera}
+            disabled={!isModelLoaded}
+          >
+            <span className="btn-icon">📹</span>
+            Bật Camera
+          </button>
+        </div>
+      )}
+
+      {/* Controls - Hidden */}
+      {false && (
       <div className="controls">
         <div className="control-group">
           <button 
@@ -715,6 +730,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
           </button>
         </div>
       </div>
+      )}
 
       {/* Recognition Results */}
       {lastResults.length > 0 && (
