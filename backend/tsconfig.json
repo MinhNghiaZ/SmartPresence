@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                    // JavaScript version đích
+    "module": "commonjs",                  // Module system (khác frontend dùng ESNext)
+    "lib": ["ES2020"],                     // JavaScript libraries
+    "outDir": "./dist",                    // Folder chứa file JS sau build
+    "rootDir": "./",                       // Folder gốc chứa source code
+    "strict": true,                        // Enable strict type checking
+    "esModuleInterop": true,               // Tương thích với ES modules
+    "skipLibCheck": true,                  // Skip checking .d.ts files
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,             // Có thể import JSON files
+    "declaration": false,                  // Không tạo .d.ts files
+    "removeComments": true,                // Xóa comments khi build
+    "emitDecoratorMetadata": true,         // Support decorators
+    "experimentalDecorators": true,
+    "sourceMap": true,                     // Tạo source maps để debug
+    "incremental": true,                   // Build nhanh hơn
+    "noEmitOnError": true,                 // Không build nếu có lỗi
+    
+    /* Strict Type-Checking Options */
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    
+    /* Module Resolution Options */
+    "moduleResolution": "node",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]                     // Alias paths (nếu tạo src folder)
+    }
+  },
+  "include": [
+    "**/*.ts",                             // Include tất cả .ts files
+    "**/*.js"                              // Include .js files nếu có
+  ],
+  "exclude": [
+    "node_modules",                        // Exclude node_modules
+    "dist",                                // Exclude build output
+    "**/*.test.ts",                        // Exclude test files
+    "**/*.spec.ts"
+  ],
+  "ts-node": {
+    "esm": false,                          // Dùng CommonJS cho ts-node
+    "transpileOnly": true,                 // Compile nhanh hơn (skip type checking)
+    "files": true
+  }
+}
