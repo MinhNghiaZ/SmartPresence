@@ -1,8 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { AuthController } from './controllers/authController/authController';
-import { authenticateToken, requireAdmin, requireStudent } from './middleware/jwtMiddleware/authmiddleware';
+import db from './database/connection';
 
 // Load environment variables
 dotenv.config();
@@ -22,28 +21,49 @@ app.use(cors({
 // JSON Parser
 app.use(express.json());
 
-//Auth routes
+console.log('middleware configured')
 
-app.post('/api/auth/login', AuthController.login);
-app.post('/api/auth/logout',AuthController.logout);
-app.get('/api/auth/me', authenticateToken, AuthController.me)
-
-app.get('/api/admin/dashboard', authenticateToken, requireAdmin, (req, res) => {
+//sample routes
+app.get('/', (req, res) => {
     res.json({
-        success: true,
-        message: 'Admin dashboard',
-        user: req.user
+        message: 'back end run success',
+        timeStamp: new Date().toISOString(),
+        status: 'OK',
+        port: PORT
     });
 });
 
-// STUDENT ONLY ROUTES  
-app.get('/api/student/profile', authenticateToken, requireStudent, (req, res) => {
+app.get('/api/test', (req, res) => {
     res.json({
         success: true,
-        message: 'Student profile',
-        user: req.user
+        message: 'API is working!',
+        timestamp: new Date().toISOString()
     });
 });
+
+app.post('/api/echo', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Echo successful!',
+        received: req.body,
+        timestamp: new Date().toISOString()
+    })
+})
+
+// route test query for database
+app.get('/api/data', async (req, res) => {
+    try {
+        console.log('query StudentAccount table');
+        const [rows] = await db.query("SELECT * FROM StudentAccount");
+        res.json(rows);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            success: false,
+            message: 'fail to query table'
+        })
+    }
+})
 
 // 404 handler
 app.use((req, res, next) => {
@@ -70,11 +90,10 @@ app.listen(PORT, () => {
     console.log('\n');
 
     console.log('Test endpoints:');
-    console.log(`   POST http://localhost:${PORT}/api/auth/login`);
-    console.log(`   POST http://localhost:${PORT}/api/auth/logout`);
-    console.log(`   GET  http://localhost:${PORT}/api/auth/me (Protected)`);
-    console.log(`   GET  http://localhost:${PORT}/api/admin/dashboard (Admin only)`);
-    console.log(`   GET  http://localhost:${PORT}/api/student/profile (Student only)`);
+    console.log(`GET  http://localhost:${PORT}/`);
+    console.log(`GET  http://localhost:${PORT}/api/test`);
+    console.log(`POST http://localhost:${PORT}/api/echo`);
+    console.log(`GET  http://localhost:${PORT}/api/data`);
 });
 
 export default app;

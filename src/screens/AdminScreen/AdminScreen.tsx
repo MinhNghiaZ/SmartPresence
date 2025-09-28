@@ -58,9 +58,54 @@ function generateRecords(): DemoRecord[] {
 // NOTE: We keep records in component state now so admin can edit attendance.
 
 const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
-		const currentUser = authService.getCurrentStudent();
+		const currentUser = authService.getCurrentUser();
 		const { push } = useNotifications();
 		const isAdmin = authService.isAdmin();
+		
+		// Check if user is logged in and is admin
+		useEffect(() => {
+			console.log('AdminScreen: currentUser =', currentUser);
+			console.log('AdminScreen: isAdmin =', isAdmin);
+			
+			if (!currentUser) {
+				push('❌ Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.', 'error');
+				handleBackToLogin();
+				return;
+			}
+			
+			if (!isAdmin) {
+				push('❌ Bạn không có quyền truy cập trang Admin.', 'error');
+				handleBackToLogin();
+				return;
+			}
+		}, [currentUser, isAdmin, push]);
+
+		// Handler for back to login with proper logout
+		const handleBackToLogin = async () => {
+			try {
+				await authService.logout();
+				console.log('User logged out successfully');
+			} catch (error) {
+				console.error('Error during logout:', error);
+			}
+			
+			if (onBackToHome) {
+				onBackToHome();
+			}
+		};
+
+		// If no user or not admin, don't render the component
+		if (!currentUser || !isAdmin) {
+			return (
+				<div className="min-h-screen bg-gray-100 flex items-center justify-center">
+					<div className="text-center">
+						<h2 className="text-2xl font-bold text-gray-800 mb-4">Đang kiểm tra quyền truy cập...</h2>
+						<p className="text-gray-600">Vui lòng chờ trong giây lát.</p>
+					</div>
+				</div>
+			);
+		}
+
 		// Records state (initially generated demo data)
 		const [records, setRecords] = useState<DemoRecord[]>(() => generateRecords());
 		// Editing state
@@ -178,22 +223,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				window.scrollTo({ top: 0, behavior: 'smooth' });
 			};
 
-	if (!isAdmin) {
-			return (
-				<div className="admin-screen">
-					<div className="access-denied">
-						<div className="access-denied-content" role="alert" aria-live="assertive">
-							<div className="access-denied-icon" aria-hidden="true">🚫</div>
-							<h1>Quyền truy cập bị từ chối</h1>
-							<p>Bạn không có quyền truy cập vào trang Admin Dashboard.</p>
-							<p>Vui lòng đăng nhập bằng tài khoản ADMIN.</p>
-							<button className="action-btn primary" onClick={onBackToHome}>🔑 Quay về Login</button>
-						</div>
-					</div>
-				</div>
-			);
-	}
-
 	return (
 		<div className="admin-screen">
 			<nav className="admin-nav">
@@ -213,7 +242,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				</div>
 							</nav>
 				<div className="admin-container">
-					<button onClick={onBackToHome} className="back-button">← Quay về Login</button>
+					<button onClick={handleBackToLogin} className="back-button">← Quay về Login</button>
 
 					<div className="admin-content-grid">
 					<div className="admin-main-content">

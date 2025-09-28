@@ -8,16 +8,10 @@ import FaceRecognition, { type FaceRecognitionRef } from '../../Components/Camer
 import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
 import ProfileModal from '../../Components/ProfileModal';
 import { captureFaceImage, getCapturedImagesByUser } from '../../utils/imageCaptureUtils';
-import { authService } from '../../Services/AuthService';
+import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
 
 // Interfaces
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  faceEmbedding?: any;
-}
 
 interface AttendanceRecord {
   id: string;
@@ -48,20 +42,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
   
   // Get current student from AuthService
-  const currentStudent = authService.getCurrentStudent();
-  
-  // User data (convert from Student to User interface)
-  const [user] = useState<User>({
-    id: currentStudent?.id || 'SV001',
-    name: currentStudent?.name || 'Unknown User',
-    email: currentStudent?.email || 'unknown@eiu.edu.vn',
-  });
+  const currentUser = authService.getCurrentUser();
+
+  // If no user is logged in, redirect to login (this should be handled by app routing)
+  useEffect(() => {
+    if (!currentUser) {
+      console.warn('No user logged in, should redirect to login');
+      // In a real app, this would trigger a redirect to login
+      if (onLogout) {
+        onLogout();
+      }
+    }
+  }, [currentUser, onLogout]);
 
   // Get user's first registered face image
   const getUserRegisteredFaceImage = (): string => {
+    if (!currentUser) return '';
+    
     try {
       // Lấy ảnh từ captured images (ảnh đăng ký thành công)
-      const userImages = getCapturedImagesByUser(user.id);
+      const userImages = getCapturedImagesByUser(currentUser.id);
       const successImages = userImages.filter(img => img.checkInStatus === 'success');
       
       if (successImages.length > 0) {
@@ -95,7 +95,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     return () => {
       window.removeEventListener('newFaceCapture', handleNewFaceCapture);
     };
-  }, [user.id]);
+  }, [currentUser?.id]);
 
   // Utils
   const isLateCheckIn = (currentTime: string, classStartTime: string): boolean => {
@@ -130,9 +130,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
 
   // Filter subjects based on student registration
   const studentRegisteredSubjects = authService.getStudentRegisteredSubjects();
-  const availableSubjects = allSubjects.filter(subject => 
-    studentRegisteredSubjects.includes(subject.code)
-  );
+  const availableSubjects = allSubjects.filter(subject => {
+    // Safety check to ensure studentRegisteredSubjects is an array
+    if (!Array.isArray(studentRegisteredSubjects)) {
+      return true; // Show all subjects if registration data is not available
+    }
+    return studentRegisteredSubjects.includes(subject.code);
+  });
 
   const [selectedSubject, setSelectedSubject] = useState<SubjectInfo>(
     availableSubjects.length > 0 ? availableSubjects[0] : allSubjects[0]
@@ -140,6 +144,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
 
   // Handlers
   const handleCheckIn = async () => {
+    if (!currentUser) {
+      notify.push('❌ Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.', 'error');
+      if (onLogout) onLogout();
+      return;
+    }
+
     // Open camera modal
     setShowFaceModal(true);
     setIsProcessing(false);
@@ -154,14 +164,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       faceRecognizeService.loadFacesFromStorage();
       
       // Check registration status
-      const isUserRegistered = faceRecognizeService.isUserRegistered(user.id);
+      const isUserRegistered = faceRecognizeService.isUserRegistered(currentUser.id);
       
       if (isUserRegistered) {
         setIsRegisterMode(false);
-        setGpsStatus(`Xin chào ${user.name}! Vui lòng nhìn vào camera để xác thực...`);
+        setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để xác thực...`);
       } else {
         setIsRegisterMode(true);
-        setGpsStatus(`Xin chào ${user.name}! Bạn chưa đăng ký khuôn mặt. Vui lòng nhìn vào camera để đăng ký...`);
+        setGpsStatus(`Xin chào ${currentUser.name}! Bạn chưa đăng ký khuôn mặt. Vui lòng nhìn vào camera để đăng ký...`);
       }
       
     } catch (error) {
@@ -173,7 +183,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   };
 
   const handleFaceRecognitionSuccess = async (result: FaceRecognitionResult) => {
-    if (isProcessing || isCheckingIn) return;
+    if (isProcessing || isCheckingIn || !currentUser) return;
     
     // Capture face image before proceeding
     try {
@@ -181,8 +191,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       if (video) {
         const captureId = captureFaceImage(
           video,
-          user.id,
-          user.name,
+          currentUser.id,
+          currentUser.name,
           result.confidence,
           'success'
         );
@@ -198,7 +208,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     }
     setShowFaceModal(false);
     setIsCheckingIn(true);
-    setGpsStatus(`Xác thực thành công! Chào ${result.person?.name || user.name}`);
+    setGpsStatus(`Xác thực thành công! Chào ${result.person?.name || currentUser.name}`);
     
     try {
       // Perform check-in
@@ -244,7 +254,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   };
 
   const handleFaceRegistration = async () => {
-    if (isProcessing) return;
+    if (isProcessing || !currentUser) return;
     
     try {
       setIsProcessing(true);
@@ -252,10 +262,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       
       const video = document.querySelector('video') as HTMLVideoElement;
       if (video) {
-        await faceRecognizeService.registerFace(video, user.id, user.name);
+        await faceRecognizeService.registerFace(video, currentUser.id, currentUser.name);
         faceRecognizeService.saveFacesToStorage();
         
-        setGpsStatus(`✅ Đăng ký khuôn mặt thành công cho ${user.name}!`);
+        setGpsStatus(`✅ Đăng ký khuôn mặt thành công cho ${currentUser.name}!`);
         
         // Auto continue check-in after registration
         setTimeout(() => {
@@ -279,11 +289,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
 
   // Check-in function - được gọi sau face registration để tránh duplicate alert
   const performCheckInSilent = async () => {
-    if (isCheckingIn) return;
+    if (isCheckingIn || !currentUser) return;
     
     try {
       setIsCheckingIn(true);
-      setGpsStatus(`Chào mừng ${user.name}! Đang thực hiện check-in...`);
+      setGpsStatus(`Chào mừng ${currentUser.name}! Đang thực hiện check-in...`);
       
       const result = await CheckInService.performCheckIn(
         selectedSubject,
@@ -387,7 +397,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
             {/* User Profile Dropdown */}
             <div className="flex items-center space-x-4">
               <SimpleAvatarDropdown
-                userName={user.name}
+                userName={currentUser?.name || 'Unknown User'}
                 avatarUrl={userAvatar}
                 onProfile={handleProfile}
                 onSettings={handleSettings}
@@ -406,13 +416,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
           <div className="grid grid-cols-1 gap-6">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold mb-3 text-gray-800">
-                Xin chào {user.name}!
+                Xin chào {currentUser?.name || 'Unknown User'}!
               </h2>
               <p className="text-gray-700 text-lg mb-2">
                 Chào mừng đến với EIU SmartPresence Dashboard
               </p>
               <p className="text-gray-600 mb-4">
-                MSSV: {user.id} | {user.email}
+                MSSV: {currentUser?.id || 'N/A'} | {currentUser?.email || 'N/A'}
               </p>
 
               {/* Quick Actions */}
@@ -640,11 +650,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       )}
 
       {/* Profile Modal */}
-      <ProfileModal
-        user={user}
-        isOpen={showProfile}
-        onClose={handleCloseProfile}
-      />
+      {currentUser && (
+        <ProfileModal
+          user={{
+            id: currentUser.id,
+            name: currentUser.name,
+            email: currentUser.email
+          }}
+          isOpen={showProfile}
+          onClose={handleCloseProfile}
+        />
+      )}
     </div>
   );
 };

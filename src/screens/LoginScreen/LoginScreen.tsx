@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './LoginScreen.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { authService } from '../../Services/AuthService';
@@ -14,6 +14,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const notify = useNotifications();
+
+  // Clear any existing auth data when login screen loads
+  useEffect(() => {
+    // Clear authentication data to ensure fresh login
+    authService.clearAuthData();
+  }, []);
 
   // Handlers
   const handleLogin = async (e: React.FormEvent) => {
