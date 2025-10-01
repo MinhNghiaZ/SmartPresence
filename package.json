@@ -7,9 +7,15 @@
     "dev": "vite",
     "dev:https": "vite --host",
     "dev:secure": "vite --host --https",
+    "dev:fullstack": "concurrently \"npm run dev\" \"npm run dev:backend\"",
+    "dev:backend": "cd backend && npm run dev",
     "build": "tsc -b && vite build",
+    "build:backend": "cd backend && npm run build",
+    "build:all": "npm run build && npm run build:backend",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:fullstack": "concurrently \"npm run preview\" \"npm run start:backend\"",
+    "start:backend": "cd backend && npm run start"
   },
   "dependencies": {
     "bootstrap": "^5.3.3",
@@ -22,6 +28,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.2.1",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
