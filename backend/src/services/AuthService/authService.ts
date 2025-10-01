@@ -84,6 +84,7 @@ export class AuthService {
                 message: 'welcome',
                 User: {
                     ...userWithoutPassword,
+                    id: user.studentId || user.id, // Ensure 'id' field exists for both student and admin
                     userType: userType
                 },
                 token: token

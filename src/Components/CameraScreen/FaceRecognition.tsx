@@ -1,9 +1,9 @@
 import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useNotifications } from '../../context/NotificationContext';
-import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
+import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import { CameraPolyfill } from '../../Services/CameraPolyfill';
 import CameraRequirements from '../CameraRequirements';
-import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService';
+import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import './FaceRecognition.css';
 
 interface FaceRecognitionProps {
@@ -465,7 +465,8 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       setIsRecognizing(true);
       setError('');
       
-      const results = await faceRecognizeService.recognizeFace(videoRef.current);
+      const result = await faceRecognizeService.recognizeFace(videoRef.current);
+      const results = [result]; // Wrap single result in array for compatibility
       
       // Vẽ kết quả lên overlay canvas
       const overlayCanvas = overlayCanvasRef.current;
@@ -567,7 +568,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     }
   };
 
-  const registeredFaces = faceRecognizeService.getRegisteredFaces();
+  // Registered faces are now managed in backend database
 
   return (
     <div className="face-recognition">
@@ -759,33 +760,8 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         </div>
       )}
 
-      {/* Registered Faces List */}
-      {registeredFaces.length > 0 && (
-        <div className="registered-panel">
-          <h3 className="panel-title">Danh sách đã đăng ký:</h3>
-          <div className="registered-list">
-            {registeredFaces.map((face) => (
-              <div key={face.id} className="registered-item">
-                <div className="registered-avatar">👤</div>
-                <div className="registered-name">{face.name}</div>
-                <button
-                  className="remove-btn"
-                  onClick={() => {
-                    if (confirm(`Xóa ${face.name}?`)) {
-                      faceRecognizeService.removeFace(face.id);
-                      faceRecognizeService.saveFacesToStorage();
-                      // Force re-render
-                      setLastResults([...lastResults]);
-                    }
-                  }}
-                >
-                  ❌
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Registered Faces List - Now managed in backend database */}
+      {/* Panel removed as faces are managed centrally in backend */}
 
       {/* Camera Requirements Modal */}
       {showRequirements && (

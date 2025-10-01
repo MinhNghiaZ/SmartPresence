@@ -21,10 +21,11 @@ export interface CheckInProgress {
 export interface SubjectInfo {
   name: string;
   code: string;
+  subjectId: string; // ✅ ADD: Required for backend GPS validation
   time: string;
   room: string;
   instructor: string;
-  schedule?: string; // Thêm schedule field
+  schedule?: string;
 }
 
 // Mobile detection utility
@@ -118,22 +119,39 @@ export class CheckInService {
         };
       }
 
-      // Step 3: Verify location
+      // Step 3: Verify location với backend
       onProgress?.({ status: mobile ? 'Kiểm tra vị trí...' : 'Verifying location...', step: 'verification' });
       
-      const locationCheck = GPSService.isLocationAllowed(currentLocation);
-      console.log('Location check result:', locationCheck);
+      if (!subject.subjectId) {
+        return {
+          success: false,
+          message: 'Thiếu thông tin môn học để kiểm tra vị trí!',
+          error: 'MISSING_SUBJECT_ID'
+        };
+      }
+
+      let locationCheck;
+      try {
+        locationCheck = await GPSService.validateLocation(currentLocation, subject.subjectId);
+        console.log('Backend location validation result:', locationCheck);
+      } catch (validationError) {
+        const errorMessage = mobile ?
+          `❌ Lỗi kiểm tra vị trí!\n\n${(validationError as Error).message}\n\nVui lòng thử lại.` :
+          `❌ Location validation error!\n\n${(validationError as Error).message}\n\nPlease try again.`;
+        
+        onProgress?.({ status: mobile ? 'Lỗi kiểm tra vị trí' : 'Location validation error', step: 'error' });
+        
+        return {
+          success: false,
+          message: errorMessage,
+          error: 'LOCATION_VALIDATION_ERROR'
+        };
+      }
 
       if (!locationCheck.allowed) {
         const errorMessage = mobile ?
-          `❌ Vị trí không được phép!\n\n` +
-          `Bạn đang cách khu vực cho phép ${locationCheck.distance}m.\n` +
-          `Vui lòng di chuyển gần trường hơn để điểm danh.\n\n` +
-          `Khoảng cách tối đa: ${GPSService.getAllowedArea().radius}m` :
-          `❌ Location Not Allowed!\n\n` +
-          `You are ${locationCheck.distance}m away from the allowed area.\n` +
-          `Please move closer to the campus to check in.\n\n` +
-          `Maximum allowed distance: ${GPSService.getAllowedArea().radius}m`;
+          `❌ ${locationCheck.message}\n\nVui lòng di chuyển đến đúng phòng học để điểm danh.` :
+          `❌ ${locationCheck.message}\n\nPlease move to the correct classroom to check in.`;
         
         onProgress?.({ status: mobile ? 'Vị trí không được phép' : 'Location not allowed', step: 'error' });
         
@@ -157,12 +175,12 @@ export class CheckInService {
         `✅ Điểm danh thành công!\n\n` +
         `Môn học: ${subject.name}\n` +
         `Thời gian: ${new Date().toLocaleTimeString()}\n` +
-        `Vị trí: Đã xác minh (${locationCheck.distance}m từ trung tâm)\n` +
+        `Vị trí: Đã xác minh\n` +
         `Trạng thái: Có mặt` :
         `✅ Check-in Successful!\n\n` +
         `Subject: ${subject.name}\n` +
         `Time: ${new Date().toLocaleTimeString()}\n` +
-        `Location: Verified (${locationCheck.distance}m from center)\n` +
+        `Location: Verified\n` +
         `Status: Present`;
 
       // TODO: Send check-in data to API here
@@ -173,7 +191,7 @@ export class CheckInService {
         data: {
           subject: subject.name,
           time: new Date().toLocaleTimeString(),
-          location: `${locationCheck.distance}m from center`,
+          location: 'Verified',
           status: 'Present'
         }
       };
@@ -201,19 +219,13 @@ export class CheckInService {
     try {
       const mobile = isMobile();
       const location = await this.getLocationWithMobileSupport();
-      const check = GPSService.isLocationAllowed(location);
-      const allowedArea = GPSService.getAllowedArea();
       
       return (
         `📍 Current Location Debug (${mobile ? 'Mobile' : 'Desktop'}):\n\n` +
         `Latitude: ${location.latitude.toFixed(6)}\n` +
         `Longitude: ${location.longitude.toFixed(6)}\n\n` +
-        `Allowed Area Center:\n` +
-        `Lat: ${allowedArea.latitude.toFixed(6)}\n` +
-        `Lng: ${allowedArea.longitude.toFixed(6)}\n` +
-        `Radius: ${allowedArea.radius}m\n\n` +
-        `Distance: ${check.distance}m\n` +
-        `Status: ${check.allowed ? '✅ Allowed' : '❌ Not Allowed'}\n\n` +
+        `Status: Location retrieved successfully\n\n` +
+        `Note: Location validation now handled by backend\n` +
         `GPS Options: ${JSON.stringify(getGPSOptions(), null, 2)}`
       );
     } catch (error) {

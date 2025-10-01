@@ -1,5 +1,38 @@
 import * as faceapi from 'face-api.js';
 
+// Backend API interfaces
+export interface FaceRegistrationRequest {
+  studentId: string;
+  descriptor: number[];
+  imageData?: string;
+}
+
+export interface FaceRecognitionRequest {
+  descriptor: number[];
+  imageData?: string;
+  subjectId?: string;
+  timeSlotId?: string;
+  studentId: string; // ✅ THÊM STUDENT ID
+}
+
+export interface FaceRecognitionResponse {
+  success: boolean;
+  isMatch: boolean;
+  confidence: number;
+  studentId?: string;
+  studentName?: string;
+  message: string;
+}
+
+export interface StudentFaceInfo {
+  studentId: string;
+  registered: boolean;
+  name?: string;
+  canRegister?: boolean;
+  reason?: string;
+}
+
+// Legacy interfaces for compatibility with existing code
 export interface FaceDescriptor {
   id: string;
   name: string;
@@ -15,9 +48,8 @@ export interface FaceRecognitionResult {
 
 export class FaceRecognizeService {
   private isModelsLoaded = false;
-  private knownFaces: FaceDescriptor[] = [];
   private readonly MODEL_URL = '/models';
-  private readonly FACE_MATCH_THRESHOLD = 0.6; // Ngưỡng nhận dạng khuôn mặt
+  private readonly API_BASE = 'http://localhost:3001/api/face';
 
   /**
    * Khởi tạo và tải các model cần thiết cho face-api.js
@@ -25,11 +57,11 @@ export class FaceRecognizeService {
   async initializeModels(): Promise<void> {
     try {
       if (this.isModelsLoaded) {
-        console.log('Models đã được tải trước đó');
+        console.log('✅ Models đã được tải trước đó');
         return;
       }
 
-      console.log('Đang tải models...');
+      console.log('🔄 Đang tải Face Recognition models...');
       
       // Tải các model cần thiết
       await Promise.all([
@@ -39,9 +71,9 @@ export class FaceRecognizeService {
       ]);
 
       this.isModelsLoaded = true;
-      console.log('Tất cả models đã được tải thành công');
+      console.log('✅ Tất cả Face Recognition models đã được tải thành công');
     } catch (error) {
-      console.error('Lỗi khi tải models:', error);
+      console.error('❌ Lỗi khi tải models:', error);
       throw new Error('Không thể tải models cho face recognition');
     }
   }
@@ -51,6 +83,25 @@ export class FaceRecognizeService {
    */
   isReady(): boolean {
     return this.isModelsLoaded;
+  }
+
+  /**
+   * Convert image element to base64 string
+   */
+  private imageToBase64(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): string {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    
+    if (imageElement instanceof HTMLVideoElement) {
+      canvas.width = imageElement.videoWidth;
+      canvas.height = imageElement.videoHeight;
+    } else {
+      canvas.width = imageElement.width;
+      canvas.height = imageElement.height;
+    }
+    
+    ctx.drawImage(imageElement, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.8);
   }
 
   /**
@@ -75,14 +126,16 @@ export class FaceRecognizeService {
   }
 
   /**
-   * Đăng ký khuôn mặt mới vào hệ thống
+   * Đăng ký khuôn mặt mới vào hệ thống (Backend API)
    */
   async registerFace(
     imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
-    personId: string,
-    personName: string
+    studentId: string,
+    studentName: string
   ): Promise<boolean> {
     try {
+      console.log(`🔍 Registering face for student: ${studentId} (${studentName})`);
+      
       const detections = await this.detectFace(imageElement);
       
       if (detections.length === 0) {
@@ -93,158 +146,224 @@ export class FaceRecognizeService {
         throw new Error('Phát hiện nhiều hơn 1 khuôn mặt. Vui lòng sử dụng ảnh chỉ có 1 người');
       }
 
-      const faceDescriptor: FaceDescriptor = {
-        id: personId,
-        name: personName,
-        descriptor: detections[0].descriptor
+      // Convert Float32Array to regular array for JSON
+      const descriptor = Array.from(detections[0].descriptor);
+      
+      // Get image data as base64
+      const imageData = this.imageToBase64(imageElement);
+
+      const request: FaceRegistrationRequest = {
+        studentId,
+        descriptor,
+        imageData
       };
 
-      // Kiểm tra xem người này đã được đăng ký chưa
-      const existingIndex = this.knownFaces.findIndex(face => face.id === personId);
-      if (existingIndex !== -1) {
-        // Cập nhật descriptor mới
-        this.knownFaces[existingIndex] = faceDescriptor;
-        console.log(`Cập nhật khuôn mặt cho ${personName}`);
+      const response = await fetch(`${this.API_BASE}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log(`✅ Face registered successfully for ${studentName}`);
+        return true;
       } else {
-        // Thêm mới
-        this.knownFaces.push(faceDescriptor);
-        console.log(`Đăng ký khuôn mặt mới cho ${personName}`);
+        console.error(`❌ Face registration failed: ${result.message}`);
+        throw new Error(result.message || 'Face registration failed');
       }
-
-      return true;
+      
     } catch (error) {
-      console.error('Lỗi khi đăng ký khuôn mặt:', error);
+      console.error('❌ Error registering face:', error);
       throw error;
     }
   }
 
   /**
-   * Nhận dạng khuôn mặt từ ảnh so với database đã lưu
+   * Nhận dạng khuôn mặt từ ảnh (Backend API)
    */
-  async recognizeFace(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): Promise<FaceRecognitionResult[]> {
+  async recognizeFace(
+    imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
+    subjectId?: string,
+    timeSlotId?: string
+  ): Promise<FaceRecognitionResult> {
     try {
+      console.log('🔍 Starting face recognition...');
+      
       const detections = await this.detectFace(imageElement);
-      const results: FaceRecognitionResult[] = [];
-
+      
       if (detections.length === 0) {
-        return results;
+        return {
+          isMatch: false,
+          confidence: 0
+        };
       }
 
-      for (const detection of detections) {
-        let bestMatch: FaceDescriptor | undefined;
-        let bestDistance = Infinity;
+      // Convert Float32Array to regular array for JSON
+      const descriptor = Array.from(detections[0].descriptor);
+      
+      // Get image data as base64
+      const imageData = this.imageToBase64(imageElement);
 
-        // So sánh với tất cả khuôn mặt đã lưu
-        for (const knownFace of this.knownFaces) {
-          const distance = faceapi.euclideanDistance(detection.descriptor, knownFace.descriptor);
-          
-          if (distance < bestDistance) {
-            bestDistance = distance;
-            bestMatch = knownFace;
-          }
-        }
+      // ✅ LẤY CURRENT USER ID
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      const studentId = currentUser.id;
 
-        const isMatch = bestDistance < this.FACE_MATCH_THRESHOLD;
-        const confidence = Math.max(0, (1 - bestDistance) * 100); // Chuyển đổi khoảng cách thành % tin cậy
-
-        results.push({
-          isMatch,
-          confidence: parseFloat(confidence.toFixed(2)),
-          person: isMatch ? bestMatch : undefined,
-          box: detection.detection.box
-        });
+      if (!studentId) {
+        console.error('❌ No current user found');
+        return {
+          isMatch: false,
+          confidence: 0
+        };
       }
 
-      return results;
+      const request: FaceRecognitionRequest = {
+        descriptor,
+        imageData,
+        subjectId,
+        timeSlotId,
+        studentId // ✅ TRUYỀN STUDENT ID
+      };
+
+      const response = await fetch(`${this.API_BASE}/recognize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request)
+      });
+
+      const result: FaceRecognitionResponse = await response.json();
+
+      if (result.success) {
+        console.log(`✅ Face recognition completed: ${result.message}`);
+        
+        // Convert backend response to legacy format for compatibility
+        return {
+          isMatch: result.isMatch,
+          confidence: result.confidence,
+          person: result.isMatch ? {
+            id: result.studentId!,
+            name: result.studentName!,
+            descriptor: new Float32Array(descriptor) // Convert back for legacy compatibility
+          } : undefined,
+          box: detections[0].detection.box
+        };
+      } else {
+        console.error(`❌ Face recognition failed: ${result.message}`);
+        return {
+          isMatch: false,
+          confidence: 0
+        };
+      }
+      
     } catch (error) {
-      console.error('Lỗi khi nhận dạng khuôn mặt:', error);
-      throw error;
+      console.error('❌ Error recognizing face:', error);
+      return {
+        isMatch: false,
+        confidence: 0
+      };
     }
   }
 
   /**
-   * Lấy danh sách khuôn mặt đã đăng ký
+   * Kiểm tra sinh viên đã đăng ký khuôn mặt chưa (Backend API)
    */
-  getRegisteredFaces(): FaceDescriptor[] {
-    return [...this.knownFaces];
-  }
-
-  /**
-   * Kiểm tra xem user có ID cụ thể đã đăng ký khuôn mặt chưa
-   */
-  isUserRegistered(userId: string): boolean {
-    return this.knownFaces.some(face => face.id === userId);
-  }
-
-  /**
-   * Xóa khuôn mặt đã đăng ký
-   */
-  removeFace(personId: string): boolean {
-    const index = this.knownFaces.findIndex(face => face.id === personId);
-    if (index !== -1) {
-      this.knownFaces.splice(index, 1);
-      console.log(`Đã xóa khuôn mặt có ID: ${personId}`);
-      return true;
+  async isUserRegistered(studentId: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.API_BASE}/check/${studentId}`);
+      const result = await response.json();
+      
+      return result.success && result.registered;
+    } catch (error) {
+      console.error('❌ Error checking registration:', error);
+      return false;
     }
+  }
+
+  /**
+   * Lấy thông tin face registration của sinh viên (Backend API)
+   */
+  async getStudentFaceInfo(studentId: string): Promise<StudentFaceInfo> {
+    try {
+      const response = await fetch(`${this.API_BASE}/check/${studentId}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        return {
+          studentId: result.studentId,
+          registered: result.registered,
+          name: result.name,
+          canRegister: result.canRegister,
+          reason: result.reason
+        };
+      } else {
+        return {
+          studentId,
+          registered: false,
+          canRegister: false,
+          reason: 'Error checking registration status'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error getting student face info:', error);
+      return {
+        studentId,
+        registered: false,
+        canRegister: false,
+        reason: 'System error'
+      };
+    }
+  }
+
+  // Legacy methods for backward compatibility - deprecated
+  
+  /**
+   * @deprecated Use getStudentFaceInfo instead
+   */
+  getAllKnownFaces(): FaceDescriptor[] {
+    console.warn('⚠️ getAllKnownFaces() is deprecated. Face data is now stored in backend.');
+    return [];
+  }
+
+  /**
+   * @deprecated Use registerFace instead  
+   */
+  removeFace(_personId: string): boolean {
+    console.warn('⚠️ removeFace() is deprecated. Contact admin to reset face registration.');
     return false;
   }
 
   /**
-   * Xóa tất cả khuôn mặt đã đăng ký
+   * @deprecated Face data is now stored in backend
    */
   clearAllFaces(): void {
-    this.knownFaces = [];
-    console.log('Đã xóa tất cả khuôn mặt đã đăng ký');
+    console.warn('⚠️ clearAllFaces() is deprecated. Face data is now stored in backend.');
   }
 
   /**
-   * Lưu dữ liệu khuôn mặt vào localStorage
+   * @deprecated Face data is now stored in backend
    */
   saveFacesToStorage(): void {
-    try {
-      const facesData = this.knownFaces.map(face => ({
-        id: face.id,
-        name: face.name,
-        descriptor: Array.from(face.descriptor) // Chuyển Float32Array thành Array thường để JSON hóa
-      }));
-      
-      localStorage.setItem('registeredFaces', JSON.stringify(facesData));
-      console.log('Đã lưu dữ liệu khuôn mặt vào localStorage');
-    } catch (error) {
-      console.error('Lỗi khi lưu dữ liệu khuôn mặt:', error);
-    }
+    console.warn('⚠️ saveFacesToStorage() is deprecated. Face data is automatically saved to backend.');
   }
 
   /**
-   * Tải dữ liệu khuôn mặt từ localStorage
+   * @deprecated Face data is now stored in backend
    */
   loadFacesFromStorage(): void {
-    try {
-      const storedData = localStorage.getItem('registeredFaces');
-      if (storedData) {
-        const facesData = JSON.parse(storedData);
-        this.knownFaces = facesData.map((face: any) => ({
-          id: face.id,
-          name: face.name,
-          descriptor: new Float32Array(face.descriptor) // Chuyển Array thường thành Float32Array
-        }));
-        console.log(`Đã tải ${this.knownFaces.length} khuôn mặt từ localStorage`);
-      }
-    } catch (error) {
-      console.error('Lỗi khi tải dữ liệu khuôn mặt:', error);
-    }
+    console.warn('⚠️ loadFacesFromStorage() is deprecated. Face data is loaded from backend.');
   }
 
   /**
-   * Thiết lập ngưỡng nhận dạng khuôn mặt
+   * @deprecated Match threshold is now configured in backend
    */
   setMatchThreshold(threshold: number): void {
-    if (threshold >= 0 && threshold <= 1) {
-      (this as any).FACE_MATCH_THRESHOLD = threshold;
-      console.log(`Đã thiết lập ngưỡng nhận dạng: ${threshold}`);
-    } else {
-      throw new Error('Ngưỡng phải nằm trong khoảng 0-1');
-    }
+    console.warn('⚠️ setMatchThreshold() is deprecated. Match threshold is now configured in backend.');
+    console.log(`Requested threshold: ${threshold} (ignored)`);
   }
 
   /**

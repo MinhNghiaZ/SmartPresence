@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import './HomeScreen_modern.css';
 import { CheckInService } from '../../Services/CheckInService';
 import type { SubjectInfo } from '../../Services/CheckInService';
-import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService';
-import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService';
+import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
+import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import FaceRecognition, { type FaceRecognitionRef } from '../../Components/CameraScreen/FaceRecognition';
 import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
 import ProfileModal from '../../Components/ProfileModal';
-import { captureFaceImage, getCapturedImagesByUser } from '../../utils/imageCaptureUtils';
+import { captureFaceImage } from '../../utils/imageCaptureUtils';
 import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -60,15 +60,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     if (!currentUser) return '';
     
     try {
-      // Lấy ảnh từ captured images (ảnh đăng ký thành công)
-      const userImages = getCapturedImagesByUser(currentUser.id);
-      const successImages = userImages.filter(img => img.checkInStatus === 'success');
-      
-      if (successImages.length > 0) {
-        // Trả về ảnh đầu tiên (mới nhất)
-        return successImages[0].imageData;
-      }
-      
+      // Note: User avatar functionality now requires backend API call
+      // For now, return empty string. Could implement API call to get user's latest successful image
+      console.log('📸 Avatar functionality moved to backend. Consider implementing API call.');
       return '';
     } catch (error) {
       console.error('Error getting user face image:', error);
@@ -111,6 +105,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   // Configuration - All available subjects
   const allSubjects: SubjectInfo[] = [
     {
+      subjectId: 'CSE107',
       name: 'Toán Tin Ứng Dụng',
       code: 'CSE 107',
       time: '7:30 AM - 9:30 AM',
@@ -119,6 +114,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       schedule: 'Thứ 2, Thứ 5'
     },
     {
+      subjectId: 'CSE201',
       name: 'Cấu Trúc Dữ Liệu Giải Thuật',
       code: 'CSE 201', 
       time: '9:30 AM - 11:30 AM',
@@ -161,10 +157,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
         await faceRecognizeService.initializeModels();
       }
       
-      faceRecognizeService.loadFacesFromStorage();
-      
-      // Check registration status
-      const isUserRegistered = faceRecognizeService.isUserRegistered(currentUser.id);
+      // Check registration status from backend
+      setGpsStatus('Đang kiểm tra trạng thái đăng ký...');
+      const isUserRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
       
       if (isUserRegistered) {
         setIsRegisterMode(false);
@@ -263,9 +258,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       const video = document.querySelector('video') as HTMLVideoElement;
       if (video) {
         await faceRecognizeService.registerFace(video, currentUser.id, currentUser.name);
-        faceRecognizeService.saveFacesToStorage();
         
         setGpsStatus(`✅ Đăng ký khuôn mặt thành công cho ${currentUser.name}!`);
+        
+        // Switch to authentication mode after successful registration
+        setIsRegisterMode(false);
+        
+        // Update status for authentication mode
+        setTimeout(() => {
+          setGpsStatus(`Chuyển sang chế độ xác thực. Vui lòng nhìn vào camera để check-in...`);
+        }, 1000);
         
         // Auto continue check-in after registration
         setTimeout(() => {
@@ -275,7 +277,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
           setShowFaceModal(false);
           // Gọi performCheckIn mà không hiển thị alert duplicate
           performCheckInSilent();
-        }, 2000);
+        }, 3000);
         
       } else {
         throw new Error('Không tìm thấy video element');

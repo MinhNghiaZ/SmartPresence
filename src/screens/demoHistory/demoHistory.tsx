@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import './demoHistory.css';
 
 interface CapturedImage {
-  id: string;
-  userId: string;
-  userName: string;
+  imageId: string;
+  studentId: string | null;
+  studentName?: string;
   imageData: string; // base64 image data
-  timestamp: string;
   confidence: number;
-  checkInStatus: 'success' | 'failed';
+  status: string;
+  subjectId?: string;
+  subjectName?: string;
+  capturedAt: string;
+  ipAddress?: string;
 }
 
 interface DemoHistoryProps {
@@ -18,33 +21,43 @@ interface DemoHistoryProps {
 const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [selectedImage, setSelectedImage] = useState<CapturedImage | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>('');
+  const API_BASE = 'http://localhost:3001/api/storage';
 
-  // Load captured images from localStorage
+  // Load captured images from backend API
   useEffect(() => {
-    const loadImages = () => {
+    const loadImages = async () => {
       try {
-        const storedImages = localStorage.getItem('capturedFaceImages');
-        if (storedImages) {
-          const images = JSON.parse(storedImages);
-          setCapturedImages(images);
+        setLoading(true);
+        setError('');
+        
+        const response = await fetch(`${API_BASE}/captured-images?limit=100`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setCapturedImages(data.images);
+          console.log(`✅ Loaded ${data.count} captured images from database`);
+        } else {
+          throw new Error(data.message || 'Failed to load images');
+        }
+        
       } catch (error) {
         console.error('Error loading captured images:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load images');
+      } finally {
+        setLoading(false);
       }
     };
 
     loadImages();
 
-    // Listen for new captured images
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'capturedFaceImages') {
-        loadImages();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Also listen for custom events from same page
+    // Listen for new captured images (custom events from same page)
     const handleNewCapture = () => {
       loadImages();
     };
@@ -52,34 +65,59 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
     window.addEventListener('newFaceCapture', handleNewCapture);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('newFaceCapture', handleNewCapture);
     };
   }, []);
 
-  const clearAllImages = () => {
+  const clearAllImages = async () => {
     if (window.confirm('Bạn có chắc muốn xóa tất cả ảnh đã capture?')) {
-      localStorage.removeItem('capturedFaceImages');
-      setCapturedImages([]);
-      setSelectedImage(null);
+      try {
+        const response = await fetch(`${API_BASE}/captured-images`, {
+          method: 'DELETE'
+        });
+        
+        if (response.ok) {
+          setCapturedImages([]);
+          setSelectedImage(null);
+          console.log('✅ All images cleared successfully');
+        } else {
+          alert('Không thể xóa tất cả ảnh. Vui lòng thử lại.');
+        }
+      } catch (error) {
+        console.error('Error deleting all images:', error);
+        alert('Lỗi khi xóa ảnh. Vui lòng thử lại.');
+      }
     }
   };
 
   const downloadImage = (image: CapturedImage) => {
     const link = document.createElement('a');
     link.href = image.imageData;
-    link.download = `face_capture_${image.userName}_${image.timestamp.replace(/[:\s]/g, '_')}.png`;
+    link.download = `face_capture_${image.studentName || 'unknown'}_${image.capturedAt.replace(/[:\s]/g, '_')}.png`;
     link.click();
   };
 
-  const deleteImage = (imageId: string) => {
+  const deleteImage = async (imageId: string) => {
     if (window.confirm('Bạn có chắc muốn xóa ảnh này?')) {
-      const updatedImages = capturedImages.filter(img => img.id !== imageId);
-      setCapturedImages(updatedImages);
-      localStorage.setItem('capturedFaceImages', JSON.stringify(updatedImages));
-      
-      if (selectedImage?.id === imageId) {
-        setSelectedImage(null);
+      try {
+        const response = await fetch(`${API_BASE}/captured-images/${imageId}`, {
+          method: 'DELETE'
+        });
+        
+        if (response.ok) {
+          const updatedImages = capturedImages.filter(img => img.imageId !== imageId);
+          setCapturedImages(updatedImages);
+          
+          if (selectedImage?.imageId === imageId) {
+            setSelectedImage(null);
+          }
+          console.log('✅ Image deleted successfully');
+        } else {
+          alert('Không thể xóa ảnh. Vui lòng thử lại.');
+        }
+      } catch (error) {
+        console.error('Error deleting image:', error);
+        alert('Lỗi khi xóa ảnh. Vui lòng thử lại.');
       }
     }
   };
@@ -88,7 +126,7 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
     <div className="demo-history-container">
       <header className="demo-header">
         <h1>📸 Face Capture History</h1>
-        <p>Ảnh khuôn mặt được capture khi check-in thành công</p>
+        <p>Tất cả ảnh khuôn mặt được lưu trong database ({capturedImages.length} ảnh)</p>
         
         <div className="demo-actions">
           <button 
@@ -114,7 +152,25 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
       </header>
 
       <div className="demo-content">
-        {capturedImages.length === 0 ? (
+        {loading ? (
+          <div className="empty-state">
+            <div className="empty-icon">⏳</div>
+            <h3>Đang tải dữ liệu...</h3>
+            <p>Vui lòng chờ trong giây lát</p>
+          </div>
+        ) : error ? (
+          <div className="empty-state">
+            <div className="empty-icon">❌</div>
+            <h3>Lỗi tải dữ liệu</h3>
+            <p>{error}</p>
+            <button 
+              className="action-btn refresh"
+              onClick={() => window.location.reload()}
+            >
+              🔄 Thử lại
+            </button>
+          </div>
+        ) : capturedImages.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📷</div>
             <h3>Chưa có ảnh nào được capture</h3>
@@ -128,26 +184,26 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
               <div className="grid-container">
                 {capturedImages.map((image) => (
                   <div 
-                    key={image.id} 
-                    className={`image-card ${selectedImage?.id === image.id ? 'selected' : ''}`}
+                    key={image.imageId} 
+                    className={`image-card ${selectedImage?.imageId === image.imageId ? 'selected' : ''}`}
                     onClick={() => setSelectedImage(image)}
                   >
                     <div className="image-wrapper">
                       <img 
                         src={image.imageData} 
-                        alt={`${image.userName} - ${image.timestamp}`}
+                        alt={`${image.studentName || 'Unknown'} - ${image.capturedAt}`}
                         className="captured-image"
                       />
                       <div className="image-overlay">
-                        <div className={`status-badge ${image.checkInStatus}`}>
-                          {image.checkInStatus === 'success' ? '✅' : '❌'}
+                        <div className={`status-badge ${image.status.toLowerCase()}`}>
+                          {image.status === 'SUCCESS' ? '✅' : '❌'}
                         </div>
                       </div>
                     </div>
                     
                     <div className="image-info">
-                      <div className="user-name">{image.userName}</div>
-                      <div className="timestamp">{new Date(image.timestamp).toLocaleString('vi-VN')}</div>
+                      <div className="user-name">{image.studentName || 'Unknown'}</div>
+                      <div className="timestamp">{new Date(image.capturedAt).toLocaleString('vi-VN')}</div>
                       <div className="confidence">Confidence: {image.confidence.toFixed(1)}%</div>
                     </div>
                   </div>
@@ -162,7 +218,7 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
                 <div className="detail-image-wrapper">
                   <img 
                     src={selectedImage.imageData} 
-                    alt={`${selectedImage.userName} - ${selectedImage.timestamp}`}
+                    alt={`${selectedImage.studentName || 'Unknown'} - ${selectedImage.capturedAt}`}
                     className="detail-image"
                   />
                 </div>
@@ -170,15 +226,15 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
                 <div className="detail-info">
                   <div className="info-row">
                     <span className="label">Người dùng:</span>
-                    <span className="value">{selectedImage.userName}</span>
+                    <span className="value">{selectedImage.studentName || 'Unknown'}</span>
                   </div>
                   <div className="info-row">
-                    <span className="label">User ID:</span>
-                    <span className="value">{selectedImage.userId}</span>
+                    <span className="label">Student ID:</span>
+                    <span className="value">{selectedImage.studentId || 'N/A'}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Thời gian:</span>
-                    <span className="value">{new Date(selectedImage.timestamp).toLocaleString('vi-VN')}</span>
+                    <span className="value">{new Date(selectedImage.capturedAt).toLocaleString('vi-VN')}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Confidence:</span>
@@ -186,10 +242,22 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
                   </div>
                   <div className="info-row">
                     <span className="label">Trạng thái:</span>
-                    <span className={`value status ${selectedImage.checkInStatus}`}>
-                      {selectedImage.checkInStatus === 'success' ? '✅ Thành công' : '❌ Thất bại'}
+                    <span className={`value status ${selectedImage.status.toLowerCase()}`}>
+                      {selectedImage.status === 'SUCCESS' ? '✅ Thành công' : '❌ Thất bại'}
                     </span>
                   </div>
+                  {selectedImage.subjectName && (
+                    <div className="info-row">
+                      <span className="label">Môn học:</span>
+                      <span className="value">{selectedImage.subjectName}</span>
+                    </div>
+                  )}
+                  {selectedImage.ipAddress && (
+                    <div className="info-row">
+                      <span className="label">IP Address:</span>
+                      <span className="value">{selectedImage.ipAddress}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="detail-actions">
@@ -201,7 +269,7 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
                   </button>
                   <button 
                     className="action-btn delete"
-                    onClick={() => deleteImage(selectedImage.id)}
+                    onClick={() => deleteImage(selectedImage.imageId)}
                   >
                     🗑️ Delete
                   </button>

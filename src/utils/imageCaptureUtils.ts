@@ -1,17 +1,32 @@
 // Utility functions for capturing and managing face images
 
 export interface CapturedImage {
+  imageId: string;
+  studentId: string | null;
+  studentName?: string;
+  imageData: string; // base64 image data
+  confidence: number;
+  status: string;
+  subjectId?: string;
+  subjectName?: string;
+  capturedAt: string;
+  ipAddress?: string;
+}
+
+// Legacy interface for backward compatibility
+export interface LegacyCapturedImage {
   id: string;
   userId: string;
   userName: string;
-  imageData: string; // base64 image data
+  imageData: string;
   timestamp: string;
   confidence: number;
   checkInStatus: 'success' | 'failed';
 }
 
 /**
- * Capture image from video element and save to localStorage
+ * Capture image from video element - now just captures but doesn't save (backend handles saving)
+ * Returns imageId for tracking purposes
  */
 export const captureFaceImage = (
   video: HTMLVideoElement,
@@ -37,31 +52,24 @@ export const captureFaceImage = (
     // Draw current video frame to canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Convert to base64 image data
-    const imageData = canvas.toDataURL('image/png', 0.95);
-
-    // Create captured image object
-    const capturedImage: CapturedImage = {
-      id: `capture_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId,
-      userName,
-      imageData,
-      timestamp: new Date().toISOString(),
-      confidence,
-      checkInStatus
-    };
-
-    // Save to localStorage
-    saveCapturedImage(capturedImage);
+    // Generate unique ID for tracking
+    const imageId = `capture_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     console.log('✅ Face image captured successfully:', {
+      imageId,
       userId,
       userName,
       confidence,
-      imageSize: `${canvas.width}x${canvas.height}`
+      imageSize: `${canvas.width}x${canvas.height}`,
+      note: 'Image data is handled by backend'
     });
 
-    return capturedImage.id;
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('newFaceCapture', {
+      detail: { imageId, userId, userName, confidence, status: checkInStatus }
+    }));
+
+    return imageId;
 
   } catch (error) {
     console.error('❌ Error capturing face image:', error);
@@ -70,83 +78,62 @@ export const captureFaceImage = (
 };
 
 /**
- * Save captured image to localStorage
+ * @deprecated Images are now managed by backend. Use backend API instead.
  */
-export const saveCapturedImage = (capturedImage: CapturedImage): void => {
-  try {
-    const existingImages = getCapturedImages();
-    const updatedImages = [capturedImage, ...existingImages];
-    
-    // Keep only last 50 images to prevent storage overflow
-    const limitedImages = updatedImages.slice(0, 50);
-    
-    localStorage.setItem('capturedFaceImages', JSON.stringify(limitedImages));
-    
-    // Dispatch custom event to notify other components
-    window.dispatchEvent(new CustomEvent('newFaceCapture', {
-      detail: capturedImage
-    }));
-    
-  } catch (error) {
-    console.error('Error saving captured image:', error);
-  }
+export const saveCapturedImage = (_capturedImage: LegacyCapturedImage): void => {
+  console.warn('⚠️ saveCapturedImage() is deprecated. Images are now managed by backend.');  
 };
 
 /**
- * Get all captured images from localStorage
+ * @deprecated Images are now loaded from backend API. Use frontend components to fetch data.
  */
-export const getCapturedImages = (): CapturedImage[] => {
-  try {
-    const stored = localStorage.getItem('capturedFaceImages');
-    return stored ? JSON.parse(stored) : [];
-  } catch (error) {
-    console.error('Error loading captured images:', error);
-    return [];
-  }
+export const getCapturedImages = (): LegacyCapturedImage[] => {
+  console.warn('⚠️ getCapturedImages() is deprecated. Use backend API to fetch images.');
+  return [];
 };
 
 /**
- * Clear all captured images
+ * @deprecated Images are now managed by backend. Use backend API instead.
  */
 export const clearCapturedImages = (): void => {
-  try {
-    localStorage.removeItem('capturedFaceImages');
-    window.dispatchEvent(new CustomEvent('newFaceCapture', {
-      detail: null
-    }));
-  } catch (error) {
-    console.error('Error clearing captured images:', error);
-  }
+  console.warn('⚠️ clearCapturedImages() is deprecated. Use backend API to clear images.');
 };
 
 /**
- * Delete specific captured image
+ * @deprecated Images are now managed by backend. Use backend API instead.
  */
-export const deleteCapturedImage = (imageId: string): void => {
-  try {
-    const existingImages = getCapturedImages();
-    const updatedImages = existingImages.filter(img => img.id !== imageId);
-    localStorage.setItem('capturedFaceImages', JSON.stringify(updatedImages));
-    
-    window.dispatchEvent(new CustomEvent('newFaceCapture', {
-      detail: null
-    }));
-  } catch (error) {
-    console.error('Error deleting captured image:', error);
-  }
+export const deleteCapturedImage = (_imageId: string): void => {
+  console.warn('⚠️ deleteCapturedImage() is deprecated. Use backend API to delete images.');
 };
 
 /**
- * Get captured images for specific user
+ * @deprecated Images are now managed by backend. Use backend API instead.
  */
-export const getCapturedImagesByUser = (userId: string): CapturedImage[] => {
-  return getCapturedImages().filter(img => img.userId === userId);
+export const getCapturedImagesByUser = (_userId: string): LegacyCapturedImage[] => {
+  console.warn('⚠️ getCapturedImagesByUser() is deprecated. Use backend API to get user images.');
+  return [];
 };
 
 /**
- * Download captured image
+ * Download captured image - Updated for new interface
  */
 export const downloadCapturedImage = (image: CapturedImage): void => {
+  try {
+    const link = document.createElement('a');
+    link.href = image.imageData;
+    link.download = `face_capture_${image.studentName || 'unknown'}_${image.capturedAt.replace(/[:\s]/g, '_')}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Error downloading image:', error);
+  }
+};
+
+/**
+ * Legacy function for backward compatibility
+ */
+export const downloadLegacyCapturedImage = (image: LegacyCapturedImage): void => {
   try {
     const link = document.createElement('a');
     link.href = image.imageData;

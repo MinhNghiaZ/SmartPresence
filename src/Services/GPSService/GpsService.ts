@@ -3,50 +3,34 @@ export interface Location {
     longitude: number;
 }
 
+export interface LocationValidationResult {
+    allowed: boolean;
+    message: string;
+    roomId?: string;
+    roomName?: string;
+}
+
 export interface AllowedArea {
     id: string;
     name: string;
     latitude: number;
     longitude: number;
-    radius: number; // bán kính tính bằng mét
+    radius: number;
+}
+
+export interface LocationValidationResult {
+    allowed: boolean;
+    message: string;
+    roomId?: string;
+    roomName?: string;
 }
 
 export class GPSService {
-    // Danh sách các khu vực cho phép
-    private static allowedAreas: AllowedArea[] = [
-        {
-            id: 'eiu_campus',
-            name: 'Eastern International University',
-            latitude: 11.052845,
-            longitude: 106.665911,
-            radius: 500
-        },
-        {
-            id: 'phuoc_hung_airport',
-            name: 'Phòng vé máy bay Phước Hưng',
-            latitude: 11.04558230, // Tọa độ thực tế từ GPS điện thoại
-            longitude: 106.73588590, // Độ chính xác: 12.9 mét
-            radius: 300 // Bán kính nhỏ hơn vì có tọa độ chính xác
-        }
-    ];
+    private static readonly API_BASE = 'http://localhost:3001/api';
 
-    // Tính khoảng cách giữa 2 điểm GPS (công thức Haversine)
-    private static calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-        const R = 6371e3; // Bán kính Trái Đất (mét)
-        const φ1 = lat1 * Math.PI/180;
-        const φ2 = lat2 * Math.PI/180;
-        const Δφ = (lat2-lat1) * Math.PI/180;
-        const Δλ = (lon2-lon1) * Math.PI/180;
+    // Removed calculateDistance - backend handles all calculations now
 
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-        return R * c; // Khoảng cách tính bằng mét
-    }
-
-    // Lấy vị trí hiện tại
+    // Lấy vị trí hiện tại (giữ nguyên)
     static getCurrentLocation(options?: PositionOptions): Promise<Location> {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
@@ -54,14 +38,12 @@ export class GPSService {
                 return;
             }
 
-            // Default options with mobile considerations
             const defaultOptions: PositionOptions = {
                 enableHighAccuracy: true,
                 timeout: 10000,
                 maximumAge: 0
             };
 
-            // Use provided options or defaults
             const gpsOptions = options || defaultOptions;
 
             navigator.geolocation.getCurrentPosition(
@@ -94,52 +76,62 @@ export class GPSService {
         });
     }
 
-    // Kiểm tra vị trí có trong khu vực cho phép không
-    static isLocationAllowed(userLocation: Location): { allowed: boolean; distance: number; nearestArea?: AllowedArea } {
-        let minDistance = Infinity;
-        let nearestArea: AllowedArea | undefined;
-        
-        // Kiểm tra tất cả các khu vực cho phép
-        for (const area of this.allowedAreas) {
-            const distance = this.calculateDistance(
-                userLocation.latitude,
-                userLocation.longitude,
-                area.latitude,
-                area.longitude
-            );
+    /**
+     * MAIN METHOD: Validate location với backend (dùng subjectId)
+     * @param userLocation - GPS coordinates của user
+     * @param subjectId - ID của môn học (từ database)
+     * @returns Promise<LocationValidationResult>
+     */
+    static async validateLocation(userLocation: Location, subjectId: string): Promise<LocationValidationResult> {
+        try {
+            console.log('🔍 Validating location with backend...', { userLocation, subjectId });
             
-            // Nếu trong phạm vi cho phép của khu vực này
-            if (distance <= area.radius) {
-                return {
-                    allowed: true,
-                    distance: Math.round(distance),
-                    nearestArea: area
-                };
+            const response = await fetch(`${this.API_BASE}/gps/validate-location`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    latitude: userLocation.latitude,
+                    longitude: userLocation.longitude,
+                    subjectId: subjectId
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ Backend validation result:', result.validation);
+                return result.validation;
             }
             
-            // Cập nhật khu vực gần nhất
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearestArea = area;
-            }
+            throw new Error(result.message || 'Backend validation failed');
+            
+        } catch (error) {
+            console.error('❌ Backend validation failed:', error);
+            
+            return {
+                allowed: false,
+                message: 'Lỗi kết nối backend. Vui lòng thử lại!'
+            };
         }
-
-        return {
-            allowed: false,
-            distance: Math.round(minDistance),
-            nearestArea
-        };
     }
 
-    // Lấy thông tin tất cả khu vực cho phép
+    // Removed fallback client-side validation - backend only now
+
+    // Backward compatibility methods
     static getAllowedAreas(): AllowedArea[] {
-        return [...this.allowedAreas];
+        console.warn('getAllowedAreas() deprecated - use backend API instead');
+        return [];
     }
 
-    // Phương thức cũ để tương thích ngược
     static getAllowedArea(): AllowedArea {
-        // Trả về khu vực đầu tiên để tương thích với code cũ
-        return this.allowedAreas[0] || {
+        console.warn('getAllowedArea() deprecated - use backend API instead');
+        return {
             id: 'default',
             name: 'Default Area',
             latitude: 11.052845,
