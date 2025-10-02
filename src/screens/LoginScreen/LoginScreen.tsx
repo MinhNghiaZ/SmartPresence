@@ -6,9 +6,10 @@ import { useNotifications } from '../../context/NotificationContext';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
+  onNavigateToChangePassword: () => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToChangePassword }) => {
   // State
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
@@ -170,7 +171,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     className="change-password-link"
                     onClick={(e) => {
                       e.preventDefault();
-                      console.log('Chuyển đến màn hình đổi mật khẩu');
+                      onNavigateToChangePassword();
                     }}
                   >
                     🔑 Đổi mật khẩu 🔑

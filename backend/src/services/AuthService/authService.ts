@@ -1,6 +1,7 @@
 import db from "../../database/connection";
 import { User, LoginRequest, LoginResult } from "../../models/student";
 import { JWTUtils, JWTPayload } from "../../utils/jwt";
+import { PasswordUtils } from "../../utils/passwordUtils";
 export class AuthService {
     static async login(credentials: LoginRequest): Promise<LoginResult> {
 
@@ -62,7 +63,18 @@ export class AuthService {
             }
 
             //check password
-            if (user.password !== password) {
+            let isPasswordValid = false;
+            
+            // Kiểm tra xem password có được hash không
+            if (PasswordUtils.isHashed(user.password)) {
+                // Password đã được hash, sử dụng bcrypt để so sánh
+                isPasswordValid = await PasswordUtils.comparePassword(password, user.password);
+            } else {
+                // Password chưa được hash (legacy), so sánh trực tiếp
+                isPasswordValid = user.password === password;
+            }
+
+            if (!isPasswordValid) {
                 console.log('invalid password');
                 return {
                     success: false,
@@ -150,6 +162,117 @@ export class AuthService {
                 success: false,
                 message: 'token failed'
             }
+        }
+    }
+
+    static async changePassword(
+        studentId: string, 
+        currentPassword: string, 
+        newPassword: string
+    ): Promise<{ success: boolean; message: string }> {
+        try {
+            // Validate input
+            if (!studentId || !currentPassword || !newPassword) {
+                return {
+                    success: false,
+                    message: 'Vui lòng điền đầy đủ thông tin!'
+                };
+            }
+
+            // Validate new password strength
+            const passwordValidation = PasswordUtils.validatePasswordStrength(newPassword);
+            if (!passwordValidation.isValid) {
+                return {
+                    success: false,
+                    message: passwordValidation.errors.join(', ')
+                };
+            }
+
+            // First, verify current password
+            let user = null;
+            let tableName = '';
+
+            // Check if it's a student account
+            try {
+                const [studentRow] = await db.execute(
+                    'SELECT * FROM StudentAccount WHERE studentId = ?',
+                    [studentId]
+                );
+
+                if ((studentRow as any[]).length > 0) {
+                    user = (studentRow as any[])[0];
+                    tableName = 'StudentAccount';
+                }
+            } catch (error) {
+                console.error('Error checking student table:', error);
+            }
+
+            // If not found in student table, check admin table
+            if (!user) {
+                try {
+                    const [adminRow] = await db.execute(
+                        'SELECT * FROM AdminAccount WHERE id = ?',
+                        [studentId]
+                    );
+
+                    if ((adminRow as any[]).length > 0) {
+                        user = (adminRow as any[])[0];
+                        tableName = 'AdminAccount';
+                    }
+                } catch (error) {
+                    console.error('Error checking admin table:', error);
+                }
+            }
+
+            // User not found
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'Tài khoản không tồn tại!'
+                };
+            }
+
+            // Verify current password
+            let isCurrentPasswordValid = false;
+            
+            if (PasswordUtils.isHashed(user.password)) {
+                // Password đã được hash, sử dụng bcrypt để so sánh
+                isCurrentPasswordValid = await PasswordUtils.comparePassword(currentPassword, user.password);
+            } else {
+                // Password chưa được hash (legacy), so sánh trực tiếp
+                isCurrentPasswordValid = user.password === currentPassword;
+            }
+
+            if (!isCurrentPasswordValid) {
+                return {
+                    success: false,
+                    message: 'Mật khẩu hiện tại không đúng!'
+                };
+            }
+
+            // Hash new password
+            const hashedNewPassword = await PasswordUtils.hashPassword(newPassword);
+
+            // Update password
+            const updateField = tableName === 'StudentAccount' ? 'studentId' : 'id';
+            await db.execute(
+                `UPDATE ${tableName} SET password = ? WHERE ${updateField} = ?`,
+                [hashedNewPassword, studentId]
+            );
+
+            console.log(`Password updated for ${studentId} in ${tableName}`);
+            
+            return {
+                success: true,
+                message: 'Đổi mật khẩu thành công!'
+            };
+
+        } catch (error) {
+            console.error('Change password service error:', error);
+            return {
+                success: false,
+                message: 'Lỗi hệ thống khi đổi mật khẩu!'
+            };
         }
     }
 }

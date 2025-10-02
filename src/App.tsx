@@ -5,6 +5,7 @@ import HomeScreen from './screens/HomeScreen/HomeScreen';
 import AdminScreen from './screens/AdminScreen/AdminScreen';
 import DemoHistory from './screens/demoHistory/demoHistory';
 import CameraDebugScreen from './screens/CameraDebugScreen/CameraDebugScreen';
+import ChangePasswordScreen from './screens/ChangePasswordScreen/ChangePasswordScreen';
 import { authService } from './Services/AuthService';
 import './App.css';
 
@@ -14,7 +15,7 @@ function App() {
   const LOADING_TIME = 2000;
   
   // State
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'home' | 'demo-history' | 'camera-debug' | 'admin'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'home' | 'demo-history' | 'camera-debug' | 'admin' | 'change-password'>('login');
   const [isLoading, setIsLoading] = useState(true);
 
   // Effects
@@ -52,6 +53,14 @@ function App() {
     } else {
       setCurrentScreen('home');
     }
+  };
+
+  const handleNavigateToChangePassword = () => {
+    setCurrentScreen('change-password');
+  };
+
+  const handleBackToLogin = () => {
+    setCurrentScreen('login');
   };
 
   // Check for camera debug URL parameter
@@ -107,7 +116,10 @@ function App() {
   return (
     <div className="App">
       {currentScreen === 'login' && (
-        <LoginScreen onLoginSuccess={handleLoginSuccess} />
+        <LoginScreen 
+          onLoginSuccess={handleLoginSuccess} 
+          onNavigateToChangePassword={handleNavigateToChangePassword}
+        />
       )}
       {currentScreen === 'home' && (
         <HomeScreen onLogout={handleLogout} onNavigateToDemo={handleNavigateToDemo} />
@@ -120,6 +132,12 @@ function App() {
       )}
       {currentScreen === 'demo-history' && (
         <DemoHistory onBackToHome={handleBackToHome} />
+      )}
+      {currentScreen === 'change-password' && (
+        <ChangePasswordScreen 
+          onBack={handleBackToLogin}
+          onSuccess={handleBackToLogin}
+        />
       )}
     </div>
   );

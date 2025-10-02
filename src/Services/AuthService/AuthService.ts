@@ -249,6 +249,50 @@ export class AuthService {
         return registeredSubjects.includes(subjectCode);
     }
 
+    /**
+     * Đổi mật khẩu
+     */
+    static async changePassword(
+        studentId: string, 
+        currentPassword: string, 
+        newPassword: string
+    ): Promise<{ success: boolean; message: string }> {
+        try {
+            const response = await fetch(`${this.API_BASE}/auth/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    studentId: studentId,
+                    currentPassword: currentPassword,
+                    newPassword: newPassword
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                return {
+                    success: true,
+                    message: result.message || 'Đổi mật khẩu thành công!'
+                };
+            } else {
+                return {
+                    success: false,
+                    message: result.message || 'Đổi mật khẩu thất bại!'
+                };
+            }
+
+        } catch (error) {
+            console.error('Change password API error:', error);
+            return {
+                success: false,
+                message: 'Lỗi kết nối. Vui lòng thử lại!'
+            };
+        }
+    }
+
 
 }
 

@@ -31,25 +31,73 @@ export class AuthController {
     }
 
     //get user info
-    static async me(req:Request,res:Response){
+    static async me(req: Request, res: Response): Promise<void> {
         try {
-            if(!req.user){
-                return res.status(401).json({
+            if (!req.user) {
+                res.status(401).json({
                     success: false,
                     message: 'Login please'
                 });
+                return;
             }
 
             res.json({
                 success: true,
                 message: 'user info',
-                user: req.user
+                User: req.user
             });
 
         } catch (error) {
             res.status(500).json({
                 success: false,
                 message: 'Không thể lấy thông tin user!'
+            });
+        }
+    }
+
+    // Handle change password request
+    static async changePassword(req: Request, res: Response): Promise<void> {
+        try {
+            const { studentId, currentPassword, newPassword } = req.body;
+            
+            // Validation
+            if (!studentId || !currentPassword || !newPassword) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Vui lòng điền đầy đủ thông tin!'
+                });
+                return;
+            }
+
+            if (currentPassword === newPassword) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu mới phải khác mật khẩu hiện tại!'
+                });
+                return;
+            }
+
+            // Password strength validation
+            if (newPassword.length < 6) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu mới phải có ít nhất 6 ký tự!'
+                });
+                return;
+            }
+
+            const result = await AuthService.changePassword(studentId, currentPassword, newPassword);
+            
+            if (result.success) {
+                res.json(result);
+            } else {
+                res.status(400).json(result);
+            }
+        } catch (error) {
+            console.error('Change password error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi hệ thống khi đổi mật khẩu!'
             });
         }
     }
