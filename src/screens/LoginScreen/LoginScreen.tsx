@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import './LoginScreen.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import { authService } from '../../Services/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -14,6 +13,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const notify = useNotifications();
 
   // Clear any existing auth data when login screen loads
@@ -51,6 +51,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -118,7 +122,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
                         </label>
                         <div className="position-relative auth-pass-inputgroup mb-3">
                           <input
-                            type="password"
+                            type={showPassword ? "text" : "password"}
                             className="form-control pe-5"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -126,6 +130,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
                             id="password"
                             required
                           />
+                          <button
+                            className="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted password-addon"
+                            type="button"
+                            onClick={togglePasswordVisibility}
+                            title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                            style={{
+                              border: 'none',
+                              background: 'none',
+                              padding: '0.375rem 0.75rem',
+                              height: '100%',
+                              zIndex: 3
+                            }}
+                          >
+                            {showPassword ? (
+                              <i className="ri-eye-off-fill align-middle" aria-hidden="true"></i>
+                            ) : (
+                              <i className="ri-eye-fill align-middle" aria-hidden="true"></i>
+                            )}
+                          </button>
                         </div>
                       </div>
 

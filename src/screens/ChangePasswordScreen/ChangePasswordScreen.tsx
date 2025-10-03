@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import './ChangePasswordScreen.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import { authService } from '../../Services/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -166,9 +165,10 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ onBack, onS
                             type="button"
                             className="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted password-addon"
                             onClick={() => togglePasswordVisibility('current')}
+                            title={showPasswords.current ? "Ẩn mật khẩu hiện tại" : "Hiện mật khẩu hiện tại"}
+                            aria-label={showPasswords.current ? "Ẩn mật khẩu hiện tại" : "Hiện mật khẩu hiện tại"}
                           >
-                            <i className={`ri-${showPasswords.current ? 'eye-off' : 'eye'}-fill align-middle`}>
-                              {showPasswords.current ? '🙈' : '👁️'}
+                            <i className={`ri-${showPasswords.current ? 'eye-off' : 'eye'}-fill align-middle`} aria-hidden="true">
                             </i>
                           </button>
                         </div>
@@ -193,9 +193,10 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ onBack, onS
                             type="button"
                             className="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted password-addon"
                             onClick={() => togglePasswordVisibility('new')}
+                            title={showPasswords.new ? "Ẩn mật khẩu mới" : "Hiện mật khẩu mới"}
+                            aria-label={showPasswords.new ? "Ẩn mật khẩu mới" : "Hiện mật khẩu mới"}
                           >
-                            <i className={`ri-${showPasswords.new ? 'eye-off' : 'eye'}-fill align-middle`}>
-                              {showPasswords.new ? '🙈' : '👁️'}
+                            <i className={`ri-${showPasswords.new ? 'eye-off' : 'eye'}-fill align-middle`} aria-hidden="true">
                             </i>
                           </button>
                         </div>
@@ -228,9 +229,10 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ onBack, onS
                             type="button"
                             className="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted password-addon"
                             onClick={() => togglePasswordVisibility('confirm')}
+                            title={showPasswords.confirm ? "Ẩn xác nhận mật khẩu" : "Hiện xác nhận mật khẩu"}
+                            aria-label={showPasswords.confirm ? "Ẩn xác nhận mật khẩu" : "Hiện xác nhận mật khẩu"}
                           >
-                            <i className={`ri-${showPasswords.confirm ? 'eye-off' : 'eye'}-fill align-middle`}>
-                              {showPasswords.confirm ? '🙈' : '👁️'}
+                            <i className={`ri-${showPasswords.confirm ? 'eye-off' : 'eye'}-fill align-middle`} aria-hidden="true">
                             </i>
                           </button>
                         </div>

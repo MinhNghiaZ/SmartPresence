@@ -323,3 +323,50 @@ a.text-primary:hover {
   text-decoration: none !important;
   transform: translateY(-1px);
 }
+
+/* Password Toggle Button Styles */
+.password-addon {
+  border: none !important;
+  background: none !important;
+  color: #6c757d !important;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.password-addon:hover {
+  color: #6f42c1 !important;
+  transform: scale(1.1);
+}
+
+.password-addon:focus,
+.password-addon:active {
+  color: #6f42c1 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.password-addon i {
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+/* Ensure proper positioning for password input with toggle */
+.auth-pass-inputgroup .form-control {
+  padding-right: 2.5rem !important;
+}
+
+.auth-pass-inputgroup .password-addon {
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  z-index: 10;
+}
