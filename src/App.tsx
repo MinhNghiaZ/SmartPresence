@@ -17,21 +17,59 @@ function App() {
   // State
   const [currentScreen, setCurrentScreen] = useState<'login' | 'home' | 'demo-history' | 'camera-debug' | 'admin' | 'change-password'>('login');
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Effects
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const checkAuthStatus = async () => {
+      try {
+        // Kiểm tra xem user có đang đăng nhập không
+        const isLoggedIn = authService.isLoggedIn();
+        
+        if (isLoggedIn) {
+          // Verify token với backend
+          const isValidToken = await authService.verifyToken();
+          
+          if (isValidToken) {
+            // Token hợp lệ, redirect đến trang phù hợp
+            if (authService.isAdmin()) {
+              setCurrentScreen('admin');
+            } else {
+              setCurrentScreen('home');
+            }
+            // Chỉ hiển thị thông báo khi lần đầu load app (page reload)
+            if (isInitialLoad) {
+              notify.push('Chào mừng trở lại!', 'success');
+            }
+          } else {
+            // Token không hợp lệ, xóa session và về login
+            authService.clearAuthData();
+            setCurrentScreen('login');
+          }
+        } else {
+          // Chưa đăng nhập, về trang login
+          setCurrentScreen('login');
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        // Có lỗi, xóa session và về login để an toàn
+        authService.clearAuthData();
+        setCurrentScreen('login');
+      }
+    };
+
+    const timer = setTimeout(async () => {
+      await checkAuthStatus();
       setIsLoading(false);
-      // Luôn bắt đầu với trang đăng nhập
-      // Xóa session cũ để đảm bảo user phải đăng nhập lại
-      authService.logout();
+      setIsInitialLoad(false); // Đánh dấu đã hoàn thành initial load
     }, LOADING_TIME);
 
     return () => clearTimeout(timer);
-  }, [LOADING_TIME]);
+  }, [LOADING_TIME]); // Loại bỏ notify khỏi dependencies để tránh re-run
 
   // Handlers
   const handleLoginSuccess = () => {
+    setIsInitialLoad(false); // Đánh dấu đây là fresh login, không phải reload
     if (authService.isAdmin()) {
       setCurrentScreen('admin');
     } else {
