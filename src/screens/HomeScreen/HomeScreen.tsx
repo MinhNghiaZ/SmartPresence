@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './HomeScreen_modern.css';
 import { CheckInService } from '../../Services/CheckInService';
 import type { SubjectInfo } from '../../Services/CheckInService';
@@ -47,6 +47,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   
   // Refs
   const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
+  const errorTimeoutRef = useRef<number | null>(null);
   
   // Get current student from AuthService
   const currentUser = authService.getCurrentUser();
@@ -169,12 +170,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         setAvailableSubjects(subjects);
         
         if (subjects.length === 0) {
-          notify.push('⚠️ Không tìm thấy môn học nào. Vui lòng liên hệ phòng đào tạo.', 'warning');
+          notify.push('⚠️ Hiện tại chưa có môn học nào được phân công. Vui lòng liên hệ phòng đào tạo để được hỗ trợ.', 'warning');
         }
         
       } catch (error) {
         console.error('❌ Error loading student subjects:', error);
-        notify.push('❌ Không thể tải danh sách môn học. Vui lòng kiểm tra kết nối mạng.', 'error');
+        notify.push('❌ Không thể tải danh sách môn học. Vui lòng kiểm tra kết nối mạng và thử lại sau.', 'error');
         setAvailableSubjects([]);
       } finally {
         setIsLoadingSubjects(false);
@@ -234,6 +235,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     loadAttendanceHistory();
   }, [currentUser]);
 
+  // Cleanup timeouts khi component unmount
+  useEffect(() => {
+    return () => {
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+        errorTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // Handlers
 
   const handleFaceRecognitionSuccess = async (result: FaceRecognitionResult) => {
@@ -262,41 +273,72 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         // Update registration status
         setFaceRegistrationStatus('registered');
         
-        // Stop camera and close modal after successful registration
+        // Stop camera and close modal after successful registration với smooth transition
         setTimeout(() => {
           // Stop camera first
           if (faceRecognitionRef.current) {
             faceRecognitionRef.current.stopCamera();
           }
           
-          // Close modal
-          setShowFaceModal(false);
-          setGpsStatus('');
-          setIsProcessing(false);
-          setIsCheckingIn(false);
-          
-          notify.push(`🎉 Đăng ký khuôn mặt thành công! Bây giờ bạn có thể sử dụng nút "Điểm Danh" để check-in.`, 'success');
-        }, 1500);
+          // Batch update states với requestAnimationFrame
+          requestAnimationFrame(() => {
+            setShowFaceModal(false);
+            setGpsStatus('');
+            setIsProcessing(false);
+            setIsCheckingIn(false);
+            
+            // Show success notification
+            notify.push(`🎉 Đăng ký khuôn mặt thành công cho ${currentUser.name}! Bây giờ bạn có thể sử dụng tính năng điểm danh tự động.`, 'success');
+          });
+        }, 1200); // Giảm thời gian delay một chút
         
       } else {
         throw new Error('Không tìm thấy video element');
       }
     } catch (error) {
       console.error('Face registration error:', error);
-      setGpsStatus('❌ Lỗi khi đăng ký: ' + (error as Error).message);
+      
+      // Batch update states để tránh re-render liên tục
+      const errorMessage = '❌ Lỗi khi đăng ký: ' + (error as Error).message;
+      
+      // Clear any existing timeout
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+      
+      // Update multiple states at once using functional updates
+      setGpsStatus(errorMessage);
       setIsProcessing(false);
+      setIsCheckingIn(false);
+      
+      // Tự động clear error message sau 4 giây
+      errorTimeoutRef.current = window.setTimeout(() => {
+        setGpsStatus(prev => prev === errorMessage ? '' : prev); // Chỉ clear nếu vẫn là message cũ
+        errorTimeoutRef.current = null;
+      }, 4000);
     }
   };
 
-  const handleFaceRecognitionCancel = () => {
+  const handleFaceRecognitionCancel = useCallback(() => {
     // Stop camera before closing
     if (faceRecognitionRef.current) {
       faceRecognitionRef.current.stopCamera();
     }
-    setShowFaceModal(false);
-    setGpsStatus('');
-    setIsProcessing(false);
-  };
+    
+    // Clear any pending timeout
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
+    
+    // Batch update states để tránh multiple re-renders
+    requestAnimationFrame(() => {
+      setShowFaceModal(false);
+      setGpsStatus('');
+      setIsProcessing(false);
+      setIsCheckingIn(false);
+    });
+  }, []);
 
   /**
    * � FACE REGISTRATION: Chỉ đăng ký khuôn mặt, không cần GPS/Time validation
@@ -313,7 +355,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     try {
       // Initialize face recognition models
       if (!faceRecognizeService.isReady()) {
-        setGpsStatus('Đang tải AI models...');
+        setGpsStatus('🤖 Đang tải mô hình trí tuệ nhân tạo...');
         await faceRecognizeService.initializeModels();
       }
 
@@ -326,9 +368,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
     } catch (error) {
       console.error('❌ Face registration error:', error);
-      setGpsStatus('');
-      setIsCheckingIn(false);
-      notify.push(`❌ ${error instanceof Error ? error.message : 'Không thể khởi tạo camera. Vui lòng thử lại.'}`, 'error');
+      
+      // Batch update states để tránh re-render liên tục
+      const resetStates = () => {
+        setGpsStatus('');
+        setIsCheckingIn(false);
+        setShowFaceModal(false);
+        setIsProcessing(false);
+      };
+      
+      // Use requestAnimationFrame để smooth state updates
+      requestAnimationFrame(() => {
+        resetStates();
+        notify.push(`❌ ${error instanceof Error ? error.message : 'Không thể khởi tạo camera. Vui lòng kiểm tra quyền truy cập camera và thử lại.'}`, 'error');
+      });
     }
   };
 
@@ -347,7 +400,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
     try {
       // BƯỚC 1: Kiểm tra eligibility (face registration, đã check-in chưa)
-      setGpsStatus('🔍 Kiểm tra điều kiện check-in...');
+      setGpsStatus('🔍 Đang kiểm tra điều kiện thời gian và vị trí cho phép điểm danh...');
       console.log('📋 Checking eligibility for subjectId:', selectedSubject.subjectId);
       const eligibility = await UnifiedCheckInService.canCheckIn(selectedSubject.subjectId);
       console.log('📋 Eligibility result:', eligibility);
@@ -357,7 +410,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       }
 
       // BƯỚC 2: Lấy GPS location
-      setGpsStatus('📍 Đang lấy vị trí GPS...');
+      setGpsStatus('📍 Đang xác định vị trí hiện tại của bạn...');
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
@@ -366,7 +419,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       });
 
       // BƯỚC 3: Validate GPS + Time trước (không cần camera)
-      setGpsStatus('⏰ Kiểm tra thời gian và vị trí...');
+      setGpsStatus('⏰ Đang xác thực thời gian và địa điểm điểm danh...');
       
       const userLocation = {
         latitude: position.coords.latitude,
@@ -403,12 +456,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       
       // Initialize face recognition
       if (!faceRecognizeService.isReady()) {
-        setGpsStatus('Đang tải AI models...');
+        setGpsStatus('🤖 Đang tải mô hình trí tuệ nhân tạo cho nhận diện khuôn mặt...');
         await faceRecognizeService.initializeModels();
       }
       
       // Check registration status from backend
-      setGpsStatus('Đang kiểm tra trạng thái đăng ký...');
+      setGpsStatus('📋 Đang kiểm tra trạng thái đăng ký khuôn mặt...');
       let isUserRegistered = false;
       
       try {
@@ -433,7 +486,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       console.error('❌ Pre-validation error:', error);
       setGpsStatus('');
       setIsCheckingIn(false);
-      notify.push(`❌ ${error instanceof Error ? error.message : 'Kiểm tra thất bại. Vui lòng thử lại.'}`, 'error');
+      notify.push(`❌ ${error instanceof Error ? error.message : 'Quá trình kiểm tra thất bại. Vui lòng thử lại sau.'}`, 'error');
     }
   };
 
@@ -446,7 +499,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     // Lấy data đã validate từ bước trước
     const pendingData = (window as any).pendingCheckInData;
     if (!pendingData) {
-      notify.push('❌ Không tìm thấy dữ liệu validation. Vui lòng thử lại.', 'error');
+      notify.push('❌ Không tìm thấy dữ liệu xác thực. Vui lòng thực hiện lại quá trình kiểm tra.', 'error');
       return;
     }
 
@@ -477,11 +530,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       };
 
       // Perform unified check-in (chỉ cần face recognition + save attendance)
-      setGpsStatus('� Đang nhận diện khuôn mặt và lưu điểm danh...');
+      setGpsStatus('🎯 Đang thực hiện nhận diện khuôn mặt và lưu thông tin điểm danh...');
       const result: CheckInResult = await UnifiedCheckInService.performCompleteCheckIn(checkInRequest);
 
       // Display step-by-step results
-      setGpsStatus('✅ Thời gian hợp lệ (đã kiểm tra)');
+      setGpsStatus('✅ Điều kiện thời gian và địa điểm đã được xác thực thành công');
       await new Promise(resolve => setTimeout(resolve, 500));
       
       setGpsStatus('✅ Vị trí hợp lệ (đã kiểm tra)');
@@ -525,7 +578,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     } catch (error) {
       console.error('❌ Face recognition + attendance save error:', error);
       setGpsStatus('');
-      notify.push(`❌ ${error instanceof Error ? error.message : 'Check-in thất bại. Vui lòng thử lại.'}`, 'error');
+      notify.push(`❌ ${error instanceof Error ? error.message : 'Quá trình điểm danh thất bại. Vui lòng kiểm tra kết nối mạng và thử lại.'}`, 'error');
     } finally {
       setIsCheckingIn(false);
       setTimeout(() => setGpsStatus(''), 3000);
@@ -546,27 +599,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     setShowProfile(true);
   };
 
-  const handleSettings = () => {
-    notify.push('Settings feature will be implemented here', 'info');
-  };
-
   const handleCloseProfile = () => {
     setShowProfile(false);
   };
 
   const handleClearData = () => {
     if (window.confirm('This will clear all attendance records. Are you sure?')) {
-      notify.push('Data cleared successfully!', 'success');
+      notify.push('✅ Dữ liệu đã được xóa thành công! Ứng dụng sẽ tải lại thông tin mới.', 'success');
     }
   };
 
   const handleCheckLocation = async () => {
     try {
       const debugInfo = await CheckInService.getLocationDebugInfo();
-      notify.push('GPS info copied to console/log.', 'info');
+      notify.push('ℹ️ Thông tin GPS đã được sao chép vào console để kiểm tra kỹ thuật.', 'info');
       console.log(debugInfo);
     } catch (error) {
-      notify.push(`GPS Error: ${(error as Error).message}`, 'error');
+      notify.push(`❌ Lỗi GPS: ${(error as Error).message}`, 'error');
     }
   };
 
@@ -591,7 +640,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                 userName={currentUser?.name || 'Unknown User'}
                 avatarUrl={userAvatar}
                 onProfile={handleProfile}
-                onSettings={handleSettings}
                 onLogout={handleLogout}
               />
             </div>

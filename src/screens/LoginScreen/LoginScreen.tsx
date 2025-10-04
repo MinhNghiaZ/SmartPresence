@@ -25,7 +25,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
     
     // Validation
     if (!studentId || !password) {
-      notify.push('Vui lòng nhập đầy đủ MSSV và mật khẩu!', 'warning');
+      notify.push('⚠️ Vui lòng nhập đầy đủ mã số sinh viên và mật khẩu để đăng nhập!', 'warning');
       return;
     }
 
@@ -41,7 +41,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
         notify.push(result.message, 'error');
       }
     } catch (error) {
-      notify.push('Lỗi kết nối. Vui lòng thử lại!', 'error');
+      notify.push('❌ Kết nối mạng không ổn định. Vui lòng kiểm tra đường truyền và thử lại!', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +81,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
                 <div className="card-body p-4">
                   {/* Header */}
                   <div className="text-center mt-2">
-                    <h5 className="text-primary">! 💕 Welcome Back 💕 !</h5>
+                    <h5 className="text-primary">🎓 Chào mừng bạn đến với SmartPresence! 🎓</h5>
                     <p className="text-muted">💕 Sign in to access your account 💕</p>
                   </div>
                   

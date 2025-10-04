@@ -68,10 +68,12 @@ export const NotificationProvider: React.FC<ProviderProps> = ({ children }) => {
             className={`notification toast-${item.type}`}
             role="status"
           >
-            <div className="notification-content">{item.message}</div>
+            <div className="notification-content">
+              <span className="notification-message">{item.message}</span>
+            </div>
             <button
               className="notification-close"
-              aria-label="Close notification"
+              aria-label="Đóng thông báo"
               onClick={() => remove(item.id)}
             >✕</button>
           </div>

@@ -39,17 +39,17 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ onBack, onS
     
     // Validation
     if (!studentId || !currentPassword || !newPassword || !confirmPassword) {
-      notify.push('Vui lòng điền đầy đủ thông tin!', 'warning');
+      notify.push('⚠️ Vui lòng điền đầy đủ thông tin vào tất cả các trường bắt buộc!', 'warning');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      notify.push('Mật khẩu mới và xác nhận mật khẩu không khớp!', 'error');
+      notify.push('❌ Mật khẩu mới và mật khẩu xác nhận không trùng khớp. Vui lòng kiểm tra lại!', 'error');
       return;
     }
 
     if (currentPassword === newPassword) {
-      notify.push('Mật khẩu mới phải khác mật khẩu hiện tại!', 'warning');
+      notify.push('⚠️ Mật khẩu mới phải khác với mật khẩu hiện tại để đảm bảo bảo mật!', 'warning');
       return;
     }
 
