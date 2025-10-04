@@ -3,6 +3,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import './AdminScreen.css';
 import { authService } from '../../Services/AuthService';
 import AdminHistory from '../../components/AdminHistory/AdminHistory';
+import StudentsList from '../../components/StudentsList/StudentsList';
 // import { logger } from '../../utils/logger'; // Unused for now
 
 // Interface cho dữ liệu thực từ database
@@ -510,6 +511,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
             const [selectedSubject, setSelectedSubject] = useState<string>(''); // Sẽ được set khi load data
             const [currentDayIndex, setCurrentDayIndex] = useState<number>(0); // 0 = most recent day
             const [activeView, setActiveView] = useState<'attendance' | 'history'>('attendance'); // New state for view switching
+            const [showStudentsList, setShowStudentsList] = useState<boolean>(false); // State for StudentsList modal
 
 			// Update records when selectedSubject changes để hiển thị tất cả students
 			useEffect(() => {
@@ -808,31 +810,41 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 					<div className="admin-nav-inner">
 						<div className="admin-nav-title">
 							<h1>SmartPresence Admin</h1>
-							<p>EIU Management Dashboard (UI Demo)</p>
+							<p>EIU Management Dashboard</p>
 						</div>
 						
 						{/* Navigation Tabs */}
 						<div className="flex items-center space-x-4">
 							<div className="flex space-x-2">
 								<button
-									className={`px-4 py-2 rounded-lg font-medium transition-all ${
+									className={`px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
 										activeView === 'attendance'
-											? 'bg-white text-blue-600 shadow-md'
-											: 'bg-blue-700/50 text-white hover:bg-blue-600/70'
+											? 'bg-white text-gray-700 shadow-lg border-2 border-white/30'
+											: 'bg-white/10 text-white hover:bg-white/20 hover:shadow-md backdrop-blur-sm'
 									}`}
 									onClick={() => setActiveView('attendance')}
 								>
-									📊 Attendance Dashboard
+									<span className="text-lg">📊</span>
+									<span>Điểm danh</span>
 								</button>
 								<button
-									className={`px-4 py-2 rounded-lg font-medium transition-all ${
+									className={`px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
 										activeView === 'history'
-											? 'bg-white text-blue-600 shadow-md'
-											: 'bg-blue-700/50 text-white hover:bg-blue-600/70'
+											? 'bg-white text-gray-700 shadow-lg border-2 border-white/30'
+											: 'bg-white/10 text-white hover:bg-white/20 hover:shadow-md backdrop-blur-sm'
 									}`}
 									onClick={() => setActiveView('history')}
 								>
-									📝 History Records
+									<span className="text-lg">📸</span>
+									<span>Lịch sử ảnh</span>
+								</button>
+								<button
+									className="px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+									onClick={() => setShowStudentsList(true)}
+									disabled={!selectedSubject}
+								>
+									<span className="text-lg">👥</span>
+									<span>Danh sách SV</span>
 								</button>
 							</div>
 						</div>
@@ -1072,6 +1084,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 						</>
 					)}
 				</div>
+
+			{/* Students List Modal */}
+			<StudentsList
+				isOpen={showStudentsList}
+				onClose={() => setShowStudentsList(false)}
+				selectedSubject={selectedSubject}
+				subjectRecords={subjectRecords}
+				subjects={subjects}
+				allRecords={records}
+				onSubjectChange={setSelectedSubject}
+			/>
 		</div>
 	);
 };
