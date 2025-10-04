@@ -97,7 +97,7 @@ class AttendanceServiceClass {
     private baseURL: string;
 
     constructor() {
-        this.baseURL = 'http://localhost:3001/api';
+        this.baseURL = '/api';
     }
 
     /**

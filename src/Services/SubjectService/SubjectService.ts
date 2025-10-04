@@ -55,7 +55,7 @@ class SubjectServiceClass {
     private baseURL: string;
 
     constructor() {
-        this.baseURL = 'http://localhost:3001/api';
+        this.baseURL = '/api';
     }
 
     /**
@@ -173,7 +173,7 @@ class SubjectServiceClass {
     private async transformToSubjectInfoWithTodayTimes(rawSubjects: SubjectWithSchedule[]): Promise<SubjectInfo[]> {
         try {
             // Get today's class sessions for all subjects
-            const todaySessionsResponse = await fetch(`http://localhost:3001/api/attendance/sessions/current`, {
+            const todaySessionsResponse = await fetch(`/api/attendance/sessions/current`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${authService.getToken()}`,

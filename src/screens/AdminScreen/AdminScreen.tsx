@@ -31,7 +31,7 @@ interface Subject {
 // Function để fetch subjects từ database
 const fetchSubjects = async (): Promise<Subject[]> => {
 	try {
-		const response = await fetch('http://localhost:3001/api/subjects');
+		const response = await fetch('/api/subjects');
 		const data = await response.json();
 		return data.success ? data.subjects : [];
 	} catch (error) {
@@ -44,7 +44,7 @@ const fetchSubjects = async (): Promise<Subject[]> => {
 const fetchAttendanceByDate = async (date: string): Promise<AttendanceRecord[]> => {
 	try {
 		// Use the date parameter instead of hardcoded 'today'
-		const response = await fetch(`http://localhost:3001/api/attendance/records/${date}`);
+		const response = await fetch(`/api/attendance/records/${date}`);
 		const data = await response.json();
 		console.log(`📊 Fetched attendance for ${date}:`, data.records?.length || 0, 'records');
 		return data.success ? data.records : [];
@@ -70,7 +70,7 @@ interface DashboardSession {
 // Function để fetch dashboard sessions
 const fetchDashboardSessions = async (date: string): Promise<DashboardSession[]> => {
 	try {
-		const response = await fetch(`http://localhost:3001/api/attendance/dashboard/${date}`);
+		const response = await fetch(`/api/attendance/dashboard/${date}`);
 		const data = await response.json();
 		return data.success ? data.sessions : [];
 	} catch (error) {
@@ -89,7 +89,7 @@ interface EnrolledStudent {
 // Function để lấy session dates cho navigation
 const fetchSessionDates = async (subjectId: string): Promise<string[]> => {
 	try {
-		const response = await fetch(`http://localhost:3001/api/attendance/session-dates/${subjectId}`);
+		const response = await fetch(`/api/attendance/session-dates/${subjectId}`);
 		const data = await response.json();
 		if (data.success) {
 			// Convert ISO dates to YYYY-MM-DD format
@@ -105,7 +105,7 @@ const fetchSessionDates = async (subjectId: string): Promise<string[]> => {
 // Function để fetch danh sách sinh viên enrolled trong subject
 const fetchEnrolledStudents = async (subjectId: string): Promise<EnrolledStudent[]> => {
 	try {
-		const response = await fetch(`http://localhost:3001/api/subjects/${subjectId}/enrolled-students`);
+		const response = await fetch(`/api/subjects/${subjectId}/enrolled-students`);
 		const data = await response.json();
 		return data.success ? data.students : [];
 	} catch (error) {
@@ -118,7 +118,7 @@ const fetchEnrolledStudents = async (subjectId: string): Promise<EnrolledStudent
 
 const fetchRealConfidence = async (attendanceId: string): Promise<number | null> => {
 	try {
-		const response = await fetch(`http://localhost:3001/api/attendance/${attendanceId}/confidence`);
+		const response = await fetch(`/api/attendance/${attendanceId}/confidence`);
 		const data = await response.json();
 		return data.success ? data.confidence : null;
 	} catch (error) {
@@ -360,7 +360,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 			try {
 				const adminId = currentUser?.id || '';
 				const token = authService.getToken();
-				const response = await fetch('http://localhost:3001/api/attendance/admin/update-status', {
+				const response = await fetch('/api/attendance/admin/update-status', {
 					method: 'PUT',
 					headers: { 
 						'Content-Type': 'application/json',
@@ -383,7 +383,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 			try {
 				const adminId = currentUser?.id || '';
 				const token = authService.getToken();
-				const response = await fetch('http://localhost:3001/api/attendance/admin/create-record', {
+				const response = await fetch('/api/attendance/admin/create-record', {
 					method: 'POST',
 					headers: { 
 						'Content-Type': 'application/json',

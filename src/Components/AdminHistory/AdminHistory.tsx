@@ -22,7 +22,7 @@ interface AdminHistoryProps {
   const [selectedRecord, setSelectedRecord] = useState<AttendanceImageRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
-  const API_BASE = 'http://localhost:3001/api/storage';
+  const API_BASE = '/api/storage';
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Load captured images from backend API (using working StorageService)

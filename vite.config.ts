@@ -14,5 +14,14 @@ export default defineConfig({
     https: true, // Enable HTTPS with mkcert certificates
     open: true,
     strictPort: false,
+    proxy: {
+      // Proxy all API requests to backend
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api')
+      }
+    }
   }
 })

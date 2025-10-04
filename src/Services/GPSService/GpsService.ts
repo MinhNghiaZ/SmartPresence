@@ -26,7 +26,7 @@ export interface LocationValidationResult {
 }
 
 export class GPSService {
-    private static readonly API_BASE = 'http://localhost:3001/api';
+    private static readonly API_BASE = '/api';
 
     // Removed calculateDistance - backend handles all calculations now
 

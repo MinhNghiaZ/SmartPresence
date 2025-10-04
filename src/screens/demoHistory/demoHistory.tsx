@@ -23,7 +23,7 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
   const [selectedImage, setSelectedImage] = useState<CapturedImage | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
-  const API_BASE = 'http://localhost:3001/api/storage';
+  const API_BASE = '/api/storage';
 
   // Load captured images from backend API
   useEffect(() => {

@@ -21,7 +21,7 @@ export interface LoginResult {
 }
 
 export class AuthService {
-    private static readonly API_BASE = 'http://localhost:3001/api';
+    private static readonly API_BASE = '/api';
     private static currentUser: User | null = null;
 
     /**

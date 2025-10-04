@@ -51,7 +51,7 @@ export interface FaceRecognitionResult {
 export class FaceRecognizeService {
   private isModelsLoaded = false;
   private readonly MODEL_URL = '/models';
-  private readonly API_BASE = 'http://localhost:3001/api/face';
+  private readonly API_BASE = '/api/face';
 
   /**
    * Khởi tạo và tải các model cần thiết cho face-api.js

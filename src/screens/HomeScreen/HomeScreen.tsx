@@ -202,7 +202,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         console.log('🔄 Loading attendance history from backend...');
         
         // ✅ USE SIMPLE HISTORY API TEMPORARILY
-        const response = await fetch(`http://localhost:3001/api/attendance/simple-history/${currentUser.id}`, {
+        const response = await fetch(`/api/attendance/simple-history/${currentUser.id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'

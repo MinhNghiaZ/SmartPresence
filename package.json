@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:https": "vite --host",
     "dev:secure": "vite --host --https",
-    "dev:fullstack": "concurrently \"npm run dev\" \"npm run dev:backend\"",
+    "dev:fullstack": "concurrently \"npm run dev:https\" \"npm run dev:backend\"",
     "dev:backend": "cd backend && npm run dev",
     "build": "tsc -b && vite build",
     "build:backend": "cd backend && npm run build",
