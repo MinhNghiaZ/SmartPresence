@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardR
 import { useNotifications } from '../../context/NotificationContext';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import { CameraPolyfill } from '../../Services/CameraPolyfill';
-import CameraRequirements from '../CameraRequirements';
+import CameraRequirements from '../CameraRequirements'; // Fixed case
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import './FaceRecognition.css';
 
@@ -210,7 +210,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       
       faceRecognizeService.loadFacesFromStorage();
       setIsModelLoaded(true);
-      console.log('Face recognition service đã sẵn sàng');
+      // console.log('Face recognition service đã sẵn sàng');
       
       // Tự động khởi động camera nếu được yêu cầu
       if (autoStartCamera) {
@@ -243,7 +243,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       setError('');
       
       // Comprehensive camera check first
-      console.log('📹 Starting comprehensive camera check...');
+      // console.log('📹 Starting comprehensive camera check...');
       const cameraCheck = await checkCameraSupport();
       
       if (!cameraCheck.supported) {
@@ -255,8 +255,8 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         throw new Error(cameraCheck.details);
       }
       
-      console.log('📹 Camera check passed:', cameraCheck.details);
-      console.log('📹 Available cameras:', cameraCheck.cameras.length);
+      // console.log('📹 Camera check passed:', cameraCheck.details);
+      // console.log('📹 Available cameras:', cameraCheck.cameras.length);
 
       let stream: MediaStream | null = null;
       
@@ -274,9 +274,9 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       
       for (let i = 0; i < strategies.length; i++) {
         try {
-          console.log(`📹 Trying camera strategy ${i + 1}/${strategies.length}`);
+          // console.log(`📹 Trying camera strategy ${i + 1}/${strategies.length}`);
           stream = await strategies[i]();
-          console.log(`📹 Strategy ${i + 1} succeeded!`);
+          // console.log(`📹 Strategy ${i + 1} succeeded!`);
           break;
         } catch (strategyError) {
           console.warn(`📹 Strategy ${i + 1} failed:`, strategyError);
@@ -297,13 +297,13 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         throw new Error('Stream không chứa video track');
       }
       
-      const videoTrack = videoTracks[0];
-      console.log('📹 Video track info:', {
-        label: videoTrack.label,
-        kind: videoTrack.kind,
-        readyState: videoTrack.readyState,
-        settings: videoTrack.getSettings?.()
-      });
+      // const videoTrack = videoTracks[0]; // For future debugging
+      // console.log('📹 Video track info:', {
+      //   label: videoTrack.label,
+      //   kind: videoTrack.kind,
+      //   readyState: videoTrack.readyState,
+      //   settings: videoTrack.getSettings?.()
+      // });
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -322,19 +322,19 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
             clearTimeout(timeout);
             cleanup();
             
-            console.log('📹 Video metadata loaded:', {
-              videoWidth: video.videoWidth,
-              videoHeight: video.videoHeight,
-              duration: video.duration,
-              readyState: video.readyState
-            });
+            // console.log('📹 Video metadata loaded:', {
+            //   videoWidth: video.videoWidth,
+            //   videoHeight: video.videoHeight,
+            //   duration: video.duration,
+            //   readyState: video.readyState
+            // });
             
             // Force play
             video.play()
               .then(() => {
                 setupCanvas();
                 setIsCameraActive(true);
-                console.log('📹 Camera started successfully');
+                // console.log('📹 Camera started successfully');
                 resolve();
               })
               .catch((playError) => {
@@ -360,7 +360,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         });
       }
     } catch (err) {
-    console.error('📹 Camera Error:', err);
+      console.error('📹 Camera Error:', err);
       let errorMsg = 'Không thể truy cập camera';
       
       if (err instanceof Error) {
@@ -442,7 +442,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     
     // Use longer interval for mobile to improve performance
     const interval = isMobile() ? Math.max(recognizeInterval * 2, 3000) : recognizeInterval;
-    console.log('🔄 Starting auto recognition with interval:', interval, 'ms for', isMobile() ? 'mobile' : 'desktop');
+    // console.log('🔄 Starting auto recognition with interval:', interval, 'ms for', isMobile() ? 'mobile' : 'desktop');
     
     intervalRef.current = setInterval(() => {
       recognizeFromVideo();
@@ -489,13 +489,13 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
 
   // Test camera function for debugging
   const testCamera = async () => {
-    console.log('🔧 Testing camera support...');
+    // console.log('🔧 Testing camera support...');
     setError(''); // Clear previous errors
     
     try {
       const cameraCheck = await checkCameraSupport();
       
-      console.log('📹 Camera Check Result:', cameraCheck);
+      // console.log('📹 Camera Check Result:', cameraCheck);
       
       let message = `📹 Camera Test Results:\n\n`;
       message += `✅ Supported: ${cameraCheck.supported ? 'YES' : 'NO'}\n`;

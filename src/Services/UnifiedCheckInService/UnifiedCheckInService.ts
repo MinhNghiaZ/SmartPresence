@@ -52,7 +52,7 @@ export class UnifiedCheckInService {
      * MAIN METHOD: Perform complete check-in process
      */
     static async performCompleteCheckIn(request: CheckInRequest): Promise<CheckInResult> {
-        console.log('🚀 Starting unified check-in process...');
+        // console.log('🚀 Starting unified check-in process...');
 
         const result: CheckInResult = {
             success: false,
@@ -73,7 +73,7 @@ export class UnifiedCheckInService {
 
         try {
             // STEP 1: TIME & LOCATION VALIDATION
-            console.log('📍 Step 1: Validating time slot and location...');
+            // console.log('📍 Step 1: Validating time slot and location...');
             const locationResult = await this.validateTimeAndLocation(request);
             result.steps.timeValidation = locationResult.timeValidation;
             result.steps.locationValidation = locationResult.locationValidation;
@@ -87,7 +87,7 @@ export class UnifiedCheckInService {
             let faceResult: CheckInStepResult;
             
             if (request.faceResult) {
-                console.log('👤 Step 2: Using existing face recognition result...');
+                // console.log('👤 Step 2: Using existing face recognition result...');
                 faceResult = {
                     success: request.faceResult.isMatch,
                     message: request.faceResult.isMatch 
@@ -96,7 +96,7 @@ export class UnifiedCheckInService {
                     data: request.faceResult
                 };
             } else {
-                console.log('👤 Step 2: Performing face recognition...');
+                // console.log('👤 Step 2: Performing face recognition...');
                 faceResult = await this.performFaceRecognition(request, currentUser.id);
             }
             
@@ -108,7 +108,7 @@ export class UnifiedCheckInService {
             }
 
             // STEP 3: SAVE ATTENDANCE RECORD
-            console.log('💾 Step 3: Saving attendance record...');
+            // console.log('💾 Step 3: Saving attendance record...');
             const attendanceResult = await this.saveAttendanceRecord(request, currentUser.id, locationResult.roomInfo);
             result.steps.attendanceRecord = attendanceResult;
 
@@ -124,7 +124,7 @@ export class UnifiedCheckInService {
             result.timestamp = new Date().toISOString();
             result.status = attendanceResult.data?.status; // ✅ Pass status from backend
 
-            console.log('🎉 Unified check-in completed successfully!');
+            // console.log('🎉 Unified check-in completed successfully!');
             return result;
 
         } catch (error) {
@@ -149,7 +149,7 @@ export class UnifiedCheckInService {
                 longitude: request.longitude
             };
 
-            console.log('📞 Calling GPS validation service...');
+            // console.log('📞 Calling GPS validation service...');
             const gpsResult: LocationValidationResult = await GPSService.validateLocation(userLocation, request.subjectId);
 
             // Parse GPS result for time and location validation
@@ -238,7 +238,7 @@ export class UnifiedCheckInService {
      */
     private static async performFaceRecognition(request: CheckInRequest, studentId: string): Promise<CheckInStepResult> {
         try {
-            console.log('👤 Performing face recognition...');
+            // console.log('👤 Performing face recognition...');
 
             // Check if face recognition service is ready
             if (!faceRecognizeService.isReady()) {
@@ -295,7 +295,7 @@ export class UnifiedCheckInService {
         _roomInfo?: any // Marked as unused for now
     ): Promise<CheckInStepResult> {
         try {
-            console.log('💾 Saving attendance record...');
+            // console.log('💾 Saving attendance record...');
 
             const checkInData: AttendanceCheckInRequest = {
                 studentId: studentId,
@@ -308,22 +308,22 @@ export class UnifiedCheckInService {
                 confidence: request.faceResult?.confidence // ✅ Pass face recognition confidence
             };
 
-            console.log('📤 Sending check-in request:', {
-                studentId,
-                subjectId: request.subjectId,
-                location: checkInData.location,
-                hasImageData: !!checkInData.imageData
-            });
+            // console.log('📤 Sending check-in request:', {
+            //     studentId,
+            //     subjectId: request.subjectId,
+            //     location: checkInData.location,
+            //     hasImageData: !!checkInData.imageData
+            // });
 
             // Use AttendanceService to save the record
             const attendanceResult = await attendanceService.checkIn(checkInData);
             
-            console.log('📥 AttendanceService response:', {
-                success: attendanceResult.success,
-                message: attendanceResult.message,
-                attendanceId: attendanceResult.attendanceId,
-                status: attendanceResult.status
-            });
+            // console.log('📥 AttendanceService response:', {
+            //     success: attendanceResult.success,
+            //     message: attendanceResult.message,
+            //     attendanceId: attendanceResult.attendanceId,
+            //     status: attendanceResult.status
+            // });
 
             if (attendanceResult.success) {
                 return {
@@ -353,6 +353,7 @@ export class UnifiedCheckInService {
 
     /**
      * Quick method to check if student can perform check-in for a subject
+     * Updated: Force TypeScript reload
      */
     static async canCheckIn(subjectId: string): Promise<{
         canCheckIn: boolean;

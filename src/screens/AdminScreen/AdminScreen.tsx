@@ -2,7 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useNotifications } from '../../context/NotificationContext';
 import './AdminScreen.css';
 import { authService } from '../../Services/AuthService';
-import AdminHistory from '../../Components/AdminHistory/AdminHistory';
+import AdminHistory from '../../components/AdminHistory/AdminHistory';
+// import { logger } from '../../utils/logger'; // Unused for now
 
 // Interface cho dữ liệu thực từ database
 interface StudentAccount {
@@ -46,7 +47,7 @@ const fetchAttendanceByDate = async (date: string): Promise<AttendanceRecord[]> 
 		// Use the date parameter instead of hardcoded 'today'
 		const response = await fetch(`/api/attendance/records/${date}`);
 		const data = await response.json();
-		console.log(`📊 Fetched attendance for ${date}:`, data.records?.length || 0, 'records');
+		// console.log(`📊 Fetched attendance for ${date}:`, data.records?.length || 0, 'records');
 		return data.success ? data.records : [];
 	} catch (error) {
 		console.error(`Error fetching attendance for ${date}:`, error);
@@ -181,11 +182,11 @@ const generateCompleteAttendanceListWithRealData = async (
 
 	// Determine the date to use for filtering
 	const dateToUse = targetDate || new Date().toISOString().split('T')[0];
-	console.log(`📅 Using date: ${dateToUse} for attendance filtering`);
+	// console.log(`📅 Using date: ${dateToUse} for attendance filtering`);
 
 	// Fetch danh sách sinh viên enrolled thật từ database
 	const enrolledStudents = await fetchEnrolledStudents(selectedSubject.subjectId);
-	console.log(`📚 Loaded ${enrolledStudents.length} enrolled students for ${selectedSubjectCode}`);
+	// console.log(`📚 Loaded ${enrolledStudents.length} enrolled students for ${selectedSubjectCode}`);
 
 	// Get ALL attendance records for this subject (not just for target date)
 	const allAttendanceForSubject = attendanceRecords.filter(r => r.subjectId === selectedSubject.subjectId);
@@ -220,7 +221,7 @@ const generateCompleteAttendanceListWithRealData = async (
 		}
 	});
 	
-	console.log(`👥 Total unique students (enrolled + ever attended): ${allStudentIds.size}`);
+	// console.log(`👥 Total unique students (enrolled + ever attended): ${allStudentIds.size}`);
 	
 	// Tạo complete list từ all students (enrolled + ever attended)
 	const completeList: DemoRecord[] = [];
@@ -400,8 +401,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		
 		// Check if user is logged in and is admin
 		useEffect(() => {
-			console.log('AdminScreen: currentUser =', currentUser);
-			console.log('AdminScreen: isAdmin =', isAdmin);
+			// console.log('AdminScreen: currentUser =', currentUser);
+			// console.log('AdminScreen: isAdmin =', isAdmin);
 			
 			if (!currentUser) {
 				push('❌ Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.', 'error');
@@ -423,23 +424,23 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				
 				try {
 					setIsLoading(true);
-					console.log('🔄 Loading real data from database...');
+					// console.log('🔄 Loading real data from database...');
 
 					// Load subjects
 					const subjectsData = await fetchSubjects();
 					setSubjects(subjectsData);
-					console.log('✅ Loaded subjects:', subjectsData.length);
+					// console.log('✅ Loaded subjects:', subjectsData.length);
 
 					// Load attendance for today
 					const today = new Date().toISOString().split('T')[0];
 					const attendanceData = await fetchAttendanceByDate(today);
 					setAttendanceRecords(attendanceData);
-					console.log('✅ Loaded attendance records:', attendanceData.length);
+					// console.log('✅ Loaded attendance records:', attendanceData.length);
 
 					// Load dashboard sessions để lấy thông tin enrollment
 					const dashboardData = await fetchDashboardSessions(today);
 					setDashboardSessions(dashboardData);
-					console.log('✅ Loaded dashboard sessions:', dashboardData.length);
+					// console.log('✅ Loaded dashboard sessions:', dashboardData.length);
 
 					// Set first subject as selected if available
 					if (subjectsData.length > 0) {
@@ -455,7 +456,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 							today
 						);
 						setRecords(completeRecords);
-						console.log('✅ Generated complete attendance list with real data:', completeRecords.length);
+						// console.log('✅ Generated complete attendance list with real data:', completeRecords.length);
 					}
 
 				} catch (error) {
@@ -473,7 +474,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		const handleBackToLogin = async () => {
 			try {
 				await authService.logout();
-				console.log('User logged out successfully');
+				// console.log('User logged out successfully');
 			} catch (error) {
 				console.error('Error during logout:', error);
 			}
@@ -523,7 +524,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 							today
 						);
 						setRecords(completeRecords);
-						console.log(`✅ Updated records for ${selectedSubject}:`, completeRecords.length);
+						// console.log(`✅ Updated records for ${selectedSubject}:`, completeRecords.length);
 					}
 				};
 				
@@ -542,7 +543,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 						if (subjectObj) {
 							const dates = await fetchSessionDates(subjectObj.subjectId);
 							setSessionDates(dates);
-							console.log(`📅 Loaded ${dates.length} session dates for ${selectedSubject}:`, dates);
+							// console.log(`📅 Loaded ${dates.length} session dates for ${selectedSubject}:`, dates);
 						}
 					}
 				};
@@ -564,7 +565,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
                 if (todayIndex !== -1) {
                     // Today exists in sessions, use it
                     setCurrentDayIndex(todayIndex);
-                    console.log(`📅 Set to today's session: ${today} (index ${todayIndex})`);
+                    // console.log(`📅 Set to today's session: ${today} (index ${todayIndex})`);
                 } else {
                     // Today not found, find the most recent past date
                     let mostRecentPastIndex = -1;
@@ -582,11 +583,11 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
                     if (mostRecentPastIndex !== -1) {
                         // Found a past date, use the most recent one
                         setCurrentDayIndex(mostRecentPastIndex);
-                        console.log(`📅 Set to most recent past session: ${sessionDates[mostRecentPastIndex]} (index ${mostRecentPastIndex})`);
+                        // console.log(`📅 Set to most recent past session: ${sessionDates[mostRecentPastIndex]} (index ${mostRecentPastIndex})`);
                     } else {
                         // No past dates found, use first date (default behavior)
                         setCurrentDayIndex(0);
-                        console.log(`📅 No past dates found, using first session: ${sessionDates[0]} (index 0)`);
+                        // console.log(`📅 No past dates found, using first session: ${sessionDates[0]} (index 0)`);
                     }
                 }
             }, [sessionDates]); // Trigger when sessionDates changes, not just selectedSubject
@@ -599,23 +600,23 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 			useEffect(() => {
 				const loadAttendanceForDate = async () => {
 					if (!activeDate || !selectedSubject || !subjects.length) {
-						console.log('⏭️ Skipping load - missing requirements:', { activeDate, selectedSubject, subjectsLength: subjects.length });
+						// console.log('⏭️ Skipping load - missing requirements:', { activeDate, selectedSubject, subjectsLength: subjects.length });
 						return;
 					}
 					
 					try {
 						setIsLoading(true);
-						console.log(`🔄 Loading attendance data for date: ${activeDate}`);
+						// console.log(`🔄 Loading attendance data for date: ${activeDate}`);
 
 						// Fetch attendance data for the specific date
-						console.log('📊 Fetching attendance records...');
+						// console.log('📊 Fetching attendance records...');
 						const attendanceData = await fetchAttendanceByDate(activeDate);
-						console.log(`✅ Loaded ${attendanceData.length} attendance records for ${activeDate}`);
+						// console.log(`✅ Loaded ${attendanceData.length} attendance records for ${activeDate}`);
 
 						// Fetch dashboard data for the specific date
-						console.log('📈 Fetching dashboard sessions...');
+						// console.log('📈 Fetching dashboard sessions...');
 						const dashboardData = await fetchDashboardSessions(activeDate);
-						console.log(`✅ Loaded ${dashboardData.length} dashboard sessions for ${activeDate}`);
+						// console.log(`✅ Loaded ${dashboardData.length} dashboard sessions for ${activeDate}`);
 
 						// Find selected subject object
 						const subjectObj = subjects.find(s => s.code === selectedSubject);
@@ -624,7 +625,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 							return;
 						}
 
-						console.log('🧮 Generating complete attendance list...');
+						// console.log('🧮 Generating complete attendance list...');
 						// Generate complete attendance list for this date
 						const completeRecords = await generateCompleteAttendanceListWithRealData(
 							attendanceData,
@@ -634,7 +635,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 							activeDate // Pass the active date
 						);
 						setRecords(completeRecords);
-						console.log(`✅ Generated ${completeRecords.length} complete records for ${activeDate}`);
+						// console.log(`✅ Generated ${completeRecords.length} complete records for ${activeDate}`);
 
 					} catch (error) {
 						console.error(`❌ Error loading attendance for ${activeDate}:`, error);

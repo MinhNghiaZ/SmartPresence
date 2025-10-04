@@ -1,5 +1,7 @@
 // Utility functions for capturing and managing face images
 
+import { logger } from './logger';
+
 export interface CapturedImage {
   imageId: string;
   studentId: string | null;
@@ -41,7 +43,7 @@ export const captureFaceImage = (
     const ctx = canvas.getContext('2d');
     
     if (!ctx || !video.videoWidth || !video.videoHeight) {
-      console.error('Cannot capture image: video not ready or no context');
+      logger.api.error('Cannot capture image - video not ready or no context');
       return null;
     }
 
@@ -55,7 +57,7 @@ export const captureFaceImage = (
     // Generate unique ID for tracking
     const imageId = `capture_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    console.log('✅ Face image captured successfully:', {
+    logger.api.info('Face image captured successfully', {
       imageId,
       userId,
       userName,
@@ -72,23 +74,28 @@ export const captureFaceImage = (
     return imageId;
 
   } catch (error) {
-    console.error('❌ Error capturing face image:', error);
+    logger.api.error('Error capturing face image', error);
     return null;
   }
+};
+
+// Single deprecation warning function to avoid duplication
+const warnDeprecated = (functionName: string) => {
+  console.warn(`⚠️ ${functionName}() is deprecated. Images are now managed by backend API.`);
 };
 
 /**
  * @deprecated Images are now managed by backend. Use backend API instead.
  */
 export const saveCapturedImage = (_capturedImage: LegacyCapturedImage): void => {
-  console.warn('⚠️ saveCapturedImage() is deprecated. Images are now managed by backend.');  
+  warnDeprecated('saveCapturedImage');
 };
 
 /**
  * @deprecated Images are now loaded from backend API. Use frontend components to fetch data.
  */
 export const getCapturedImages = (): LegacyCapturedImage[] => {
-  console.warn('⚠️ getCapturedImages() is deprecated. Use backend API to fetch images.');
+  warnDeprecated('getCapturedImages');
   return [];
 };
 
@@ -96,21 +103,21 @@ export const getCapturedImages = (): LegacyCapturedImage[] => {
  * @deprecated Images are now managed by backend. Use backend API instead.
  */
 export const clearCapturedImages = (): void => {
-  console.warn('⚠️ clearCapturedImages() is deprecated. Use backend API to clear images.');
+  warnDeprecated('clearCapturedImages');
 };
 
 /**
  * @deprecated Images are now managed by backend. Use backend API instead.
  */
 export const deleteCapturedImage = (_imageId: string): void => {
-  console.warn('⚠️ deleteCapturedImage() is deprecated. Use backend API to delete images.');
+  warnDeprecated('deleteCapturedImage');
 };
 
 /**
  * @deprecated Images are now managed by backend. Use backend API instead.
  */
 export const getCapturedImagesByUser = (_userId: string): LegacyCapturedImage[] => {
-  console.warn('⚠️ getCapturedImagesByUser() is deprecated. Use backend API to get user images.');
+  warnDeprecated('getCapturedImagesByUser');
   return [];
 };
 
@@ -126,7 +133,7 @@ export const downloadCapturedImage = (image: CapturedImage): void => {
     link.click();
     document.body.removeChild(link);
   } catch (error) {
-    console.error('Error downloading image:', error);
+    logger.api.error('Error downloading image', error);
   }
 };
 
@@ -142,6 +149,6 @@ export const downloadLegacyCapturedImage = (image: LegacyCapturedImage): void =>
     link.click();
     document.body.removeChild(link);
   } catch (error) {
-    console.error('Error downloading image:', error);
+    logger.api.error('Error downloading image', error);
   }
 };

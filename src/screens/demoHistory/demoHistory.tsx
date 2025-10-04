@@ -42,7 +42,7 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
         
         if (data.success) {
           setCapturedImages(data.images);
-          console.log(`✅ Loaded ${data.count} captured images from database`);
+          // console.log(`✅ Loaded ${data.count} captured images from database`);
         } else {
           throw new Error(data.message || 'Failed to load images');
         }
@@ -79,7 +79,7 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
         if (response.ok) {
           setCapturedImages([]);
           setSelectedImage(null);
-          console.log('✅ All images cleared successfully');
+          // console.log('✅ All images cleared successfully');
         } else {
           alert('Không thể xóa tất cả ảnh. Vui lòng thử lại.');
         }
@@ -111,7 +111,7 @@ const DemoHistory: React.FC<DemoHistoryProps> = ({ onBackToHome }) => {
           if (selectedImage?.imageId === imageId) {
             setSelectedImage(null);
           }
-          console.log('✅ Image deleted successfully');
+          // console.log('✅ Image deleted successfully');
         } else {
           alert('Không thể xóa ảnh. Vui lòng thử lại.');
         }

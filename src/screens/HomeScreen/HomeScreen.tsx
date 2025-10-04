@@ -1,17 +1,19 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './HomeScreen_modern.css';
-import { CheckInService } from '../../Services/CheckInService';
+// import { CheckInService } from '../../Services/CheckInService'; // Removed for production
 import type { SubjectInfo } from '../../Services/CheckInService';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
-import FaceRecognition, { type FaceRecognitionRef } from '../../Components/CameraScreen/FaceRecognition';
-import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
-import ProfileModal from '../../Components/ProfileModal';
+import FaceRecognition, { type FaceRecognitionRef } from '../../components/CameraScreen/FaceRecognition';
+import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
+import ProfileModal from '../../components/ProfileModal';
 
 import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
 import { subjectService } from '../../Services/SubjectService/SubjectService';
-import { UnifiedCheckInService } from '../../Services/UnifiedCheckInService';
+import { UnifiedCheckInService } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
+// import { unifiedCheckInService } from '../../Services/UnifiedCheckInService/UnifiedCheckInService'; // For future use
+import { logger } from '../../utils/logger';
 import type { CheckInRequest, CheckInResult } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
 import { GPSService } from '../../Services/GPSService/GpsService';
 
@@ -52,9 +54,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   // Get current student from AuthService
   const currentUser = authService.getCurrentUser();
 
-  // Debug state changes
+  // Debug state changes - only in development
   useEffect(() => {
-    console.log('🔄 State changed:', { showFaceModal, isRegisterMode, gpsStatus, isCheckingIn });
+    logger.ui.debug('State changed', { showFaceModal, isRegisterMode, gpsStatus, isCheckingIn });
   }, [showFaceModal, isRegisterMode, gpsStatus, isCheckingIn]);
 
   // Check face registration status when component loads
@@ -63,12 +65,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       if (!currentUser) return;
       
       try {
-        console.log('🔍 Checking face registration status for user:', currentUser.id);
+        logger.face.debug('Checking face registration status', { userId: currentUser.id });
         const isRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
         setFaceRegistrationStatus(isRegistered ? 'registered' : 'not_registered');
-        console.log('✅ Face registration status:', isRegistered ? 'registered' : 'not_registered');
+        logger.face.info('Face registration status', { userId: currentUser.id, isRegistered });
       } catch (error) {
-        console.error('❌ Error checking face registration status:', error);
+        logger.face.error('Error checking face registration status', error);
         setFaceRegistrationStatus('unknown');
       }
     };
@@ -79,7 +81,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   // If no user is logged in, redirect to login (this should be handled by app routing)
   useEffect(() => {
     if (!currentUser) {
-      console.warn('No user logged in, should redirect to login');
+      logger.auth.warn('No user logged in, should redirect to login');
       // In a real app, this would trigger a redirect to login
       if (onLogout) {
         onLogout();
@@ -93,11 +95,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     
     try {
       // Note: User avatar functionality now requires backend API call
-      // For now, return empty string. Could implement API call to get user's latest successful image
-      console.log('📸 Avatar functionality moved to backend. Consider implementing API call.');
+      logger.api.info('Avatar functionality moved to backend. Consider implementing API call.');
       return '';
     } catch (error) {
-      console.error('Error getting user face image:', error);
+      logger.api.error('Error getting user face image', error);
       return '';
     }
   };
@@ -132,19 +133,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       
       try {
         setIsLoadingSubjects(true);
-        console.log('🔄 Loading student subjects from backend...');
-        console.log('📋 Current user ID:', currentUser.id);
+        logger.api.debug('Loading student subjects', { userId: currentUser.id });
         
         // Retry logic for token availability
         let retries = 3;
         let subjects;
         
         while (retries > 0) {
-          console.log('🔑 Current token exists:', !!authService.getToken());
-          console.log('🔑 Token value:', authService.getToken()?.substring(0, 50) + '...');
-          
           if (!authService.getToken()) {
-            console.log(`⏳ No token found, waiting... (${retries} retries left)`);
+            logger.auth.debug(`No token found, waiting... (${retries} retries left)`);
             await new Promise(resolve => setTimeout(resolve, 500));
             retries--;
             continue;
@@ -154,7 +151,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
             subjects = await subjectService.getStudentSubjectsFormatted(currentUser.id);
             break; // Success, exit retry loop
           } catch (error) {
-            console.log(`❌ Error loading subjects, retrying... (${retries} retries left)`, error);
+            logger.api.warn(`Error loading subjects, retrying... (${retries} retries left)`, error);
             retries--;
             if (retries > 0) {
               await new Promise(resolve => setTimeout(resolve, 1000));
@@ -166,7 +163,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           throw new Error('Failed to load subjects after retries');
         }
         
-        console.log('✅ Subjects loaded:', subjects);
+        logger.api.info('Subjects loaded successfully', { count: subjects.length });
         setAvailableSubjects(subjects);
         
         if (subjects.length === 0) {
@@ -174,7 +171,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         }
         
       } catch (error) {
-        console.error('❌ Error loading student subjects:', error);
+        logger.api.error('Error loading student subjects', error);
         notify.push('❌ Không thể tải danh sách môn học. Vui lòng kiểm tra kết nối mạng và thử lại sau.', 'error');
         setAvailableSubjects([]);
       } finally {
@@ -200,7 +197,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       if (!currentUser) return;
       
       try {
-        console.log('🔄 Loading attendance history from backend...');
+        logger.attendance.debug('Loading attendance history', { userId: currentUser.id });
         
         // ✅ USE SIMPLE HISTORY API TEMPORARILY
         const response = await fetch(`/api/attendance/simple-history/${currentUser.id}`, {
@@ -222,12 +219,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
             }));
             
             setAttendanceHistory(transformedRecords);
-            console.log('✅ Loaded simple attendance history:', transformedRecords);
+            logger.attendance.info('Loaded attendance history', { count: transformedRecords.length });
           }
         }
         
       } catch (error) {
-        console.error('❌ Error loading attendance history:', error);
+        logger.attendance.error('Error loading attendance history', error);
         // Don't show error to user, just use local storage fallback
       }
     };
@@ -250,7 +247,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const handleFaceRecognitionSuccess = async (result: FaceRecognitionResult) => {
     if (isProcessing || isCheckingIn || !currentUser || !selectedSubject) return;
     
-    console.log('✅ Face recognition thành công, chuyển sang unified check-in...');
+    logger.face.info('Face recognition successful, proceeding to unified check-in', { 
+      userId: currentUser.id, 
+      subjectId: selectedSubject.subjectId 
+    });
     setGpsStatus(`Xác thực thành công! Chào ${result.person?.name || currentUser.name}`);
     
     // Gọi unified check-in completion
@@ -296,7 +296,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         throw new Error('Không tìm thấy video element');
       }
     } catch (error) {
-      console.error('Face registration error:', error);
+      logger.face.error('Face registration error during process', error);
       
       // Batch update states để tránh re-render liên tục
       const errorMessage = '❌ Lỗi khi đăng ký: ' + (error as Error).message;
@@ -345,11 +345,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
    */
   const performFaceRegistration = async () => {
     if (!currentUser || isCheckingIn) {
-      console.log('❌ Cannot register face:', { currentUser: !!currentUser, isCheckingIn });
+      logger.face.error('Cannot register face - invalid state', { 
+        hasUser: !!currentUser, 
+        isCheckingIn 
+      });
       return;
     }
 
-    console.log('🚀 Starting face registration...', { currentUser });
+    logger.face.info('Starting face registration', { userId: currentUser.id });
     setIsCheckingIn(true);
 
     try {
@@ -362,12 +365,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       // Set to registration mode and open camera modal
       setIsRegisterMode(true);
       setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để đăng ký khuôn mặt...`);
-      console.log('📱 Opening camera modal for registration...');
+      logger.ui.debug('Opening camera modal for registration');
       setShowFaceModal(true);
       setIsProcessing(false);
 
     } catch (error) {
-      console.error('❌ Face registration error:', error);
+      logger.face.error('Face registration error during modal operation', error);
       
       // Batch update states để tránh re-render liên tục
       const resetStates = () => {
@@ -389,10 +392,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
    * �🚀 UNIFIED CHECK-IN: Kiểm tra GPS + Time trước, sau đó mới mở camera
    */
   const performUnifiedCheckIn = async (selectedSubject: SubjectInfo) => {
-    console.log('🚀 Starting performUnifiedCheckIn...', { selectedSubject, currentUser, isCheckingIn });
+    logger.attendance.info('Starting unified check-in', { 
+      subjectId: selectedSubject.subjectId, 
+      userId: currentUser?.id 
+    });
     
     if (!currentUser || isCheckingIn) {
-      console.log('❌ Early return:', { currentUser: !!currentUser, isCheckingIn });
+      logger.attendance.warn('Cannot perform check-in - invalid state', { 
+        hasUser: !!currentUser, 
+        isCheckingIn 
+      });
       return;
     }
 
@@ -401,9 +410,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     try {
       // BƯỚC 1: Kiểm tra eligibility (face registration, đã check-in chưa)
       setGpsStatus('🔍 Đang kiểm tra điều kiện thời gian và vị trí cho phép điểm danh...');
-      console.log('📋 Checking eligibility for subjectId:', selectedSubject.subjectId);
+      logger.attendance.debug('Checking eligibility', { subjectId: selectedSubject.subjectId });
       const eligibility = await UnifiedCheckInService.canCheckIn(selectedSubject.subjectId);
-      console.log('📋 Eligibility result:', eligibility);
+      logger.attendance.debug('Eligibility result', eligibility);
       
       if (!eligibility.canCheckIn) {
         throw new Error(eligibility.reason || 'Không thể check-in');
@@ -450,7 +459,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       };
 
       // Mở camera modal
-      console.log('📱 Opening camera modal...');
+      logger.ui.debug('Opening camera modal');
       setShowFaceModal(true);
       setIsProcessing(false);
       
@@ -466,9 +475,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       
       try {
         isUserRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
-        console.log('✅ Registration check completed:', { userId: currentUser.id, isRegistered: isUserRegistered });
+        logger.face.info('Registration check completed', { 
+          userId: currentUser.id, 
+          isRegistered: isUserRegistered 
+        });
       } catch (registrationError) {
-        console.error('❌ Error checking registration status:', registrationError);
+        logger.face.error('Error checking registration status', registrationError);
         throw new Error('Không thể kiểm tra trạng thái đăng ký. Vui lòng thử lại.');
       }
       
@@ -478,12 +490,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       }
 
       // User đã đăng ký -> chế độ xác thực
-      console.log('👤 User is registered - switching to verification mode');
+      logger.face.info('User is registered - switching to verification mode');
       setIsRegisterMode(false);
       setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để xác thực...`);
       
     } catch (error) {
-      console.error('❌ Pre-validation error:', error);
+      logger.face.error('Pre-validation error', error);
       setGpsStatus('');
       setIsCheckingIn(false);
       notify.push(`❌ ${error instanceof Error ? error.message : 'Quá trình kiểm tra thất bại. Vui lòng thử lại sau.'}`, 'error');
@@ -576,7 +588,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       }
 
     } catch (error) {
-      console.error('❌ Face recognition + attendance save error:', error);
+      logger.attendance.error('Face recognition + attendance save error', error);
       setGpsStatus('');
       notify.push(`❌ ${error instanceof Error ? error.message : 'Quá trình điểm danh thất bại. Vui lòng kiểm tra kết nối mạng và thử lại.'}`, 'error');
     } finally {
@@ -611,10 +623,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
   const handleCheckLocation = async () => {
     try {
-      const debugInfo = await CheckInService.getLocationDebugInfo();
+      // Debug info removed for production
+      logger.gps.debug('GPS debug info requested');
       notify.push('ℹ️ Thông tin GPS đã được sao chép vào console để kiểm tra kỹ thuật.', 'info');
-      console.log(debugInfo);
     } catch (error) {
+      logger.gps.error('GPS error', error);
       notify.push(`❌ Lỗi GPS: ${(error as Error).message}`, 'error');
     }
   };
@@ -765,7 +778,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                         : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:shadow-lg transform hover:scale-105'
                     }`}
                     onClick={() => {
-                      console.log('🔵 Button clicked:', { selectedSubject, currentUser });
+                      logger.ui.debug('Check-in button clicked', { 
+                        subjectId: selectedSubject?.subjectId, 
+                        userId: currentUser?.id 
+                      });
                       performUnifiedCheckIn(selectedSubject);
                     }}
                     disabled={isCheckingIn}
@@ -815,7 +831,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                             : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg transform hover:scale-105'
                         }`}
                         onClick={() => {
-                          console.log('🔵 Face registration button clicked:', { currentUser, faceRegistrationStatus });
+                          logger.ui.debug('Face registration button clicked', { 
+                            userId: currentUser?.id, 
+                            registrationStatus: faceRegistrationStatus 
+                          });
                           performFaceRegistration();
                         }}
                         disabled={isCheckingIn || faceRegistrationStatus === 'unknown'}
@@ -939,7 +958,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                     }
                   }}
                   onError={(error) => {
-                    console.error('Face recognition error:', error);
+                    logger.face.error('Face recognition error', error);
                     notify.push('❌ Lỗi nhận dạng khuôn mặt: ' + error, 'error');
                     // Không đóng modal khi có lỗi để người dùng có thể thử lại
                     setGpsStatus('❌ Lỗi camera: ' + error);
