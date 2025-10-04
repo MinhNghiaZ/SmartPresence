@@ -44,6 +44,8 @@ export interface FaceRecognitionResult {
   confidence: number;
   person?: FaceDescriptor;
   box?: faceapi.Box;
+  imageData?: string; // ✅ Base64 image data captured during recognition
+  descriptor?: number[]; // ✅ Face descriptor for comparison
 }
 
 export class FaceRecognizeService {
@@ -250,7 +252,9 @@ export class FaceRecognizeService {
             name: result.studentName!,
             descriptor: new Float32Array(descriptor) // Convert back for legacy compatibility
           } : undefined,
-          box: detections[0].detection.box
+          box: detections[0].detection.box,
+          imageData: imageData, // ✅ Include captured image data
+          descriptor: descriptor // ✅ Include face descriptor
         };
       } else {
         console.error(`❌ Face recognition failed: ${result.message}`);

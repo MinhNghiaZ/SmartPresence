@@ -1,0 +1,3 @@
+{
+  "sql": "ALTER TABLE ClassSession ADD COLUMN started_at TIMESTAMP NULL, ADD COLUMN ended_at TIMESTAMP NULL"
+}

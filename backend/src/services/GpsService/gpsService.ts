@@ -22,7 +22,13 @@ export class GPSService {
         try {
             const now = new Date();
             const currentTime = now.toTimeString().slice(0, 8) // HH:MM:SS format
-            const currentDay = now.toLocaleDateString('en-US', { weekday: 'short' }); //Mon, Tue, ...
+            const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+            
+            console.log('🔍 GPSService.getCurrentRoom - Looking for session:', {
+                subjectId,
+                currentDate,
+                currentTime
+            });
 
             const query = `
                 SELECT 
@@ -32,39 +38,56 @@ export class GPSService {
                     r.radius,
                     ts.start_time,
                     ts.end_time,
-                    ts.day_of_week
-                FROM Room r
-                INNER JOIN TimeSlot ts ON r.roomId = ts.roomId
-                WHERE ts.subjectId = ? 
-                  AND ts.day_of_week = ?
+                    ts.day_of_week,
+                    cs.sessionId,
+                    cs.session_status
+                FROM ClassSession cs
+                INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId
+                INNER JOIN Room r ON ts.roomId = r.roomId
+                WHERE cs.subjectId = ? 
+                  AND cs.session_date = ?
+                  AND cs.session_status IN ('SCHEDULED', 'ACTIVE')
                   AND ts.start_time <= ?
                   AND ts.end_time >= ?
                 ORDER BY ts.start_time ASC
                 LIMIT 1
             `;
-            const params = [subjectId, currentDay, currentTime, currentTime];
+            const params = [subjectId, currentDate, currentTime, currentTime];
+            console.log('📞 GPSService query:', query);
+            console.log('📊 GPSService params:', params);
+            
             const [rows] = await db.execute(query, params);
 
             if ((rows as any[]).length > 0) {
                 const row = (rows as any)[0];
+                console.log('✅ Found active session:', {
+                    sessionId: row.sessionId,
+                    sessionStatus: row.session_status,
+                    roomId: row.roomId,
+                    timeSlot: `${row.start_time} - ${row.end_time}`
+                });
+                
                 const room: Room = {
                     roomId: row.roomId,
                     latitude: parseFloat(row.latitude),
                     longitude: parseFloat(row.longitude),
                     radius: parseInt(row.radius)
                 };
+                
+                console.log('📍 Room coordinates found:', {
+                    roomId: room.roomId,
+                    latitude: room.latitude,
+                    longitude: room.longitude,
+                    radius: room.radius
+                });
+                
                 return room;
             }
 
-            //DEVELOP ONLY: DELETE AFTER DEPLOY, Nếu không tìm thấy slot hiện tại-->SLOT MOCK
-            console.log('⚠️ No current timeslot found, using MOCK slot...');
-            const room: Room = {
-                roomId: "201B8",
-                latitude: 11.052845,
-                longitude: 106.665911,
-                radius: 500,
-            }
-            return room;
+            // No active session found - return null to indicate not time for class
+            console.log('⚠️ No active ClassSession found for subject:', subjectId, 'on date:', currentDate);
+            console.log('💡 Hint: Make sure ClassSession records exist with status SCHEDULED or ACTIVE');
+            return null;
 
         } catch (error) {
             console.error('find room error: ', error);

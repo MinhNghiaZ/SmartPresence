@@ -7,9 +7,14 @@ import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/
 import FaceRecognition, { type FaceRecognitionRef } from '../../Components/CameraScreen/FaceRecognition';
 import SimpleAvatarDropdown from '../../Components/SimpleAvatarDropdown';
 import ProfileModal from '../../Components/ProfileModal';
-import { captureFaceImage } from '../../utils/imageCaptureUtils';
+
 import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
+import { subjectService } from '../../Services/SubjectService/SubjectService';
+import { attendanceService } from '../../Services/AttendanceService/AttendanceService';
+import { UnifiedCheckInService } from '../../Services/UnifiedCheckInService';
+import type { CheckInRequest, CheckInResult } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
+import { GPSService } from '../../Services/GPSService/GpsService';
 
 // Interfaces
 
@@ -17,7 +22,7 @@ interface AttendanceRecord {
   id: string;
   subject: string;
   timestamp: string;
-  location: string;
+  location?: string; // ✅ Make location optional
   status: 'Present' | 'Late' | 'Absent';
 }
 
@@ -37,6 +42,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [userAvatar, setUserAvatar] = useState<string>('');
+  const [availableSubjects, setAvailableSubjects] = useState<SubjectInfo[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState<boolean>(true);
   
   // Refs
   const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
@@ -91,161 +98,128 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     };
   }, [currentUser?.id]);
 
-  // Utils
-  const isLateCheckIn = (currentTime: string, classStartTime: string): boolean => {
-    const [currentHour, currentMin] = currentTime.split(':').map(Number);
-    const [classHour, classMin] = classStartTime.split(':').map(Number);
-    
-    const currentMinutes = currentHour * 60 + currentMin;
-    const classMinutes = classHour * 60 + classMin;
-    
-    return currentMinutes > classMinutes + 15;
-  };
+  // Utils removed - isLateCheckIn logic now handled by backend
 
-  // Configuration - All available subjects
-  const allSubjects: SubjectInfo[] = [
-    {
-      subjectId: 'CSE107',
-      name: 'Toán Tin Ứng Dụng',
-      code: 'CSE 107',
-      time: '7:30 AM - 9:30 AM',
-      room: '211 - B.08',
-      instructor: 'Dr. Nguyen Van A',
-      schedule: 'Thứ 2, Thứ 5'
-    },
-    {
-      subjectId: 'CSE201',
-      name: 'Cấu Trúc Dữ Liệu Giải Thuật',
-      code: 'CSE 201', 
-      time: '9:30 AM - 11:30 AM',
-      room: '212 - B.08',
-      instructor: 'Dr. Tran Thi B',
-      schedule: 'Thứ 2, Thứ 5'
+  // Load student subjects from backend
+  useEffect(() => {
+    const loadStudentSubjects = async () => {
+      if (!currentUser) return;
+      
+      try {
+        setIsLoadingSubjects(true);
+        console.log('🔄 Loading student subjects from backend...');
+        console.log('📋 Current user ID:', currentUser.id);
+        
+        // Retry logic for token availability
+        let retries = 3;
+        let subjects;
+        
+        while (retries > 0) {
+          console.log('🔑 Current token exists:', !!authService.getToken());
+          console.log('🔑 Token value:', authService.getToken()?.substring(0, 50) + '...');
+          
+          if (!authService.getToken()) {
+            console.log(`⏳ No token found, waiting... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            retries--;
+            continue;
+          }
+          
+          try {
+            subjects = await subjectService.getStudentSubjectsFormatted(currentUser.id);
+            break; // Success, exit retry loop
+          } catch (error) {
+            console.log(`❌ Error loading subjects, retrying... (${retries} retries left)`, error);
+            retries--;
+            if (retries > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
+        }
+        
+        if (!subjects) {
+          throw new Error('Failed to load subjects after retries');
+        }
+        
+        console.log('✅ Subjects loaded:', subjects);
+        setAvailableSubjects(subjects);
+        
+        if (subjects.length === 0) {
+          notify.push('⚠️ Không tìm thấy môn học nào. Vui lòng liên hệ phòng đào tạo.', 'warning');
+        }
+        
+      } catch (error) {
+        console.error('❌ Error loading student subjects:', error);
+        notify.push('❌ Không thể tải danh sách môn học. Vui lòng kiểm tra kết nối mạng.', 'error');
+        setAvailableSubjects([]);
+      } finally {
+        setIsLoadingSubjects(false);
+      }
+    };
+
+    loadStudentSubjects();
+  }, [currentUser, notify]);
+
+  const [selectedSubject, setSelectedSubject] = useState<SubjectInfo | null>(null);
+
+  // Set default selected subject when available subjects are loaded
+  useEffect(() => {
+    if (availableSubjects.length > 0 && !selectedSubject) {
+      setSelectedSubject(availableSubjects[0]);
     }
-  ];
+  }, [availableSubjects, selectedSubject]);
 
-  // Filter subjects based on student registration
-  const studentRegisteredSubjects = authService.getStudentRegisteredSubjects();
-  const availableSubjects = allSubjects.filter(subject => {
-    // Safety check to ensure studentRegisteredSubjects is an array
-    if (!Array.isArray(studentRegisteredSubjects)) {
-      return true; // Show all subjects if registration data is not available
-    }
-    return studentRegisteredSubjects.includes(subject.code);
-  });
+  // Load attendance history from backend
+  useEffect(() => {
+    const loadAttendanceHistory = async () => {
+      if (!currentUser) return;
+      
+      try {
+        console.log('🔄 Loading attendance history from backend...');
+        
+        // ✅ USE SIMPLE HISTORY API TEMPORARILY
+        const response = await fetch(`http://localhost:3001/api/attendance/simple-history/${currentUser.id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const historyData = await response.json();
+          if (historyData.success && historyData.records.length > 0) {
+            // Transform simple records to HomeScreen format
+            const transformedRecords: AttendanceRecord[] = historyData.records.map((record: any) => ({
+              id: record.AttendanceId,
+              subject: record.subjectId, // Will show subject ID for now
+              timestamp: new Date(record.checked_in_at).toLocaleString('vi-VN'),
+              status: record.status as 'Present' | 'Late' | 'Absent'
+            }));
+            
+            setAttendanceHistory(transformedRecords);
+            console.log('✅ Loaded simple attendance history:', transformedRecords);
+          }
+        }
+        
+      } catch (error) {
+        console.error('❌ Error loading attendance history:', error);
+        // Don't show error to user, just use local storage fallback
+      }
+    };
 
-  const [selectedSubject, setSelectedSubject] = useState<SubjectInfo>(
-    availableSubjects.length > 0 ? availableSubjects[0] : allSubjects[0]
-  );
+    loadAttendanceHistory();
+  }, [currentUser]);
 
   // Handlers
-  const handleCheckIn = async () => {
-    if (!currentUser) {
-      notify.push('❌ Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.', 'error');
-      if (onLogout) onLogout();
-      return;
-    }
-
-    // Open camera modal
-    setShowFaceModal(true);
-    setIsProcessing(false);
-    
-    try {
-      // Initialize face recognition
-      if (!faceRecognizeService.isReady()) {
-        setGpsStatus('Đang tải AI models...');
-        await faceRecognizeService.initializeModels();
-      }
-      
-      // Check registration status from backend
-      setGpsStatus('Đang kiểm tra trạng thái đăng ký...');
-      const isUserRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
-      
-      if (isUserRegistered) {
-        setIsRegisterMode(false);
-        setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để xác thực...`);
-      } else {
-        setIsRegisterMode(true);
-        setGpsStatus(`Xin chào ${currentUser.name}! Bạn chưa đăng ký khuôn mặt. Vui lòng nhìn vào camera để đăng ký...`);
-      }
-      
-    } catch (error) {
-      console.error('Face recognition setup error:', error);
-      setGpsStatus('');
-      setShowFaceModal(false);
-      notify.push('❌ Không thể khởi tạo nhận dạng khuôn mặt. Vui lòng thử lại.', 'error');
-    }
-  };
 
   const handleFaceRecognitionSuccess = async (result: FaceRecognitionResult) => {
-    if (isProcessing || isCheckingIn || !currentUser) return;
+    if (isProcessing || isCheckingIn || !currentUser || !selectedSubject) return;
     
-    // Capture face image before proceeding
-    try {
-      const video = document.querySelector('video') as HTMLVideoElement;
-      if (video) {
-        const captureId = captureFaceImage(
-          video,
-          currentUser.id,
-          currentUser.name,
-          result.confidence,
-          'success'
-        );
-        console.log('📸 Face image captured with ID:', captureId);
-      }
-    } catch (error) {
-      console.error('Error capturing face image:', error);
-    }
-    
-    // Stop camera and close modal
-    if (faceRecognitionRef.current) {
-      faceRecognitionRef.current.stopCamera();
-    }
-    setShowFaceModal(false);
-    setIsCheckingIn(true);
+    console.log('✅ Face recognition thành công, chuyển sang unified check-in...');
     setGpsStatus(`Xác thực thành công! Chào ${result.person?.name || currentUser.name}`);
     
-    try {
-      // Perform check-in
-      const checkInResult = await CheckInService.performCheckIn(
-        selectedSubject,
-        (progress) => {
-          setGpsStatus(progress.status);
-        }
-      );
-      
-      // Save attendance history
-      if (checkInResult.success) {
-        const now = new Date();
-        const currentTime = now.toTimeString().slice(0, 5);
-        const classStartTime = selectedSubject.time.split(' - ')[0];
-        
-        const status = isLateCheckIn(currentTime, classStartTime) ? 'Late' : 'Present';
-        
-        const newRecord: AttendanceRecord = {
-          id: Date.now().toString(),
-          subject: `${selectedSubject.name} (${selectedSubject.code})`,
-          timestamp: new Date().toLocaleString('vi-VN'),
-          location: selectedSubject.room,
-          status: status
-        };
-        
-        setAttendanceHistory(prev => [newRecord, ...prev]);
-      }
-      
-      setGpsStatus('');
-      // Chỉ hiển thị alert cho check-in trực tiếp, không phải sau face recognition
-      if (!isRegisterMode) {
-    notify.push(checkInResult.message, checkInResult.success ? 'success' : 'error');
-      }
-      
-    } catch (error) {
-      console.error('Check-in error:', error);
-      setGpsStatus('');
-      notify.push('❌ Check-in failed. Please try again.', 'error');
-    } finally {
-      setIsCheckingIn(false);
-    }
+    // Gọi unified check-in completion
+    await completeUnifiedCheckIn(result);
   };
 
   const handleFaceRegistration = async () => {
@@ -291,48 +265,63 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
 
   // Check-in function - được gọi sau face registration để tránh duplicate alert
   const performCheckInSilent = async () => {
-    if (isCheckingIn || !currentUser) return;
+    if (isCheckingIn || !currentUser || !selectedSubject) return;
     
     try {
       setIsCheckingIn(true);
       setGpsStatus(`Chào mừng ${currentUser.name}! Đang thực hiện check-in...`);
       
-      const result = await CheckInService.performCheckIn(
-        selectedSubject,
+      // Step 1: GPS validation using CheckInService
+      const gpsResult = await CheckInService.performCheckIn(
+        selectedSubject as SubjectInfo,
         (progress) => {
           setGpsStatus(progress.status);
         }
       );
       
-      // Save attendance history on success
-      if (result.success) {
-        const now = new Date();
-        const currentTime = now.toTimeString().slice(0, 5);
-        const classStartTime = selectedSubject.time.split(' - ')[0];
-        
-        const status = isLateCheckIn(currentTime, classStartTime) ? 'Late' : 'Present';
-        
+      if (!gpsResult.success || !gpsResult.locationData) {
+        throw new Error(gpsResult.message || 'GPS validation failed');
+      }
+      
+      // Step 2: Send check-in to backend using AttendanceService
+      setGpsStatus('Đang gửi dữ liệu điểm danh...');
+      
+      const checkInResponse = await attendanceService.checkIn({
+        studentId: currentUser.id,
+        subjectId: selectedSubject.subjectId,
+        location: gpsResult.locationData,
+        // TODO: Add face descriptor if available
+        // faceDescriptor: faceData?.descriptor,
+        // imageData: faceData?.imageData
+      });
+      
+      if (checkInResponse.success) {
+        // Create attendance record for UI
         const newRecord: AttendanceRecord = {
-          id: Date.now().toString(),
+          id: checkInResponse.attendanceId || Date.now().toString(),
           subject: `${selectedSubject.name} (${selectedSubject.code})`,
-          timestamp: new Date().toLocaleString('vi-VN'),
-          location: selectedSubject.room,
-          status: status
+          timestamp: new Date(checkInResponse.timestamp).toLocaleString('vi-VN'),
+          status: checkInResponse.status === 'PRESENT' ? 'Present' : 
+                 checkInResponse.status === 'LATE' ? 'Late' : 'Absent'
         };
         
         setAttendanceHistory(prev => [newRecord, ...prev]);
+        setGpsStatus('✅ Điểm danh thành công!');
+        
+        // Show success message
+        notify.push(`✅ ${checkInResponse.message}`, 'success');
+        
+      } else {
+        throw new Error(checkInResponse.message || 'Check-in failed');
       }
       
-      setGpsStatus('');
-      // Không hiển thị alert để tránh duplicate
-      
     } catch (error) {
-      console.error('Check-in error:', error);
+      console.error('❌ Check-in error:', error);
       setGpsStatus('');
-      // Chỉ hiển thị alert nếu có lỗi thực sự
-      notify.push('❌ Check-in failed. Please try again.', 'error');
+      notify.push(`❌ ${error instanceof Error ? error.message : 'Check-in failed. Please try again.'}`, 'error');
     } finally {
       setIsCheckingIn(false);
+      setTimeout(() => setGpsStatus(''), 3000); // Clear status after 3 seconds
     }
   };
 
@@ -344,6 +333,191 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
     setShowFaceModal(false);
     setGpsStatus('');
     setIsProcessing(false);
+  };
+
+  /**
+   * 🚀 UNIFIED CHECK-IN: Kiểm tra GPS + Time trước, sau đó mới mở camera
+   */
+  const performUnifiedCheckIn = async (selectedSubject: SubjectInfo) => {
+    if (!currentUser || isCheckingIn) return;
+
+    setIsCheckingIn(true);
+
+    try {
+      // BƯỚC 1: Kiểm tra eligibility (face registration, đã check-in chưa)
+      setGpsStatus('🔍 Kiểm tra điều kiện check-in...');
+      const eligibility = await UnifiedCheckInService.canCheckIn(selectedSubject.subjectId);
+      
+      if (!eligibility.canCheckIn) {
+        throw new Error(eligibility.reason || 'Không thể check-in');
+      }
+
+      // BƯỚC 2: Lấy GPS location
+      setGpsStatus('📍 Đang lấy vị trí GPS...');
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000
+        });
+      });
+
+      // BƯỚC 3: Validate GPS + Time trước (không cần camera)
+      setGpsStatus('⏰ Kiểm tra thời gian và vị trí...');
+      
+      const userLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      };
+
+      const locationResult = await GPSService.validateLocation(userLocation, selectedSubject.subjectId);
+      
+      // Kiểm tra time validation trước
+      if (locationResult.message === 'not time yet') {
+        throw new Error('⏰ Chưa tới giờ học. Vui lòng check-in trong khung thời gian của môn học.');
+      }
+
+      // Kiểm tra location validation
+      if (!locationResult.allowed) {
+        throw new Error(`📍 ${locationResult.message}`);
+      }
+
+      // BƯỚC 4: GPS + Time validation passed → Mở camera modal
+      setGpsStatus('✅ Thời gian và vị trí hợp lệ! Mở camera để nhận diện khuôn mặt...');
+      setIsCheckingIn(false); // Reset flag để có thể tiếp tục với face recognition
+
+      // Lưu location data để dùng sau
+      (window as any).pendingCheckInData = {
+        selectedSubject,
+        location: userLocation,
+        locationResult
+      };
+
+      // Mở camera modal
+      setShowFaceModal(true);
+      setIsProcessing(false);
+      
+      // Initialize face recognition
+      if (!faceRecognizeService.isReady()) {
+        setGpsStatus('Đang tải AI models...');
+        await faceRecognizeService.initializeModels();
+      }
+      
+      // Check registration status from backend
+      setGpsStatus('Đang kiểm tra trạng thái đăng ký...');
+      const isUserRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
+      
+      if (isUserRegistered) {
+        setIsRegisterMode(false);
+        setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để xác thực...`);
+      } else {
+        setIsRegisterMode(true);
+        setGpsStatus(`Xin chào ${currentUser.name}! Bạn chưa đăng ký khuôn mặt. Vui lòng nhìn vào camera để đăng ký...`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Pre-validation error:', error);
+      setGpsStatus('');
+      setIsCheckingIn(false);
+      notify.push(`❌ ${error instanceof Error ? error.message : 'Kiểm tra thất bại. Vui lòng thử lại.'}`, 'error');
+    }
+  };
+
+  /**
+   * 🎯 UNIFIED CHECK-IN COMPLETION: Thực hiện sau khi face recognition thành công
+   */
+  const completeUnifiedCheckIn = async (_faceResult: FaceRecognitionResult) => {
+    if (!currentUser) return;
+
+    // Lấy data đã validate từ bước trước
+    const pendingData = (window as any).pendingCheckInData;
+    if (!pendingData) {
+      notify.push('❌ Không tìm thấy dữ liệu validation. Vui lòng thử lại.', 'error');
+      return;
+    }
+
+    const { selectedSubject, location } = pendingData;
+    setIsCheckingIn(true);
+    
+    try {
+      // Close modal first
+      if (faceRecognitionRef.current) {
+        faceRecognitionRef.current.stopCamera();
+      }
+      setShowFaceModal(false);
+
+      // Get video element (should be available now)
+      const video = document.querySelector('video') as HTMLVideoElement;
+      if (!video) {
+        throw new Error('Không tìm thấy camera.');
+      }
+
+      // Prepare unified check-in request với data đã validate
+      const checkInRequest: CheckInRequest = {
+        subjectId: selectedSubject.subjectId,
+        subjectCode: selectedSubject.code,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        videoElement: video,
+        faceResult: _faceResult // Truyền face result đã có
+      };
+
+      // Perform unified check-in (chỉ cần face recognition + save attendance)
+      setGpsStatus('� Đang nhận diện khuôn mặt và lưu điểm danh...');
+      const result: CheckInResult = await UnifiedCheckInService.performCompleteCheckIn(checkInRequest);
+
+      // Display step-by-step results
+      setGpsStatus('✅ Thời gian hợp lệ (đã kiểm tra)');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setGpsStatus('✅ Vị trí hợp lệ (đã kiểm tra)');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (result.steps.faceRecognition.success) {
+        setGpsStatus('✅ Nhận diện khuôn mặt thành công');
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
+      if (result.success) {
+        setGpsStatus('🎉 Check-in thành công!');
+        
+        // Add to attendance history for immediate UI update
+        const newRecord: AttendanceRecord = {
+          id: result.attendanceId || Date.now().toString(),
+          subject: `${selectedSubject.name} (${selectedSubject.code})`,
+          timestamp: new Date(result.timestamp || Date.now()).toLocaleString('vi-VN'),
+          status: result.status === 'PRESENT' ? 'Present' : 
+                 result.status === 'LATE' ? 'Late' : 
+                 result.status === 'ABSENT' ? 'Absent' : 'Present' // ✅ Map backend status to UI format
+        };
+        
+        setAttendanceHistory(prev => [newRecord, ...prev]);
+        notify.push('✅ ' + result.message, 'success');
+        
+      } else {
+        // Handle failure
+        let errorMessage = '❌ Check-in thất bại:\n';
+        
+        if (!result.steps.faceRecognition.success) {
+          errorMessage += `• ${result.steps.faceRecognition.message}\n`;
+        }
+        if (!result.steps.attendanceRecord.success) {
+          errorMessage += `• ${result.steps.attendanceRecord.message}\n`;
+        }
+        
+        throw new Error(errorMessage.trim());
+      }
+
+    } catch (error) {
+      console.error('❌ Face recognition + attendance save error:', error);
+      setGpsStatus('');
+      notify.push(`❌ ${error instanceof Error ? error.message : 'Check-in thất bại. Vui lòng thử lại.'}`, 'error');
+    } finally {
+      setIsCheckingIn(false);
+      setTimeout(() => setGpsStatus(''), 3000);
+      
+      // Clear pending data
+      (window as any).pendingCheckInData = null;
+    }
   };
 
   const handleLogout = () => {
@@ -450,7 +624,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Check-in Section */}
           <div className="lg:col-span-2">
-            {availableSubjects.length === 0 ? (
+            {isLoadingSubjects ? (
+              /* Loading Card */
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                    Đang tải danh sách môn học...
+                  </h3>
+                  <p className="text-gray-600">
+                    Vui lòng chờ trong giây lát.
+                  </p>
+                </div>
+              </div>
+            ) : availableSubjects.length === 0 ? (
               /* No Subjects Card */
               <div className="bg-white p-6 rounded-lg shadow-lg">
                 <div className="text-center py-8">
@@ -468,7 +655,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : selectedSubject ? (
               /* Subject Selection and Check-in Card */
               <div className="bg-white p-6 rounded-lg shadow-lg">
                 <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
@@ -504,32 +691,49 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                     <p><strong>Thời gian:</strong> {selectedSubject.time}</p>
                     <p><strong>Phòng:</strong> {selectedSubject.room}</p>
                     <p><strong>Lịch học:</strong> {selectedSubject.schedule}</p>
-                    <p className="sm:col-span-2"><strong>Giảng viên:</strong> {selectedSubject.instructor}</p>
                   </div>
                 </div>
 
                 {/* Check-in Button */}
-                <button
-                  className={`w-full py-4 px-6 rounded-lg text-white font-semibold text-lg transition-all duration-300 ${
-                    isCheckingIn
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 hover:shadow-lg transform hover:scale-105'
-                  }`}
-                  onClick={handleCheckIn}
-                  disabled={isCheckingIn}
-                >
-                  {isCheckingIn ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      <span>{gpsStatus || 'Checking...'}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      <span className="mr-2">📸</span>
-                      Check In
-                    </div>
-                  )}
-                </button>
+                <div className="space-y-3">
+                  <button
+                    className={`w-full py-4 px-6 rounded-lg text-white font-semibold text-lg transition-all duration-300 ${
+                      isCheckingIn
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:shadow-lg transform hover:scale-105'
+                    }`}
+                    onClick={() => performUnifiedCheckIn(selectedSubject)}
+                    disabled={isCheckingIn}
+                  >
+                    {isCheckingIn ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        <span>{gpsStatus || 'Checking...'}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <span className="mr-2">✅</span>
+                        Điểm Danh
+                        <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded">GPS + Face</span>
+                      </div>
+                    )}
+                  </button>
+
+
+                </div>
+              </div>
+            ) : (
+              /* No Subject Selected */
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">⏳</div>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                    Chưa chọn môn học
+                  </h3>
+                  <p className="text-gray-600">
+                    Đang tải dữ liệu môn học...
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -560,8 +764,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                       <h4 className="font-medium text-gray-800 text-sm mb-1">
                         {record.subject}
                       </h4>
-                      <p className="text-xs text-gray-600 mb-1">{record.timestamp}</p>
-                      <p className="text-xs text-gray-600 mb-2">{record.location}</p>
+                      <p className="text-xs text-gray-600 mb-2">{record.timestamp}</p>
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
                         record.status === 'Present' 
                           ? 'bg-green-100 text-green-800'

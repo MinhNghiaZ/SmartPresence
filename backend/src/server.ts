@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 // Import routes
-import { authRoutes, gpsRoutes, faceRoutes, storageRoutes } from './routes';
+import { authRoutes, gpsRoutes, faceRoutes, storageRoutes, subjectRoutes, attendanceRoutes } from './routes';
 
 // Load environment variables
 dotenv.config();
@@ -29,6 +29,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/gps', gpsRoutes);
 app.use('/api/face', faceRoutes);
 app.use('/api/storage', storageRoutes);
+app.use('/api/subjects', subjectRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -91,6 +93,21 @@ app.listen(PORT, () => {
     console.log(`   DELETE http://localhost:${PORT}/api/storage/captured-images (Admin)`);
     console.log(`   GET  http://localhost:${PORT}/api/storage/captured-images/date-range`);
     console.log(`   POST http://localhost:${PORT}/api/storage/cleanup (Admin)`);
+    
+    console.log('\n📚 Subject Management:');
+    console.log(`   GET  http://localhost:${PORT}/api/subjects`);
+    console.log(`   GET  http://localhost:${PORT}/api/subjects/student/:studentId`);
+    console.log(`   GET  http://localhost:${PORT}/api/subjects/:subjectId/current-timeslot`);
+    console.log(`   GET  http://localhost:${PORT}/api/subjects/:subjectId/room-info`);
+    console.log(`   GET  http://localhost:${PORT}/api/subjects/:subjectId/enrollment/:studentId`);
+    
+    console.log('\n✅ Attendance System:');
+    console.log(`   POST http://localhost:${PORT}/api/attendance/check-in`);
+    console.log(`   GET  http://localhost:${PORT}/api/attendance/history/:studentId`);
+    console.log(`   GET  http://localhost:${PORT}/api/attendance/stats/:studentId`);
+    console.log(`   GET  http://localhost:${PORT}/api/attendance/today/:studentId`);
+    console.log(`   GET  http://localhost:${PORT}/api/attendance/subject/:subjectId/session-status`);
+    console.log(`   DELETE http://localhost:${PORT}/api/attendance/:attendanceId (Admin)`);
     
     console.log('\n🏥 Health Check:');
     console.log(`   GET  http://localhost:${PORT}/api/health`);

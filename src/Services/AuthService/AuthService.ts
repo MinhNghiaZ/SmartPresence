@@ -2,12 +2,13 @@
 
 export interface User {
     id: string; // MSSV (SV001, SV002, ...)
+    studentId?: string; // Backend compatibility field
     name: string;
     email: string;
-    password: string;
-    registeredSubjects: string[]; // Mã môn học đã đăng ký ['CSE 107', 'CSE 201']
-    cohort: string; // Khóa học (23, 24, 25)
-    phone: string;
+    password?: string;
+    registeredSubjects?: string[]; // Mã môn học đã đăng ký ['CSE 107', 'CSE 201']
+    cohort?: string; // Khóa học (23, 24, 25)
+    phone?: string;
     avatar?: string;
     userType?: 'student' | 'admin';
 }
@@ -45,8 +46,15 @@ export class AuthService {
             if (result.success && result.token) {
                 // Login successful - save to localStorage and memory
                 localStorage.setItem('token', result.token);
-                localStorage.setItem('currentUser', JSON.stringify(result.User));
-                this.currentUser = result.User;
+                
+                // Map backend User structure to frontend User structure
+                const mappedUser = {
+                    ...result.User,
+                    id: result.User.studentId || result.User.id // Map studentId to id
+                };
+                
+                localStorage.setItem('currentUser', JSON.stringify(mappedUser));
+                this.currentUser = mappedUser;
                 
                 console.log('current user from backend:', this.currentUser); // Debug log
                 console.log('login successful');
@@ -126,6 +134,14 @@ export class AuthService {
 
             if (userStr) {
                 this.currentUser = JSON.parse(userStr);
+                console.log('🔄 Restored user from localStorage:', this.currentUser);
+                
+                // Ensure id field exists (map from studentId if needed)
+                if (this.currentUser && !this.currentUser.id && this.currentUser.studentId) {
+                    this.currentUser.id = this.currentUser.studentId;
+                    console.log('🔧 Mapped studentId to id:', this.currentUser.id);
+                }
+                
                 return this.currentUser;
             }
         } catch (error) {
@@ -158,8 +174,14 @@ export class AuthService {
             const result = await response.json();
 
             if (result.success) {
-                localStorage.setItem('currentUser', JSON.stringify(result.User));
-                this.currentUser = result.User;
+                // Map backend User structure to frontend User structure
+                const mappedUser = {
+                    ...result.User,
+                    id: result.User.studentId || result.User.id // Map studentId to id
+                };
+                
+                localStorage.setItem('currentUser', JSON.stringify(mappedUser));
+                this.currentUser = mappedUser;
             }
             return result;
 
@@ -228,6 +250,7 @@ export class AuthService {
 
     /**
      * Lấy danh sách môn học mà sinh viên đã đăng ký
+     * Now uses SubjectService to get data from backend
      */
     static getStudentRegisteredSubjects(): string[] {
         const student = this.getCurrentUser();
@@ -236,8 +259,8 @@ export class AuthService {
             return student.registeredSubjects;
         }
         
-        // Return default subjects for now - in a real app, this would come from backend
-        // or we'd make an API call to get registered subjects
+        // Return default subjects for now - HomeScreen will use SubjectService directly
+        // This method is kept for backward compatibility
         return ['CSE 107', 'CSE 201']; // Default subjects for demo
     }
 

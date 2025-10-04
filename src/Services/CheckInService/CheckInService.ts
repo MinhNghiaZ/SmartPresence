@@ -10,6 +10,11 @@ export interface CheckInResult {
     location: string;
     status: string;
   };
+  // ✅ ADD: Location data for AttendanceService
+  locationData?: {
+    latitude: number;
+    longitude: number;
+  };
   error?: string;
 }
 
@@ -183,7 +188,7 @@ export class CheckInService {
         `Location: Verified\n` +
         `Status: Present`;
 
-      // TODO: Send check-in data to API here
+      // ✅ UPDATED: Return location data for AttendanceService to handle API call
       
       return {
         success: true,
@@ -193,6 +198,10 @@ export class CheckInService {
           time: new Date().toLocaleTimeString(),
           location: 'Verified',
           status: 'Present'
+        },
+        locationData: {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude
         }
       };
 
