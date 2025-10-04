@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "vite",
     "dev:https": "vite --host",
-    "dev:secure": "vite --host --https",
+    "dev:secure": "vite --host",
     "dev:fullstack": "concurrently \"npm run dev:https\" \"npm run dev:backend\"",
+    "dev:fullstack:secure": "concurrently \"npm run dev:secure\" \"npm run dev:backend\"",
     "dev:backend": "cd backend && npm run dev",
     "build": "tsc -b && vite build",
     "build:backend": "cd backend && npm run build",
     "build:all": "npm run build && npm run build:backend",
     "lint": "eslint .",
     "preview": "vite preview",
+    "preview:https": "vite preview --host",
     "start:fullstack": "concurrently \"npm run preview\" \"npm run start:backend\"",
     "start:backend": "cd backend && npm run start"
   },

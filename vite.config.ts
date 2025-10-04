@@ -6,22 +6,27 @@ import mkcert from 'vite-plugin-mkcert'
 export default defineConfig({
   plugins: [
     react(),
-    mkcert() // Auto-generate SSL certificates
+    mkcert() // Auto-generate SSL certificates for HTTPS
   ],
   server: {
     host: '0.0.0.0', // Allow external connections
     port: 5173,
-    https: true, // Enable HTTPS with mkcert certificates
+    https: true, // Enable HTTPS with auto-generated certificates
     open: true,
     strictPort: false,
     proxy: {
-      // Proxy all API requests to backend
+      // Proxy all API requests to backend (keeping HTTP for backend)
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        secure: false,
+        secure: false, // Allow proxy to insecure backend
         rewrite: (path) => path.replace(/^\/api/, '/api')
       }
     }
+  },
+  // Optimizations for HTTPS development
+  define: {
+    // Ensure camera/microphone APIs work with HTTPS
+    __SECURE_CONTEXT__: true
   }
 })

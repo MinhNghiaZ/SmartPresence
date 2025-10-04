@@ -40,14 +40,28 @@ cd SmartPresence
 npm install
 ```
 
-3. **Chạy development server**
+3. **Chạy ứng dụng**
+
+**Khuyến nghị: Sử dụng HTTPS để camera hoạt động tốt nhất**
 ```bash
-npm run dev
+# Chạy với HTTPS (khuyến nghị)
+npm run dev:fullstack:secure
+
+# Hoặc chạy riêng lẻ:
+npm run dev:https        # Frontend với HTTPS
+npm run dev:backend      # Backend với HTTP
+```
+
+**Hoặc chạy HTTP (cho development đơn giản):**
+```bash
+npm run dev:fullstack    # Cả frontend và backend
+npm run dev              # Chỉ frontend
 ```
 
 4. **Truy cập ứng dụng**
-- Mở browser và truy cập: http://localhost:5173
-- Cho phép truy cập camera khi được yêu cầu
+- **HTTPS**: https://localhost:5173 (hoặc port khác nếu 5173 đã dùng)
+- **HTTP**: http://localhost:5173
+- **Backend API**: http://localhost:3001 (được proxy qua frontend)
 
 ## 📱 Hướng dẫn sử dụng
 
@@ -66,6 +80,32 @@ npm run dev
 2. Camera sẽ tự động nhận dạng khuôn mặt
 3. Hệ thống xác thực vị trí GPS
 4. Hoàn tất điểm danh thành công
+
+## 🔐 Cấu hình HTTPS
+
+### Tại sao cần HTTPS?
+- **Camera/Microphone**: Trình duyệt hiện đại yêu cầu HTTPS để truy cập camera
+- **GPS/Geolocation**: Dịch vụ định vị hoạt động tốt hơn với HTTPS
+- **Security**: Bảo mật thông tin truyền tải
+- **PWA Features**: Service Workers yêu cầu HTTPS
+
+### Tự động tạo SSL Certificate
+Ứng dụng sử dụng `vite-plugin-mkcert` để tự động tạo SSL certificates:
+- Certificates được tạo tự động khi chạy lần đầu
+- Không cần cài đặt thủ công
+- Hoạt động với localhost và 127.0.0.1
+
+### Troubleshooting HTTPS
+1. **Cảnh báo Certificate**: Nhấn "Advanced" → "Continue anyway" (an toàn cho development)
+2. **Camera không hoạt động**: Đảm bảo đang dùng HTTPS URL
+3. **CORS Issues**: Backend đã cấu hình hỗ trợ nhiều ports và protocols
+
+### Commands HTTPS
+| Command | Mô tả |
+|---------|-------|
+| `npm run dev:https` | Frontend với HTTPS |
+| `npm run dev:fullstack:secure` | Full app với HTTPS |
+| `npm run preview:https` | Production preview với HTTPS |
 
 ## 🏗️ Cấu trúc dự án
 

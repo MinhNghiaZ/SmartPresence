@@ -17,10 +17,21 @@ const PORT = process.env.PORT || 3001;
 
 console.log('🚀 Starting SmartPresence Backend Server...');
 
-// CORS - Allow frontend to call API
+// CORS - Allow frontend to call API (support both HTTP and HTTPS on multiple ports)
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://localhost:5173'],
-    credentials: true
+    origin: [
+        'http://localhost:5173', 
+        'https://localhost:5173',
+        'http://localhost:5174', 
+        'https://localhost:5174',
+        'http://127.0.0.1:5173',
+        'https://127.0.0.1:5173',
+        'http://127.0.0.1:5174',
+        'https://127.0.0.1:5174'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // JSON Parser
