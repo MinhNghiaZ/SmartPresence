@@ -278,3 +278,10 @@ button:focus, select:focus, input:focus { outline:2px solid #3b82f6; outline-off
 .sidebar-eiu-logo:active { transform:translateY(-1px) scale(.97); }
 .sidebar-eiu-logo:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.35); }
 .sidebar-eiu-logo:focus-visible .eiu-logo-img { transform:scale(1.05); }
+
+/* Full width layout for AdminHistory */
+.admin-full-width {
+  padding: 1.5rem;
+  width: 100%;
+  max-width: none;
+}

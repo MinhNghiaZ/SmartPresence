@@ -11,7 +11,6 @@ import ProfileModal from '../../Components/ProfileModal';
 import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
 import { subjectService } from '../../Services/SubjectService/SubjectService';
-import { attendanceService } from '../../Services/AttendanceService/AttendanceService';
 import { UnifiedCheckInService } from '../../Services/UnifiedCheckInService';
 import type { CheckInRequest, CheckInResult } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
 import { GPSService } from '../../Services/GPSService/GpsService';
@@ -28,10 +27,9 @@ interface AttendanceRecord {
 
 interface HomeScreenProps {
   onLogout?: () => void;
-  onNavigateToDemo?: () => void;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const notify = useNotifications();
   // State
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
@@ -39,6 +37,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   const [showProfile, setShowProfile] = useState<boolean>(false);
   const [showFaceModal, setShowFaceModal] = useState<boolean>(false);
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
+  const [faceRegistrationStatus, setFaceRegistrationStatus] = useState<'unknown' | 'registered' | 'not_registered'>('unknown');
+
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [userAvatar, setUserAvatar] = useState<string>('');
@@ -50,6 +50,30 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   
   // Get current student from AuthService
   const currentUser = authService.getCurrentUser();
+
+  // Debug state changes
+  useEffect(() => {
+    console.log('🔄 State changed:', { showFaceModal, isRegisterMode, gpsStatus, isCheckingIn });
+  }, [showFaceModal, isRegisterMode, gpsStatus, isCheckingIn]);
+
+  // Check face registration status when component loads
+  useEffect(() => {
+    const checkFaceRegistrationStatus = async () => {
+      if (!currentUser) return;
+      
+      try {
+        console.log('🔍 Checking face registration status for user:', currentUser.id);
+        const isRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
+        setFaceRegistrationStatus(isRegistered ? 'registered' : 'not_registered');
+        console.log('✅ Face registration status:', isRegistered ? 'registered' : 'not_registered');
+      } catch (error) {
+        console.error('❌ Error checking face registration status:', error);
+        setFaceRegistrationStatus('unknown');
+      }
+    };
+
+    checkFaceRegistrationStatus();
+  }, [currentUser?.id]);
 
   // If no user is logged in, redirect to login (this should be handled by app routing)
   useEffect(() => {
@@ -235,23 +259,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
         
         setGpsStatus(`✅ Đăng ký khuôn mặt thành công cho ${currentUser.name}!`);
         
-        // Switch to authentication mode after successful registration
-        setIsRegisterMode(false);
+        // Update registration status
+        setFaceRegistrationStatus('registered');
         
-        // Update status for authentication mode
+        // Stop camera and close modal after successful registration
         setTimeout(() => {
-          setGpsStatus(`Chuyển sang chế độ xác thực. Vui lòng nhìn vào camera để check-in...`);
-        }, 1000);
-        
-        // Auto continue check-in after registration
-        setTimeout(() => {
+          // Stop camera first
           if (faceRecognitionRef.current) {
             faceRecognitionRef.current.stopCamera();
           }
+          
+          // Close modal
           setShowFaceModal(false);
-          // Gọi performCheckIn mà không hiển thị alert duplicate
-          performCheckInSilent();
-        }, 3000);
+          setGpsStatus('');
+          setIsProcessing(false);
+          setIsCheckingIn(false);
+          
+          notify.push(`🎉 Đăng ký khuôn mặt thành công! Bây giờ bạn có thể sử dụng nút "Điểm Danh" để check-in.`, 'success');
+        }, 1500);
         
       } else {
         throw new Error('Không tìm thấy video element');
@@ -260,68 +285,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       console.error('Face registration error:', error);
       setGpsStatus('❌ Lỗi khi đăng ký: ' + (error as Error).message);
       setIsProcessing(false);
-    }
-  };
-
-  // Check-in function - được gọi sau face registration để tránh duplicate alert
-  const performCheckInSilent = async () => {
-    if (isCheckingIn || !currentUser || !selectedSubject) return;
-    
-    try {
-      setIsCheckingIn(true);
-      setGpsStatus(`Chào mừng ${currentUser.name}! Đang thực hiện check-in...`);
-      
-      // Step 1: GPS validation using CheckInService
-      const gpsResult = await CheckInService.performCheckIn(
-        selectedSubject as SubjectInfo,
-        (progress) => {
-          setGpsStatus(progress.status);
-        }
-      );
-      
-      if (!gpsResult.success || !gpsResult.locationData) {
-        throw new Error(gpsResult.message || 'GPS validation failed');
-      }
-      
-      // Step 2: Send check-in to backend using AttendanceService
-      setGpsStatus('Đang gửi dữ liệu điểm danh...');
-      
-      const checkInResponse = await attendanceService.checkIn({
-        studentId: currentUser.id,
-        subjectId: selectedSubject.subjectId,
-        location: gpsResult.locationData,
-        // TODO: Add face descriptor if available
-        // faceDescriptor: faceData?.descriptor,
-        // imageData: faceData?.imageData
-      });
-      
-      if (checkInResponse.success) {
-        // Create attendance record for UI
-        const newRecord: AttendanceRecord = {
-          id: checkInResponse.attendanceId || Date.now().toString(),
-          subject: `${selectedSubject.name} (${selectedSubject.code})`,
-          timestamp: new Date(checkInResponse.timestamp).toLocaleString('vi-VN'),
-          status: checkInResponse.status === 'PRESENT' ? 'Present' : 
-                 checkInResponse.status === 'LATE' ? 'Late' : 'Absent'
-        };
-        
-        setAttendanceHistory(prev => [newRecord, ...prev]);
-        setGpsStatus('✅ Điểm danh thành công!');
-        
-        // Show success message
-        notify.push(`✅ ${checkInResponse.message}`, 'success');
-        
-      } else {
-        throw new Error(checkInResponse.message || 'Check-in failed');
-      }
-      
-    } catch (error) {
-      console.error('❌ Check-in error:', error);
-      setGpsStatus('');
-      notify.push(`❌ ${error instanceof Error ? error.message : 'Check-in failed. Please try again.'}`, 'error');
-    } finally {
-      setIsCheckingIn(false);
-      setTimeout(() => setGpsStatus(''), 3000); // Clear status after 3 seconds
     }
   };
 
@@ -336,17 +299,58 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
   };
 
   /**
-   * 🚀 UNIFIED CHECK-IN: Kiểm tra GPS + Time trước, sau đó mới mở camera
+   * � FACE REGISTRATION: Chỉ đăng ký khuôn mặt, không cần GPS/Time validation
+   */
+  const performFaceRegistration = async () => {
+    if (!currentUser || isCheckingIn) {
+      console.log('❌ Cannot register face:', { currentUser: !!currentUser, isCheckingIn });
+      return;
+    }
+
+    console.log('🚀 Starting face registration...', { currentUser });
+    setIsCheckingIn(true);
+
+    try {
+      // Initialize face recognition models
+      if (!faceRecognizeService.isReady()) {
+        setGpsStatus('Đang tải AI models...');
+        await faceRecognizeService.initializeModels();
+      }
+
+      // Set to registration mode and open camera modal
+      setIsRegisterMode(true);
+      setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để đăng ký khuôn mặt...`);
+      console.log('📱 Opening camera modal for registration...');
+      setShowFaceModal(true);
+      setIsProcessing(false);
+
+    } catch (error) {
+      console.error('❌ Face registration error:', error);
+      setGpsStatus('');
+      setIsCheckingIn(false);
+      notify.push(`❌ ${error instanceof Error ? error.message : 'Không thể khởi tạo camera. Vui lòng thử lại.'}`, 'error');
+    }
+  };
+
+  /**
+   * �🚀 UNIFIED CHECK-IN: Kiểm tra GPS + Time trước, sau đó mới mở camera
    */
   const performUnifiedCheckIn = async (selectedSubject: SubjectInfo) => {
-    if (!currentUser || isCheckingIn) return;
+    console.log('🚀 Starting performUnifiedCheckIn...', { selectedSubject, currentUser, isCheckingIn });
+    
+    if (!currentUser || isCheckingIn) {
+      console.log('❌ Early return:', { currentUser: !!currentUser, isCheckingIn });
+      return;
+    }
 
     setIsCheckingIn(true);
 
     try {
       // BƯỚC 1: Kiểm tra eligibility (face registration, đã check-in chưa)
       setGpsStatus('🔍 Kiểm tra điều kiện check-in...');
+      console.log('📋 Checking eligibility for subjectId:', selectedSubject.subjectId);
       const eligibility = await UnifiedCheckInService.canCheckIn(selectedSubject.subjectId);
+      console.log('📋 Eligibility result:', eligibility);
       
       if (!eligibility.canCheckIn) {
         throw new Error(eligibility.reason || 'Không thể check-in');
@@ -393,6 +397,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       };
 
       // Mở camera modal
+      console.log('📱 Opening camera modal...');
       setShowFaceModal(true);
       setIsProcessing(false);
       
@@ -404,15 +409,25 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
       
       // Check registration status from backend
       setGpsStatus('Đang kiểm tra trạng thái đăng ký...');
-      const isUserRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
+      let isUserRegistered = false;
       
-      if (isUserRegistered) {
-        setIsRegisterMode(false);
-        setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để xác thực...`);
-      } else {
-        setIsRegisterMode(true);
-        setGpsStatus(`Xin chào ${currentUser.name}! Bạn chưa đăng ký khuôn mặt. Vui lòng nhìn vào camera để đăng ký...`);
+      try {
+        isUserRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
+        console.log('✅ Registration check completed:', { userId: currentUser.id, isRegistered: isUserRegistered });
+      } catch (registrationError) {
+        console.error('❌ Error checking registration status:', registrationError);
+        throw new Error('Không thể kiểm tra trạng thái đăng ký. Vui lòng thử lại.');
       }
+      
+      // CHẶN nếu user chưa đăng ký khuôn mặt
+      if (!isUserRegistered) {
+        throw new Error('⚠️ Bạn chưa đăng ký khuôn mặt. Vui lòng bấm nút "Đăng Ký Khuôn Mặt" trước khi điểm danh.');
+      }
+
+      // User đã đăng ký -> chế độ xác thực
+      console.log('👤 User is registered - switching to verification mode');
+      setIsRegisterMode(false);
+      setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để xác thực...`);
       
     } catch (error) {
       console.error('❌ Pre-validation error:', error);
@@ -577,7 +592,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                 avatarUrl={userAvatar}
                 onProfile={handleProfile}
                 onSettings={handleSettings}
-                onDemo={onNavigateToDemo}
                 onLogout={handleLogout}
               />
             </div>
@@ -702,7 +716,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                         ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:shadow-lg transform hover:scale-105'
                     }`}
-                    onClick={() => performUnifiedCheckIn(selectedSubject)}
+                    onClick={() => {
+                      console.log('🔵 Button clicked:', { selectedSubject, currentUser });
+                      performUnifiedCheckIn(selectedSubject);
+                    }}
                     disabled={isCheckingIn}
                   >
                     {isCheckingIn ? (
@@ -719,6 +736,50 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
                     )}
                   </button>
 
+                  {/* Face Registration Status & Button */}
+                  <div className="space-y-2">
+                    {/* Status Display */}
+                    <div className="flex items-center justify-center p-3 rounded-lg bg-gray-50">
+                      {faceRegistrationStatus === 'registered' ? (
+                        <div className="flex items-center text-green-600">
+                          <span className="mr-2">✅</span>
+                          <span className="font-medium">Đã đăng ký khuôn mặt</span>
+                        </div>
+                      ) : faceRegistrationStatus === 'not_registered' ? (
+                        <div className="flex items-center text-orange-600">
+                          <span className="mr-2">⚠️</span>
+                          <span className="font-medium">Chưa đăng ký khuôn mặt</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-gray-500">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
+                          <span>Đang kiểm tra...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Registration Button - Chỉ hiển thị khi chưa đăng ký */}
+                    {faceRegistrationStatus !== 'registered' && (
+                      <button
+                        className={`w-full py-3 px-6 rounded-lg font-medium text-lg transition-all duration-300 ${
+                          isCheckingIn
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg transform hover:scale-105'
+                        }`}
+                        onClick={() => {
+                          console.log('🔵 Face registration button clicked:', { currentUser, faceRegistrationStatus });
+                          performFaceRegistration();
+                        }}
+                        disabled={isCheckingIn || faceRegistrationStatus === 'unknown'}
+                      >
+                        <div className="flex items-center justify-center">
+                          <span className="mr-2">👤</span>
+                          Đăng Ký Khuôn Mặt
+                          <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded">Face Only</span>
+                        </div>
+                      </button>
+                    )}
+                  </div>
 
                 </div>
               </div>
@@ -785,7 +846,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onNavigateToDemo }) =
 
       {/* Face Recognition Modal */}
       {showFaceModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onKeyDown={(e) => {
+            // ESC key to close
+            if (e.key === 'Escape') {
+              handleFaceRecognitionCancel();
+            }
+          }}
+          tabIndex={0}
+        >
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b">

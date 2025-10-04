@@ -285,6 +285,29 @@ export class AttendanceController {
     }
 
     /**
+     * POST /api/attendance/complete-expired-sessions (Admin/Test only)
+     * Manually trigger completion of expired sessions
+     */
+    static async completeExpiredSessions(req: Request, res: Response) {
+        try {
+            console.log('🧪 Manual trigger: completeExpiredSessions');
+            await ClassSessionService.completeExpiredSessions();
+            
+            return res.json({
+                success: true,
+                message: 'Expired sessions completed successfully'
+            });
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.completeExpiredSessions error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to complete expired sessions'
+            });
+        }
+    }
+
+    /**
      * GET /api/attendance/session/:sessionId/absent
      * Get absent students for a specific session
      */
@@ -628,6 +651,290 @@ export class AttendanceController {
                 success: false,
                 message: 'Failed to clear test data',
                 error: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    }
+
+    /**
+     * PUT /api/attendance/admin/update-status
+     * Admin update attendance status
+     */
+    static async adminUpdateStatus(req: Request, res: Response) {
+        try {
+            const { attendanceId, newStatus, adminId } = req.body;
+            
+            console.log('🚀 AttendanceController.adminUpdateStatus called:', {
+                attendanceId, newStatus, adminId
+            });
+            
+            // Validation
+            if (!attendanceId || !newStatus || !adminId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Missing required fields: attendanceId, newStatus, adminId'
+                });
+            }
+            
+            const validStatuses = ['PRESENT', 'LATE', 'ABSENT', 'EXCUSED'];
+            if (!validStatuses.includes(newStatus)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid status. Must be: PRESENT, LATE, ABSENT, or EXCUSED'
+                });
+            }
+            
+            const result = await AttendanceService.adminUpdateAttendanceStatus(
+                attendanceId, 
+                newStatus as 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED', 
+                adminId
+            );
+            
+            return res.json(result);
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.adminUpdateStatus error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to update attendance status'
+            });
+        }
+    }
+
+    /**
+     * POST /api/attendance/admin/create-record
+     * Admin create new attendance record (Absent → Present/Late)
+     */
+    static async adminCreateRecord(req: Request, res: Response) {
+        try {
+            const { studentId, subjectId, status, adminId } = req.body;
+            
+            console.log('🚀 AttendanceController.adminCreateRecord called:', {
+                studentId, subjectId, status, adminId
+            });
+            
+            // Validation
+            if (!studentId || !subjectId || !status || !adminId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Missing required fields: studentId, subjectId, status, adminId'
+                });
+            }
+            
+            const validStatuses = ['PRESENT', 'LATE'];
+            if (!validStatuses.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid status. Must be: PRESENT or LATE'
+                });
+            }
+            
+            const result = await AttendanceService.adminCreateAttendanceRecord(
+                studentId,
+                subjectId,
+                status as 'PRESENT' | 'LATE',
+                adminId
+            );
+            
+            return res.json(result);
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.adminCreateRecord error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to create attendance record'
+            });
+        }
+    }
+
+    /**
+     * GET /api/attendance/:attendanceId/confidence
+     * Get confidence score from captured_images
+     */
+    static async getAttendanceConfidence(req: Request, res: Response) {
+        try {
+            const { attendanceId } = req.params;
+            
+            const confidence = await AttendanceService.getAttendanceConfidence(attendanceId);
+            
+            return res.json({
+                success: true,
+                attendanceId: attendanceId,
+                confidence: confidence
+            });
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.getAttendanceConfidence error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to get confidence score'
+            });
+        }
+    }
+
+    /**
+     * GET /api/attendance/session-dates/:subjectId
+     * Get all session dates for a subject (for navigation)
+     */
+    static async getSessionDates(req: Request, res: Response) {
+        try {
+            const { subjectId } = req.params;
+            
+            console.log(`🚀 AttendanceController.getSessionDates called for: ${subjectId}`);
+            
+            if (!subjectId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Subject ID is required'
+                });
+            }
+            
+            const [dates] = await db.execute(`
+                SELECT DISTINCT cs.session_date
+                FROM ClassSession cs
+                WHERE cs.subjectId = ?
+                ORDER BY cs.session_date DESC
+            `, [subjectId]);
+            
+            const sessionDates = (dates as any[]).map(row => {
+                if (row.session_date instanceof Date) {
+                    // For MySQL Date objects, format directly to local date string
+                    const year = row.session_date.getFullYear();
+                    const month = String(row.session_date.getMonth() + 1).padStart(2, '0');
+                    const day = String(row.session_date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                } else {
+                    // For string dates, extract YYYY-MM-DD part
+                    const dateStr = String(row.session_date);
+                    return dateStr.split('T')[0].split(' ')[0];
+                }
+            });
+            
+            return res.json({
+                success: true,
+                subjectId: subjectId,
+                dates: sessionDates,
+                count: sessionDates.length
+            });
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.getSessionDates error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to get session dates'
+            });
+        }
+    }
+
+    /**
+     * POST /api/attendance/sessions/create-test
+     * Create test ClassSession for development
+     */
+    static async createTestSession(req: Request, res: Response) {
+        try {
+            const { subjectId, timeSlotId, sessionDate } = req.body;
+            
+            console.log(`🚀 AttendanceController.createTestSession called for: ${subjectId}, ${timeSlotId}, ${sessionDate}`);
+            
+            if (!subjectId || !timeSlotId || !sessionDate) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'subjectId, timeSlotId, and sessionDate are required'
+                });
+            }
+            
+            // Generate sessionId
+            const sessionId = `SESSION_${sessionDate}_${timeSlotId}`;
+            
+            // Insert new ClassSession
+            await db.execute(`
+                INSERT INTO ClassSession (sessionId, subjectId, timeSlotId, session_date, session_status, created_at, started_at)
+                VALUES (?, ?, ?, ?, 'ACTIVE', NOW(), CONCAT(?, ' 09:30:00'))
+            `, [sessionId, subjectId, timeSlotId, sessionDate, sessionDate]);
+            
+            console.log(`✅ Created test session: ${sessionId}`);
+            
+            return res.json({
+                success: true,
+                sessionId: sessionId,
+                message: 'Test session created successfully'
+            });
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.createTestSession error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to create test session'
+            });
+        }
+    }
+
+    /**
+     * GET /api/attendance/records/:date
+     * Get attendance records for specific date
+     */
+    static async getAttendanceRecordsByDate(req: Request, res: Response) {
+        try {
+            const { date } = req.params;
+            
+            console.log(`🚀 AttendanceController.getAttendanceRecordsByDate called for: ${date}`);
+            
+            if (!date) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Date parameter is required (YYYY-MM-DD format)'
+                });
+            }
+
+            // Validate date format
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(date)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid date format. Use YYYY-MM-DD'
+                });
+            }
+            
+            const result = await AttendanceService.getAttendanceRecordsByDate(date);
+            
+            return res.json(result);
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.getAttendanceRecordsByDate error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to get attendance records'
+            });
+        }
+    }
+
+    /**
+     * GET /api/attendance/history-with-images
+     * Get attendance history with captured images for admin
+     */
+    static async getAttendanceHistoryWithImages(req: Request, res: Response) {
+        try {
+            const { limit } = req.query;
+            
+            console.log(`🚀 AttendanceController.getAttendanceHistoryWithImages called with limit: ${limit}`);
+            
+            const limitNum = limit ? parseInt(limit as string, 10) : 100;
+            
+            if (isNaN(limitNum) || limitNum < 1 || limitNum > 500) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid limit parameter (1-500)'
+                });
+            }
+            
+            const result = await AttendanceService.getAttendanceHistoryWithImages(limitNum);
+            
+            return res.json(result);
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.getAttendanceHistoryWithImages error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to get attendance history with images'
             });
         }
     }

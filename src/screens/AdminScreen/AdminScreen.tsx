@@ -2,6 +2,293 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useNotifications } from '../../context/NotificationContext';
 import './AdminScreen.css';
 import { authService } from '../../Services/AuthService';
+import AdminHistory from '../../Components/AdminHistory/AdminHistory';
+
+// Interface cho dữ liệu thực từ database
+interface StudentAccount {
+	userId: string;
+	name: string;
+	email: string;
+}
+
+interface AttendanceRecord {
+	AttendanceId: string;
+	studentId: string;
+	studentName: string;
+	subjectId: string;
+	status: 'PRESENT' | 'LATE' | 'ABSENT';
+	checked_in_at: string;
+	confidence?: number;
+	hasImage: number;
+}
+
+interface Subject {
+	subjectId: string;
+	name: string;
+	code: string;
+}
+
+// Function để fetch subjects từ database
+const fetchSubjects = async (): Promise<Subject[]> => {
+	try {
+		const response = await fetch('http://localhost:3001/api/subjects');
+		const data = await response.json();
+		return data.success ? data.subjects : [];
+	} catch (error) {
+		console.error('Error fetching subjects:', error);
+		return [];
+	}
+};
+
+// Function để fetch attendance records theo ngày
+const fetchAttendanceByDate = async (date: string): Promise<AttendanceRecord[]> => {
+	try {
+		// Use the date parameter instead of hardcoded 'today'
+		const response = await fetch(`http://localhost:3001/api/attendance/records/${date}`);
+		const data = await response.json();
+		console.log(`📊 Fetched attendance for ${date}:`, data.records?.length || 0, 'records');
+		return data.success ? data.records : [];
+	} catch (error) {
+		console.error(`Error fetching attendance for ${date}:`, error);
+		return [];
+	}
+};
+
+// Interface cho dashboard session info
+interface DashboardSession {
+	sessionId: string;
+	subjectId: string;
+	subjectName: string;
+	subjectCode: string;
+	totalEnrolled: number;
+	totalPresent: number;
+	totalAbsent: number;
+	start_time: string;
+	end_time: string;
+}
+
+// Function để fetch dashboard sessions
+const fetchDashboardSessions = async (date: string): Promise<DashboardSession[]> => {
+	try {
+		const response = await fetch(`http://localhost:3001/api/attendance/dashboard/${date}`);
+		const data = await response.json();
+		return data.success ? data.sessions : [];
+	} catch (error) {
+		console.error('Error fetching dashboard sessions:', error);
+		return [];
+	}
+};
+
+// Interface cho enrolled student từ API
+interface EnrolledStudent {
+	studentId: string;
+	studentName: string;
+	email: string;
+}
+
+// Function để lấy session dates cho navigation
+const fetchSessionDates = async (subjectId: string): Promise<string[]> => {
+	try {
+		const response = await fetch(`http://localhost:3001/api/attendance/session-dates/${subjectId}`);
+		const data = await response.json();
+		if (data.success) {
+			// Convert ISO dates to YYYY-MM-DD format
+			return data.dates.map((date: string) => new Date(date).toISOString().split('T')[0]);
+		}
+		return [];
+	} catch (error) {
+		console.error('Error fetching session dates:', error);
+		return [];
+	}
+};
+
+// Function để fetch danh sách sinh viên enrolled trong subject
+const fetchEnrolledStudents = async (subjectId: string): Promise<EnrolledStudent[]> => {
+	try {
+		const response = await fetch(`http://localhost:3001/api/subjects/${subjectId}/enrolled-students`);
+		const data = await response.json();
+		return data.success ? data.students : [];
+	} catch (error) {
+		console.error('Error fetching enrolled students:', error);
+		return [];
+	}
+};
+
+
+
+const fetchRealConfidence = async (attendanceId: string): Promise<number | null> => {
+	try {
+		const response = await fetch(`http://localhost:3001/api/attendance/${attendanceId}/confidence`);
+		const data = await response.json();
+		return data.success ? data.confidence : null;
+	} catch (error) {
+		console.error('Error fetching confidence:', error);
+		return null;
+	}
+};
+
+// Function để convert AttendanceRecord thành DemoRecord format cho UI
+const convertAttendanceToDemo = (
+	attendanceRecords: AttendanceRecord[], 
+	subjects: Subject[]
+): DemoRecord[] => {
+	return attendanceRecords.map(record => {
+		// Tìm subject name từ subjectId
+		const subject = subjects.find(s => s.subjectId === record.subjectId);
+		const subjectDisplay = subject ? subject.code : record.subjectId;
+		
+		// Convert status từ database format sang UI format
+		const statusMap: { [key: string]: DemoRecord['status'] } = {
+			'PRESENT': 'Present',
+			'LATE': 'Late', 
+			'ABSENT': 'Absent'
+		};
+		
+		// Extract time từ timestamp
+		const checkInDate = new Date(record.checked_in_at);
+		const timeStr = checkInDate.toLocaleTimeString('en-GB', { 
+			hour: '2-digit', 
+			minute: '2-digit' 
+		});
+		
+		return {
+			id: record.AttendanceId,
+			userId: record.studentId,
+			userName: record.studentName,
+			subject: subjectDisplay,
+			time: timeStr,
+			date: checkInDate.toISOString().split('T')[0], // YYYY-MM-DD
+			status: statusMap[record.status] || 'Absent',
+			confidence: record.confidence ? `${record.confidence}%` : '95.00%',
+			checkInStatus: record.hasImage ? 'success' : 'failed'
+		};
+	});
+};
+
+// Function để tạo complete attendance list với real enrolled students
+const generateCompleteAttendanceListWithRealData = async (
+	attendanceRecords: AttendanceRecord[],
+	dashboardSessions: DashboardSession[],
+	subjects: Subject[],
+	selectedSubjectCode: string,
+	targetDate?: string // Optional date parameter, defaults to today
+): Promise<DemoRecord[]> => {
+	// Tìm subject được chọn
+	const selectedSubject = subjects.find(s => s.code === selectedSubjectCode);
+	if (!selectedSubject) {
+		return [];
+	}
+
+	// Determine the date to use for filtering
+	const dateToUse = targetDate || new Date().toISOString().split('T')[0];
+	console.log(`📅 Using date: ${dateToUse} for attendance filtering`);
+
+	// Fetch danh sách sinh viên enrolled thật từ database
+	const enrolledStudents = await fetchEnrolledStudents(selectedSubject.subjectId);
+	console.log(`📚 Loaded ${enrolledStudents.length} enrolled students for ${selectedSubjectCode}`);
+
+	// Get ALL attendance records for this subject (not just for target date)
+	const allAttendanceForSubject = attendanceRecords.filter(r => r.subjectId === selectedSubject.subjectId);
+	
+	// Get attendance records specifically for target date
+	const attendanceForDate = allAttendanceForSubject.filter(r => {
+		const recordDate = new Date(r.checked_in_at).toISOString().split('T')[0];
+		return recordDate === dateToUse;
+	});
+	
+	// Create a comprehensive student list: enrolled + anyone who ever had attendance
+	const allStudentIds = new Set<string>();
+	const studentInfoMap = new Map<string, { studentId: string, studentName: string }>();
+	
+	// Add enrolled students
+	enrolledStudents.forEach(student => {
+		allStudentIds.add(student.studentId);
+		studentInfoMap.set(student.studentId, {
+			studentId: student.studentId,
+			studentName: student.studentName
+		});
+	});
+	
+	// Add students who ever had attendance (even if not enrolled)
+	allAttendanceForSubject.forEach(record => {
+		if (!allStudentIds.has(record.studentId)) {
+			allStudentIds.add(record.studentId);
+			studentInfoMap.set(record.studentId, {
+				studentId: record.studentId,
+				studentName: `Student ${record.studentId}` // Fallback name
+			});
+		}
+	});
+	
+	console.log(`👥 Total unique students (enrolled + ever attended): ${allStudentIds.size}`);
+	
+	// Tạo complete list từ all students (enrolled + ever attended)
+	const completeList: DemoRecord[] = [];
+	
+	// Process all students in comprehensive list
+	for (const studentId of allStudentIds) {
+		const studentInfo = studentInfoMap.get(studentId)!;
+		
+		// Tìm attendance record cho sinh viên này trong ngày được chọn
+		const attendanceRecord = attendanceForDate.find(a => a.studentId === studentId);
+		
+		if (attendanceRecord) {
+			// Sinh viên đã check-in cho ngày này - sử dụng data thực
+			const checkInDate = new Date(attendanceRecord.checked_in_at);
+			const timeStr = checkInDate.toLocaleTimeString('en-GB', { 
+				hour: '2-digit', 
+				minute: '2-digit' 
+			});
+			
+			const statusMap: { [key: string]: DemoRecord['status'] } = {
+				'PRESENT': 'Present',
+				'LATE': 'Late', 
+				'ABSENT': 'Absent'
+			};
+			
+			// ✅ Fetch real confidence from captured_images table
+			let realConfidence = '0.00%';
+			try {
+				const confidence = await fetchRealConfidence(attendanceRecord.AttendanceId);
+				realConfidence = confidence !== null ? `${confidence.toFixed(2)}%` : '0.00%';
+			} catch (error) {
+				console.error('Error loading confidence:', error);
+			}
+			
+			completeList.push({
+				id: attendanceRecord.AttendanceId,
+				userId: studentInfo.studentId,
+				userName: studentInfo.studentName,
+				subject: selectedSubjectCode,
+				time: timeStr,
+				date: checkInDate.toISOString().split('T')[0],
+				status: statusMap[attendanceRecord.status] || 'Absent',
+				confidence: realConfidence,
+				checkInStatus: attendanceRecord.hasImage ? 'success' : 'failed',
+				// Admin functionality fields
+				AttendanceId: attendanceRecord.AttendanceId,
+				StudentId: studentInfo.studentId
+			});
+		} else {
+			// Sinh viên chưa check-in cho ngày này - absent
+			completeList.push({
+				id: `ABSENT_${selectedSubject.subjectId}_${studentInfo.studentId}`,
+				userId: studentInfo.studentId,
+				userName: studentInfo.studentName,
+				subject: selectedSubjectCode,
+				time: '--:--',
+				date: dateToUse,
+				status: 'Absent',
+				confidence: '0.00%',
+				checkInStatus: 'failed',
+				// Admin functionality fields - no AttendanceId for absent students
+				StudentId: studentInfo.studentId
+			});
+		}
+	}
+	
+	return completeList;
+};
 
 interface AdminScreenProps {
 	onBackToHome?: () => void;
@@ -20,6 +307,9 @@ interface DemoRecord {
 	status: 'Present' | 'Late' | 'Absent';
 	confidence: string;
 	checkInStatus: 'success' | 'failed';
+	// Admin functionality fields
+	AttendanceId?: string; // Backend attendance ID for updates
+	StudentId?: string; // Backend student ID for new records
 }
 
 function generateRecords(): DemoRecord[] {
@@ -62,6 +352,52 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		const { push } = useNotifications();
 		const isAdmin = authService.isAdmin();
 		
+		// Admin API functions
+		const adminUpdateAttendanceStatus = async (
+			attendanceId: string, 
+			newStatus: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
+		): Promise<{ success: boolean; message: string }> => {
+			try {
+				const adminId = currentUser?.id || '';
+				const token = authService.getToken();
+				const response = await fetch('http://localhost:3001/api/attendance/admin/update-status', {
+					method: 'PUT',
+					headers: { 
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${token}`
+					},
+					body: JSON.stringify({ attendanceId, newStatus, adminId })
+				});
+				return await response.json();
+			} catch (error) {
+				console.error('Error updating attendance status:', error);
+				return { success: false, message: 'Network error' };
+			}
+		};
+
+		const adminCreateAttendanceRecord = async (
+			studentId: string,
+			subjectId: string,
+			status: 'PRESENT' | 'LATE'
+		): Promise<{ success: boolean; message: string; attendanceId?: string }> => {
+			try {
+				const adminId = currentUser?.id || '';
+				const token = authService.getToken();
+				const response = await fetch('http://localhost:3001/api/attendance/admin/create-record', {
+					method: 'POST',
+					headers: { 
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${token}`
+					},
+					body: JSON.stringify({ studentId, subjectId, status, adminId })
+				});
+				return await response.json();
+			} catch (error) {
+				console.error('Error creating attendance record:', error);
+				return { success: false, message: 'Network error' };
+			}
+		};
+		
 		// Check if user is logged in and is admin
 		useEffect(() => {
 			console.log('AdminScreen: currentUser =', currentUser);
@@ -78,6 +414,59 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				handleBackToLogin();
 				return;
 			}
+		}, [currentUser, isAdmin, push]);
+
+		// Load real data từ database
+		useEffect(() => {
+			const loadRealData = async () => {
+				if (!currentUser || !isAdmin) return;
+				
+				try {
+					setIsLoading(true);
+					console.log('🔄 Loading real data from database...');
+
+					// Load subjects
+					const subjectsData = await fetchSubjects();
+					setSubjects(subjectsData);
+					console.log('✅ Loaded subjects:', subjectsData.length);
+
+					// Load attendance for today
+					const today = new Date().toISOString().split('T')[0];
+					const attendanceData = await fetchAttendanceByDate(today);
+					setAttendanceRecords(attendanceData);
+					console.log('✅ Loaded attendance records:', attendanceData.length);
+
+					// Load dashboard sessions để lấy thông tin enrollment
+					const dashboardData = await fetchDashboardSessions(today);
+					setDashboardSessions(dashboardData);
+					console.log('✅ Loaded dashboard sessions:', dashboardData.length);
+
+					// Set first subject as selected if available
+					if (subjectsData.length > 0) {
+						setSelectedSubject(subjectsData[0].code);
+						
+						// Generate complete attendance list với real enrolled students
+						const today = new Date().toISOString().split('T')[0];
+						const completeRecords = await generateCompleteAttendanceListWithRealData(
+							attendanceData, 
+							dashboardData, 
+							subjectsData, 
+							subjectsData[0].code,
+							today
+						);
+						setRecords(completeRecords);
+						console.log('✅ Generated complete attendance list with real data:', completeRecords.length);
+					}
+
+				} catch (error) {
+					console.error('❌ Error loading real data:', error);
+					push('❌ Không thể tải dữ liệu từ database', 'error');
+				} finally {
+					setIsLoading(false);
+				}
+			};
+
+			loadRealData();
 		}, [currentUser, isAdmin, push]);
 
 		// Handler for back to login with proper logout
@@ -106,27 +495,158 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 			);
 		}
 
-		// Records state (initially generated demo data)
+		// State cho real data từ database
+		const [subjects, setSubjects] = useState<Subject[]>([]);
+		const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+		const [dashboardSessions, setDashboardSessions] = useState<DashboardSession[]>([]);
+		const [isLoading, setIsLoading] = useState(true);
+		
+		// Temporary fallback - tạm thời giữ records cũ trong khi chuyển đổi
 		const [records, setRecords] = useState<DemoRecord[]>(() => generateRecords());
 		// Editing state
 		const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 		const [editingStatus, setEditingStatus] = useState<DemoRecord['status']>('Present');
-            const [selectedSubject, setSelectedSubject] = useState<string>(DEMO_SUBJECTS[0]);
+            const [selectedSubject, setSelectedSubject] = useState<string>(''); // Sẽ được set khi load data
             const [currentDayIndex, setCurrentDayIndex] = useState<number>(0); // 0 = most recent day
+            const [activeView, setActiveView] = useState<'attendance' | 'history'>('attendance'); // New state for view switching
+
+			// Update records when selectedSubject changes để hiển thị tất cả students
+			useEffect(() => {
+				const updateRecords = async () => {
+					if (selectedSubject && subjects.length > 0) {
+						const today = new Date().toISOString().split('T')[0];
+						const completeRecords = await generateCompleteAttendanceListWithRealData(
+							attendanceRecords, 
+							dashboardSessions, 
+							subjects, 
+							selectedSubject,
+							today
+						);
+						setRecords(completeRecords);
+						console.log(`✅ Updated records for ${selectedSubject}:`, completeRecords.length);
+					}
+				};
+				
+				updateRecords();
+			}, [selectedSubject, subjects, attendanceRecords, dashboardSessions]);
 
 			const subjectRecords = useMemo(() => records.filter(r => r.subject === selectedSubject), [records, selectedSubject]);
 
-			const subjectDates = useMemo(() => {
-				const uniq = Array.from(new Set(subjectRecords.map(r => r.date)));
-				return uniq.sort((a,b)=> b.localeCompare(a)); // newest first
-			}, [subjectRecords]);
+			// Load session dates for navigation (based on ClassSession instead of Attendance)
+			const [sessionDates, setSessionDates] = useState<string[]>([]);
+			
+			useEffect(() => {
+				const loadSessionDates = async () => {
+					if (selectedSubject && subjects.length > 0) {
+						const subjectObj = subjects.find(s => s.code === selectedSubject);
+						if (subjectObj) {
+							const dates = await fetchSessionDates(subjectObj.subjectId);
+							setSessionDates(dates);
+							console.log(`📅 Loaded ${dates.length} session dates for ${selectedSubject}:`, dates);
+						}
+					}
+				};
+				
+				loadSessionDates();
+			}, [selectedSubject, subjects]);
 
-            // Reset to first date when subject changes
-            useEffect(() => { setCurrentDayIndex(0); }, [selectedSubject]);
+			const subjectDates = sessionDates; // Use session dates instead of attendance dates
+
+            // Set intelligent initial date when subject changes or sessionDates load
+            useEffect(() => {
+                if (sessionDates.length === 0) return;
+                
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Find today's index
+                const todayIndex = sessionDates.findIndex(date => date === today);
+                
+                if (todayIndex !== -1) {
+                    // Today exists in sessions, use it
+                    setCurrentDayIndex(todayIndex);
+                    console.log(`📅 Set to today's session: ${today} (index ${todayIndex})`);
+                } else {
+                    // Today not found, find the most recent past date
+                    let mostRecentPastIndex = -1;
+                    
+                    for (let i = 0; i < sessionDates.length; i++) {
+                        const sessionDate = sessionDates[i];
+                        if (sessionDate < today) {
+                            // This is a past date, check if it's more recent than our current candidate
+                            if (mostRecentPastIndex === -1 || sessionDate > sessionDates[mostRecentPastIndex]) {
+                                mostRecentPastIndex = i;
+                            }
+                        }
+                    }
+                    
+                    if (mostRecentPastIndex !== -1) {
+                        // Found a past date, use the most recent one
+                        setCurrentDayIndex(mostRecentPastIndex);
+                        console.log(`📅 Set to most recent past session: ${sessionDates[mostRecentPastIndex]} (index ${mostRecentPastIndex})`);
+                    } else {
+                        // No past dates found, use first date (default behavior)
+                        setCurrentDayIndex(0);
+                        console.log(`📅 No past dates found, using first session: ${sessionDates[0]} (index 0)`);
+                    }
+                }
+            }, [sessionDates]); // Trigger when sessionDates changes, not just selectedSubject
 
             const totalDays = subjectDates.length || 1;
 
 			const activeDate = subjectDates[currentDayIndex];
+
+			// Load attendance data when activeDate changes
+			useEffect(() => {
+				const loadAttendanceForDate = async () => {
+					if (!activeDate || !selectedSubject || !subjects.length) {
+						console.log('⏭️ Skipping load - missing requirements:', { activeDate, selectedSubject, subjectsLength: subjects.length });
+						return;
+					}
+					
+					try {
+						setIsLoading(true);
+						console.log(`🔄 Loading attendance data for date: ${activeDate}`);
+
+						// Fetch attendance data for the specific date
+						console.log('📊 Fetching attendance records...');
+						const attendanceData = await fetchAttendanceByDate(activeDate);
+						console.log(`✅ Loaded ${attendanceData.length} attendance records for ${activeDate}`);
+
+						// Fetch dashboard data for the specific date
+						console.log('📈 Fetching dashboard sessions...');
+						const dashboardData = await fetchDashboardSessions(activeDate);
+						console.log(`✅ Loaded ${dashboardData.length} dashboard sessions for ${activeDate}`);
+
+						// Find selected subject object
+						const subjectObj = subjects.find(s => s.code === selectedSubject);
+						if (!subjectObj) {
+							console.error(`❌ Subject ${selectedSubject} not found in subjects list`);
+							return;
+						}
+
+						console.log('🧮 Generating complete attendance list...');
+						// Generate complete attendance list for this date
+						const completeRecords = await generateCompleteAttendanceListWithRealData(
+							attendanceData,
+							dashboardData,
+							subjects,
+							selectedSubject,
+							activeDate // Pass the active date
+						);
+						setRecords(completeRecords);
+						console.log(`✅ Generated ${completeRecords.length} complete records for ${activeDate}`);
+
+					} catch (error) {
+						console.error(`❌ Error loading attendance for ${activeDate}:`, error);
+						console.error('Error details:', error);
+						push(`❌ Không thể tải dữ liệu cho ngày ${activeDate}: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+					} finally {
+						setIsLoading(false);
+					}
+				};
+
+				loadAttendanceForDate();
+			}, [activeDate, selectedSubject, subjects, push]);
 			const dayRecords = useMemo(() => {
 				if(!activeDate) return [];
 				return subjectRecords.filter(r => r.date === activeDate);
@@ -207,15 +727,72 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				setEditingRecordId(null);
 			};
 
-			const saveEdit = () => {
+			const saveEdit = async () => {
 				if(!editingRecordId) return;
-				setRecords(prev => prev.map(r => r.id === editingRecordId ? {
-					...r,
-					status: editingStatus,
-					checkInStatus: editingStatus === 'Absent' ? 'failed' : 'success'
-				} : r));
-				setEditingRecordId(null);
-				push('Đã cập nhật điểm danh', 'success', 3000);
+				
+				try {
+					const currentRecord = records.find(r => r.id === editingRecordId);
+					if (!currentRecord) return;
+
+					// Convert status format from UI to API format
+					const apiStatus = editingStatus.toUpperCase() as 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED';
+
+					// Kiểm tra xem có AttendanceId không (record có tồn tại trong database)
+					if (currentRecord.AttendanceId) {
+						// Update existing record
+						const result = await adminUpdateAttendanceStatus(currentRecord.AttendanceId, apiStatus);
+						if (result.success) {
+							push('Đã cập nhật trạng thái điểm danh', 'success', 3000);
+						} else {
+							push(`Lỗi: ${result.message}`, 'error', 3000);
+							return;
+						}
+					} else {
+						// Create new attendance record (student was Absent, now Present/Late)
+						if (editingStatus !== 'Absent' && currentRecord.StudentId) {
+							// Get subjectId from subjects array using selectedSubject (code)
+							const subjectObj = subjects.find(s => s.code === selectedSubject);
+							if (!subjectObj) {
+								push('Lỗi: Không tìm thấy thông tin môn học', 'error', 3000);
+								return;
+							}
+							
+							const result = await adminCreateAttendanceRecord(
+								currentRecord.StudentId,
+								subjectObj.subjectId, // Use actual subjectId from database
+								apiStatus as 'PRESENT' | 'LATE'
+							);
+							
+							if (result.success && result.attendanceId) {
+								// Update local state với AttendanceId mới
+								setRecords(prev => prev.map(r => r.id === editingRecordId ? {
+									...r,
+									AttendanceId: result.attendanceId,
+									status: editingStatus,
+									checkInStatus: 'success'
+								} : r));
+								
+								push('Đã tạo bản ghi điểm danh mới', 'success', 3000);
+							} else {
+								push(`Lỗi: ${result.message}`, 'error', 3000);
+								return;
+							}
+						}
+					}
+					
+					// Update local state for existing records
+					setRecords(prev => prev.map(r => r.id === editingRecordId ? {
+						...r,
+						status: editingStatus,
+						checkInStatus: editingStatus === 'Absent' ? 'failed' : 'success'
+					} : r));
+					
+				} catch (error) {
+					console.error('Error updating attendance:', error);
+					push('Lỗi khi cập nhật điểm danh', 'error', 3000);
+				} finally {
+					setEditingRecordId(null);
+				}
 			};
 
 			// Scroll to top handler for sidebar logo
@@ -232,6 +809,33 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 							<h1>SmartPresence Admin</h1>
 							<p>EIU Management Dashboard (UI Demo)</p>
 						</div>
+						
+						{/* Navigation Tabs */}
+						<div className="flex items-center space-x-4">
+							<div className="flex space-x-2">
+								<button
+									className={`px-4 py-2 rounded-lg font-medium transition-all ${
+										activeView === 'attendance'
+											? 'bg-white text-blue-600 shadow-md'
+											: 'bg-blue-700/50 text-white hover:bg-blue-600/70'
+									}`}
+									onClick={() => setActiveView('attendance')}
+								>
+									📊 Attendance Dashboard
+								</button>
+								<button
+									className={`px-4 py-2 rounded-lg font-medium transition-all ${
+										activeView === 'history'
+											? 'bg-white text-blue-600 shadow-md'
+											: 'bg-blue-700/50 text-white hover:bg-blue-600/70'
+									}`}
+									onClick={() => setActiveView('history')}
+								>
+									📝 History Records
+								</button>
+							</div>
+						</div>
+						
 						<div className="flex items-center space-x-4">
 							<div className="text-right">
 												<p className="text-sm text-white font-medium">{currentUser?.name}</p>
@@ -244,8 +848,24 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				<div className="admin-container">
 					<button onClick={handleBackToLogin} className="back-button">← Quay về Login</button>
 
-					<div className="admin-content-grid">
-					<div className="admin-main-content">
+					{isLoading ? (
+						<div style={{textAlign: 'center', padding: '2rem'}}>
+							<p>🔄 Đang tải dữ liệu từ database...</p>
+							<p>Subjects: {subjects.length} | Attendance: {attendanceRecords.length}</p>
+						</div>
+					) : (
+						<>
+							{/* Conditional Layout Based on Active View */}
+							{activeView === 'history' ? (
+								/* Full width for AdminHistory */
+								<div className="admin-full-width">
+									<AdminHistory />
+								</div>
+							) : (
+								/* Normal grid layout for Attendance Dashboard */
+								<div className="admin-content-grid">
+									<div className="admin-main-content">
+										{/* Original Attendance Dashboard Content */}
 
 							{/* Prominent Subject Selection Card */}
 							<div className="subject-filter-card" aria-label="Chọn môn học">
@@ -253,16 +873,16 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 									<h3>📚 Môn học</h3>
 								</div>
 								<div className="subject-chips large" role="list" aria-label="Danh sách môn học">
-									{DEMO_SUBJECTS.map(sub => (
+									{subjects.map(subject => (
 										<button
-											key={sub}
+											key={subject.subjectId}
 											role="listitem"
 											type="button"
-											className={`subject-chip ${sub === selectedSubject ? 'active' : ''}`}
-											onClick={()=>setSelectedSubject(sub)}
-											aria-pressed={sub === selectedSubject}
+											className={`subject-chip ${subject.code === selectedSubject ? 'active' : ''}`}
+											onClick={()=>setSelectedSubject(subject.code)}
+											aria-pressed={subject.code === selectedSubject}
 										>
-											{sub}
+											{subject.code}
 										</button>
 									))}
 								</div>
@@ -384,69 +1004,72 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 											</table>
 										</div>
 									</div>
-					</div>
+									</div>
 
-								<div className="admin-sidebar">
-									<div className="sidebar-section overview">
-										<h3>📊 Tổng quan</h3>
-										<div className="overview-groups">
-											<div className="group-block">
-												<div className="group-title">Ngày</div>
-												<div className="kv"><span>Tổng:</span><span>{dayStats.total}</span></div>
-												<div className="kv"><span>Present:</span><span>{dayStats.present}</span></div>
-												<div className="kv"><span>Late:</span><span>{dayStats.late}</span></div>
-												<div className="kv"><span>Absent:</span><span>{dayStats.absent}</span></div>
-												<div className="kv"><span>Tỷ lệ:</span><span>{dayStats.rate}%</span></div>
-											</div>
-											<div className="group-block">
-												<div className="group-title">Tuần (7d)</div>
-												<div className="kv"><span>Tổng:</span><span>{weekStats.total}</span></div>
-												<div className="kv"><span>Present:</span><span>{weekStats.present}</span></div>
-												<div className="kv"><span>Late:</span><span>{weekStats.late}</span></div>
-												<div className="kv"><span>Absent:</span><span>{weekStats.absent}</span></div>
-												<div className="kv"><span>Tỷ lệ:</span><span>{weekStats.rate}%</span></div>
-											</div>
-											<div className="group-block">
-												<div className="group-title">Môn (All)</div>
-												<div className="kv"><span>Tổng:</span><span>{subjectStats.total}</span></div>
-												<div className="kv"><span>Present:</span><span>{subjectStats.present}</span></div>
-												<div className="kv"><span>Late:</span><span>{subjectStats.late}</span></div>
-												<div className="kv"><span>Absent:</span><span>{subjectStats.absent}</span></div>
-												<div className="kv"><span>Tỷ lệ:</span><span>{subjectStats.rate}%</span></div>
+									<div className="admin-sidebar">
+										<div className="sidebar-section overview">
+											<h3>📊 Tổng quan</h3>
+											<div className="overview-groups">
+												<div className="group-block">
+													<div className="group-title">Ngày</div>
+													<div className="kv"><span>Tổng:</span><span>{dayStats.total}</span></div>
+													<div className="kv"><span>Present:</span><span>{dayStats.present}</span></div>
+													<div className="kv"><span>Late:</span><span>{dayStats.late}</span></div>
+													<div className="kv"><span>Absent:</span><span>{dayStats.absent}</span></div>
+													<div className="kv"><span>Tỷ lệ:</span><span>{dayStats.rate}%</span></div>
+												</div>
+												<div className="group-block">
+													<div className="group-title">Tuần (7d)</div>
+													<div className="kv"><span>Tổng:</span><span>{weekStats.total}</span></div>
+													<div className="kv"><span>Present:</span><span>{weekStats.present}</span></div>
+													<div className="kv"><span>Late:</span><span>{weekStats.late}</span></div>
+													<div className="kv"><span>Absent:</span><span>{weekStats.absent}</span></div>
+													<div className="kv"><span>Tỷ lệ:</span><span>{weekStats.rate}%</span></div>
+												</div>
+												<div className="group-block">
+													<div className="group-title">Môn (All)</div>
+													<div className="kv"><span>Tổng:</span><span>{subjectStats.total}</span></div>
+													<div className="kv"><span>Present:</span><span>{subjectStats.present}</span></div>
+													<div className="kv"><span>Late:</span><span>{subjectStats.late}</span></div>
+													<div className="kv"><span>Absent:</span><span>{subjectStats.absent}</span></div>
+													<div className="kv"><span>Tỷ lệ:</span><span>{subjectStats.rate}%</span></div>
+												</div>
 											</div>
 										</div>
-									</div>
-									<div className="sidebar-section absent-alert">
-										<h3>🚨 Vắng &gt; 3 ngày</h3>
-										{absentMoreThan3Days.length === 0 && (
-											<div className="text-xs text-gray-500">Không có sinh viên nào.</div>
-										)}
-										{absentMoreThan3Days.length > 0 && (
-											<ul className="absent-list" aria-label="Danh sách sinh viên vắng nhiều ngày">
-												{absentMoreThan3Days.map(s => (
-													<li key={s.userId} className="absent-item">
-														<span className="name">{s.userName}</span>
-														<span className="days">{s.days} ngày</span>
-													</li>
-												))}
-											</ul>
-										)}
-									</div>
-									<div className="sidebar-section">
-										<h3>⚙️ Hành động</h3>
-										<div className="flex flex-col gap-2">
-											<button className="control-button" disabled>Xuất CSV</button>
-											<button className="control-button secondary" disabled>Làm mới</button>
-											<button className="control-button success" disabled>Thêm bộ lọc</button>
+										<div className="sidebar-section absent-alert">
+											<h3>🚨 Vắng &gt; 3 ngày</h3>
+											{absentMoreThan3Days.length === 0 && (
+												<div className="text-xs text-gray-500">Không có sinh viên nào.</div>
+											)}
+											{absentMoreThan3Days.length > 0 && (
+												<ul className="absent-list" aria-label="Danh sách sinh viên vắng nhiều ngày">
+													{absentMoreThan3Days.map(s => (
+														<li key={s.userId} className="absent-item">
+															<span className="name">{s.userName}</span>
+															<span className="days">{s.days} ngày</span>
+														</li>
+													))}
+												</ul>
+											)}
+										</div>
+										<div className="sidebar-section">
+											<h3>⚙️ Hành động</h3>
+											<div className="flex flex-col gap-2">
+												<button className="control-button" disabled>Xuất CSV</button>
+												<button className="control-button secondary" disabled>Làm mới</button>
+												<button className="control-button success" disabled>Thêm bộ lọc</button>
+											</div>
+										</div>
+										{/* Sidebar EIU Logo scroll-to-top */}
+										<div className="sidebar-section sidebar-eiu-logo" role="button" tabIndex={0} aria-label="Lên đầu trang" onClick={scrollToTop} onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); scrollToTop(); } }}>
+											<img src="/Logo_EIU.png" alt="EIU Logo" className="eiu-logo-img" />
+											<div className="eiu-logo-caption">EIU • Back to Top</div>
 										</div>
 									</div>
-									{/* Sidebar EIU Logo scroll-to-top */}
-									<div className="sidebar-section sidebar-eiu-logo" role="button" tabIndex={0} aria-label="Lên đầu trang" onClick={scrollToTop} onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); scrollToTop(); } }}>
-										<img src="/Logo_EIU.png" alt="EIU Logo" className="eiu-logo-img" />
-										<div className="eiu-logo-caption">EIU • Back to Top</div>
-									</div>
-									</div>
-							</div>
+								</div>
+							)}
+						</>
+					)}
 				</div>
 		</div>
 	);

@@ -388,20 +388,45 @@ export class ClassSessionService {
             const dateStr = now.toISOString().split('T')[0];
             const timeStr = now.toTimeString().slice(0, 8);
             
-            console.log('🔄 Checking for expired sessions to complete...');
+            console.log('🔄 Activating scheduled sessions and completing expired sessions...');
             
-            // Find ACTIVE sessions that are past end_time
-            const [expiredSessions] = await db.execute(`
-                SELECT cs.sessionId, ts.end_time
+            // First, activate SCHEDULED sessions that should start now
+            const [scheduledSessions] = await db.execute(`
+                SELECT cs.sessionId, cs.session_date, ts.start_time
                 FROM ClassSession cs
                 INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId  
-                WHERE cs.session_date = ?
-                  AND cs.session_status = 'ACTIVE'
-                  AND ? > ts.end_time
+                WHERE cs.session_status = 'SCHEDULED'
+                  AND cs.session_date = ?
+                  AND ? >= ts.start_time
             `, [dateStr, timeStr]);
             
+            for (const session of (scheduledSessions as any[])) {
+                console.log(`🟢 Activating scheduled session: ${session.sessionId} (Start: ${session.start_time})`);
+                await this.updateSessionStatus(session.sessionId, 'ACTIVE');
+            }
+            
+            if ((scheduledSessions as any[]).length > 0) {
+                console.log(`✅ Activated ${(scheduledSessions as any[]).length} scheduled sessions`);
+            }
+            
+            // Then, find ACTIVE sessions that are past end_time (including previous dates)
+            const [expiredSessions] = await db.execute(`
+                SELECT cs.sessionId, cs.session_date, ts.end_time,
+                       CONCAT(cs.session_date, ' ', ts.end_time) as full_end_time
+                FROM ClassSession cs
+                INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId  
+                WHERE cs.session_status = 'ACTIVE'
+                  AND (
+                    -- Sessions from previous dates (automatically expired)
+                    cs.session_date < ?
+                    OR 
+                    -- Sessions from today that passed end_time
+                    (cs.session_date = ? AND ? > ts.end_time)
+                  )
+            `, [dateStr, dateStr, timeStr]);
+            
             for (const session of (expiredSessions as any[])) {
-                console.log(`⏰ Completing expired session: ${session.sessionId}`);
+                console.log(`⏰ Completing expired session: ${session.sessionId} (Date: ${session.session_date}, End: ${session.end_time})`);
                 await this.updateSessionStatus(session.sessionId, 'COMPLETED');
             }
             

@@ -100,6 +100,14 @@ router.get('/sessions/current', AttendanceController.getCurrentSessions);
 router.get('/records/today', AttendanceController.getTodayAttendanceRecords);
 
 /**
+ * @route GET /api/attendance/records/:date
+ * @desc Get all attendance records for specific date with image info
+ * @param date - Date in YYYY-MM-DD format
+ * @access Public
+ */
+router.get('/records/:date', AttendanceController.getAttendanceRecordsByDate);
+
+/**
  * @route GET /api/attendance/dashboard/:date
  * @desc Get daily attendance dashboard for admin
  * @param date - YYYY-MM-DD format
@@ -145,5 +153,53 @@ router.get('/simple-history/:studentId', AttendanceController.getSimpleHistory);
  * @access Debug
  */
 router.delete('/debug/clear', AttendanceController.clearTestData);
+
+// ===============================================
+// ADMIN ROUTES
+// ===============================================
+
+/**
+ * @route PUT /api/attendance/admin/update-status
+ * @desc Admin update attendance status
+ * @access Admin
+ */
+router.put('/admin/update-status', AttendanceController.adminUpdateStatus);
+
+/**
+ * @route POST /api/attendance/admin/create-record
+ * @desc Admin create new attendance record (Absent → Present/Late)
+ * @access Admin
+ */
+router.post('/admin/create-record', AttendanceController.adminCreateRecord);
+
+/**
+ * @route GET /api/attendance/:attendanceId/confidence
+ * @desc Get confidence score from captured_images
+ * @access Public
+ */
+router.get('/:attendanceId/confidence', AttendanceController.getAttendanceConfidence);
+
+/**
+ * @route GET /api/attendance/session-dates/:subjectId
+ * @desc Get all session dates for a subject (for navigation)
+ * @access Public
+ */
+router.get('/session-dates/:subjectId', AttendanceController.getSessionDates);
+
+/**
+ * @route POST /api/attendance/sessions/create-test
+ * @desc Create test ClassSession for development
+ * @body subjectId, timeSlotId, sessionDate
+ * @access Public
+ */
+router.post('/sessions/create-test', AttendanceController.createTestSession);
+
+/**
+ * @route GET /api/attendance/history-with-images
+ * @desc Get attendance history with captured images for admin (DemoHistory)
+ * @query limit - Number of records to return (default: 100, max: 500)
+ * @access Public
+ */
+router.get('/history-with-images', AttendanceController.getAttendanceHistoryWithImages);
 
 export default router;

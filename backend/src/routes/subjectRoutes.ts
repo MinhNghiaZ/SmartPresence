@@ -20,4 +20,7 @@ router.get('/room/:roomId/info', SubjectController.getRoomInfo);
 // Check if student is enrolled in subject
 router.get('/student/:studentId/enrollment/:subjectId', SubjectController.checkEnrollment);
 
+// Get all students enrolled in a subject (for AdminScreen)
+router.get('/:subjectId/enrolled-students', SubjectController.getEnrolledStudents);
+
 export default router;

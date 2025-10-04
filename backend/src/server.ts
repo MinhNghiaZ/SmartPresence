@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 // Import routes
 import { authRoutes, gpsRoutes, faceRoutes, storageRoutes, subjectRoutes, attendanceRoutes } from './routes';
 
+// Import services
+import { CronJobService } from './services/CronJobService';
+
 // Load environment variables
 dotenv.config();
 
@@ -31,6 +34,10 @@ app.use('/api/face', faceRoutes);
 app.use('/api/storage', storageRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/attendance', attendanceRoutes);
+
+// Start Cron Jobs for automated tasks
+console.log('🚀 Starting automated services...');
+CronJobService.startAllJobs();
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -113,6 +120,19 @@ app.listen(PORT, () => {
     console.log(`   GET  http://localhost:${PORT}/api/health`);
     
     console.log('\n🎯 Ready for frontend connections!');
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM received, shutting down gracefully...');
+    CronJobService.stopAllJobs();
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('🛑 SIGINT received, shutting down gracefully...');
+    CronJobService.stopAllJobs();
+    process.exit(0);
 });
 
 export default app;

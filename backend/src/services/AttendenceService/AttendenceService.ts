@@ -790,4 +790,263 @@ export class AttendanceService {
             throw error;
         }
     }
+
+    /**
+     * Admin function: Update existing attendance status
+     */
+    static async adminUpdateAttendanceStatus(
+        attendanceId: string, 
+        newStatus: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED', 
+        adminId: string
+    ): Promise<{ success: boolean; message: string }> {
+        try {
+            console.log(`🔍 AttendanceService.updateAttendanceStatus: ${attendanceId} → ${newStatus} by ${adminId}`);
+            
+            // Validate attendance exists
+            const [existingRows] = await db.execute(`
+                SELECT AttendanceId, studentId, subjectId, status 
+                FROM Attendance 
+                WHERE AttendanceId = ?
+            `, [attendanceId]);
+            
+            if ((existingRows as any[]).length === 0) {
+                return { success: false, message: 'Attendance record not found' };
+            }
+            
+            // Update status
+            await db.execute(`
+                UPDATE Attendance 
+                SET status = ? 
+                WHERE AttendanceId = ?
+            `, [newStatus, attendanceId]);
+            
+            console.log(`✅ Updated attendance status: ${attendanceId} → ${newStatus}`);
+            return { success: true, message: 'Attendance status updated successfully' };
+            
+        } catch (error) {
+            console.error('❌ Error updating attendance status:', error);
+            return { success: false, message: 'Failed to update attendance status' };
+        }
+    }
+
+    /**
+     * Admin function: Create new attendance record (when changing Absent → Present/Late)
+     */
+    static async adminCreateAttendanceRecord(
+        studentId: string,
+        subjectId: string, 
+        status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED',
+        adminId: string
+    ): Promise<{ success: boolean; message: string; attendanceId?: string }> {
+        try {
+            console.log(`🔍 AttendanceService.createAttendanceRecord: ${studentId} in ${subjectId} → ${status} by admin ${adminId}`);
+            
+            // Check if already exists - commented out for admin override capability
+            // const [existingRows] = await db.execute(`
+            //     SELECT AttendanceId FROM Attendance 
+            //     WHERE studentId = ? AND subjectId = ? AND DATE(checked_in_at) = CURDATE()
+            // `, [studentId, subjectId]);
+            
+            // if ((existingRows as any[]).length > 0) {
+            //     return { success: false, message: 'Attendance record already exists for today' };
+            // }
+            
+            // Generate attendance ID
+            const timestamp = Date.now();
+            const attendanceId = `ATT_${timestamp}_${studentId}_ADMIN`;
+            
+            // Get current active session for the subject
+            const [sessionRows] = await db.execute(`
+                SELECT sessionId FROM ClassSession 
+                WHERE subjectId = ? AND session_status = 'ACTIVE' AND DATE(session_date) = CURDATE()
+                LIMIT 1
+            `, [subjectId]);
+            
+            if ((sessionRows as any[]).length === 0) {
+                return { success: false, message: 'No active session found for this subject today' };
+            }
+            
+            const sessionId = (sessionRows as any[])[0].sessionId;
+            
+            // Get real enrollment ID
+            const [enrollmentRows] = await db.execute(`
+                SELECT enrollmentId FROM Enrollment 
+                WHERE studentId = ? AND subjectId = ? 
+                LIMIT 1
+            `, [studentId, subjectId]);
+            
+            if ((enrollmentRows as any[]).length === 0) {
+                return { success: false, message: 'Student is not enrolled in this subject' };
+            }
+            
+            const enrollmentId = (enrollmentRows as any[])[0].enrollmentId;
+
+            // Insert new attendance
+            await db.execute(`
+                INSERT INTO Attendance (AttendanceId, studentId, subjectId, sessionId, enrollmentId, status) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [attendanceId, studentId, subjectId, sessionId, enrollmentId, status]);
+            
+            console.log(`✅ Created new attendance record: ${attendanceId}`);
+            return { 
+                success: true, 
+                message: 'Attendance record created successfully',
+                attendanceId: attendanceId
+            };
+            
+        } catch (error) {
+            console.error('❌ Error creating attendance record:', error);
+            console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
+            return { success: false, message: `Failed to create attendance record: ${error instanceof Error ? error.message : 'Unknown error'}` };
+        }
+    }
+
+    /**
+     * Get confidence score from captured_images table
+     */
+    static async getAttendanceConfidence(attendanceId: string): Promise<number | null> {
+        try {
+            const [rows] = await db.execute(`
+                SELECT confidence 
+                FROM captured_images 
+                WHERE attendanceId = ? 
+                LIMIT 1
+            `, [attendanceId]);
+            
+            if ((rows as any[]).length === 0) {
+                return null;
+            }
+            
+            return (rows as any[])[0].confidence;
+            
+        } catch (error) {
+            console.error('❌ Error getting attendance confidence:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get all attendance records for a specific date
+     */
+    static async getAttendanceRecordsByDate(date: string): Promise<{
+        success: boolean;
+        records?: AttendanceRecord[];
+        count?: number;
+        message?: string;
+    }> {
+        try {
+            console.log(`🔍 AttendanceService.getAttendanceRecordsByDate for: ${date}`);
+            
+            const [rows] = await db.execute(`
+                SELECT 
+                    a.AttendanceId,
+                    a.studentId,
+                    a.subjectId,
+                    a.status,
+                    a.checked_in_at,
+                    a.imageId,
+                    CASE WHEN a.imageId IS NOT NULL THEN true ELSE false END as hasImage
+                FROM Attendance a 
+                WHERE DATE(a.checked_in_at) = ?
+                ORDER BY a.checked_in_at DESC
+            `, [date]);
+            
+            const records = rows as AttendanceRecord[];
+            
+            console.log(`✅ Found ${records.length} attendance records for ${date}`);
+            
+            return {
+                success: true,
+                records: records,
+                count: records.length
+            };
+            
+        } catch (error) {
+            console.error(`❌ Error getting attendance records for ${date}:`, error);
+            return {
+                success: false,
+                message: 'Failed to get attendance records'
+            };
+        }
+    }
+
+    /**
+     * Get attendance history with captured images for admin (DemoHistory functionality)
+     */
+    static async getAttendanceHistoryWithImages(limit: number = 100): Promise<{
+        success: boolean;
+        records?: any[];
+        count?: number;
+        message?: string;
+    }> {
+        try {
+            console.log(`🔍 AttendanceService.getAttendanceHistoryWithImages with limit: ${limit}`);
+            
+            // Check if db connection exists
+            if (!db) {
+                throw new Error('Database connection not available');
+            }
+            
+            // Test simplest possible query first
+            console.log('🔗 Executing simple captured_images count query...');
+            const [countResult] = await db.execute('SELECT COUNT(*) as total FROM captured_images');
+            console.log('📊 Total captured_images in DB:', countResult);
+            
+            console.log('🔗 Executing captured_images select query...');
+            const [rows] = await db.execute(`
+                SELECT 
+                    imageId, 
+                    studentId, 
+                    subjectId, 
+                    confidence, 
+                    recognition_result, 
+                    captured_at, 
+                    ip_address
+                FROM captured_images 
+                ORDER BY captured_at DESC 
+                LIMIT ?
+            `, [limit]);
+            
+            console.log(`📋 Raw captured_images query returned ${(rows as any[]).length} rows`);
+            
+            if ((rows as any[]).length === 0) {
+                console.log('⚠️ No captured images found in database');
+                return {
+                    success: true,
+                    records: [],
+                    count: 0,
+                    message: 'No captured images found'
+                };
+            }
+            
+            const records = (rows as any[]).map(row => ({
+                imageId: row.imageId,
+                studentId: row.studentId,
+                studentName: row.studentId || 'Unknown',
+                subjectId: row.subjectId,
+                subjectName: row.subjectId || 'Unknown',
+                status: row.recognition_result || 'UNKNOWN',
+                capturedAt: row.captured_at,
+                confidence: row.confidence || 0,
+                ipAddress: row.ip_address,
+                imageStatus: 'SUCCESS',
+                imageData: null // Temporarily exclude imageData to avoid BLOB issues
+            }));
+            
+            console.log(`✅ Found ${records.length} captured image records`);
+            
+            return {
+                success: true,
+                records: records,
+                count: records.length
+            };
+            
+        } catch (error) {
+            console.error('❌ Error getting attendance history with images:', error);
+            return {
+                success: false,
+                message: 'Failed to get attendance history with images'
+            };
+        }
+    }
 }

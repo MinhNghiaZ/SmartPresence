@@ -203,4 +203,32 @@ export class SubjectService {
             return null;
         }
     }
+
+    /**
+     * Get all students enrolled in a subject
+     * For AdminScreen to display complete attendance list
+     */
+    static async getEnrolledStudents(subjectId: string): Promise<{ studentId: string; studentName: string; email: string; }[]> {
+        try {
+            console.log(`🔍 SubjectService.getEnrolledStudents called for: ${subjectId}`);
+            
+            const [rows] = await db.execute(`
+                SELECT 
+                    sa.studentId as studentId,
+                    sa.name as studentName,
+                    sa.email
+                FROM Enrollment e
+                INNER JOIN StudentAccount sa ON e.studentId = sa.studentId
+                WHERE e.subjectId = ?
+                ORDER BY sa.studentId
+            `, [subjectId]);
+            
+            console.log(`✅ Found ${(rows as any[]).length} enrolled students for subject ${subjectId}`);
+            return rows as { studentId: string; studentName: string; email: string; }[];
+            
+        } catch (error) {
+            console.error('❌ Error getting enrolled students:', error);
+            throw new Error('Failed to fetch enrolled students');
+        }
+    }
 }

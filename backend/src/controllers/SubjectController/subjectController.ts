@@ -189,4 +189,41 @@ export class SubjectController {
             });
         }
     }
+
+    /**
+     * GET /api/subjects/:subjectId/enrolled-students
+     * Get all students enrolled in a subject (for AdminScreen)
+     */
+    static async getEnrolledStudents(req: Request, res: Response) {
+        try {
+            const { subjectId } = req.params;
+            
+            console.log(`🚀 SubjectController.getEnrolledStudents called for: ${subjectId}`);
+            
+            // Validation
+            if (!subjectId) {
+                console.log('❌ Missing subjectId parameter');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Subject ID is required'
+                });
+            }
+            
+            const enrolledStudents = await SubjectService.getEnrolledStudents(subjectId);
+            
+            return res.json({
+                success: true,
+                subjectId: subjectId,
+                count: enrolledStudents.length,
+                students: enrolledStudents
+            });
+            
+        } catch (error) {
+            console.error('❌ SubjectController.getEnrolledStudents error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch enrolled students'
+            });
+        }
+    }
 }
