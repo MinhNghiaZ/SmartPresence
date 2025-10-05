@@ -455,6 +455,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		const adminCreateStudentAccount = async (
 			studentId: string,
 			name: string,
+			email: string,
 			password: string,
 			subjectIds: string[]
 		): Promise<{ success: boolean; message: string }> => {
@@ -464,12 +465,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				console.log('📤 Request data:', {
 					studentId,
 					name,
+					email,
 					password: password ? `[${password.length} chars]` : 'undefined',
 					subjectIds,
 					token: token ? 'Present' : 'Missing'
 				});
 				
-				const requestBody = { studentId, name, password, subjectIds };
+				const requestBody = { studentId, name, email, password, subjectIds };
 				console.log('📤 Request body:', JSON.stringify(requestBody, null, 2));
 				
 				const response = await fetch('/api/auth/admin/create-student', {

@@ -282,12 +282,14 @@ export class AuthService {
     static async adminCreateStudentAccount(
         studentId: string,
         name: string,
+        email: string,
         password: string,
         subjectIds: string[] = []
     ): Promise<{ success: boolean; message: string }> {
         console.log(`🚀 AuthService.adminCreateStudentAccount called:`, {
             studentId,
             name,
+            email,
             subjectIds,
             passwordLength: password?.length
         });
@@ -342,14 +344,16 @@ export class AuthService {
             // Hash password
             const hashedPassword = await PasswordUtils.hashPassword(password);
 
-            // Start transaction
-            await db.execute('START TRANSACTION');
-
+            // Get connection for transaction
+            const connection = await db.getConnection();
+            
             try {
+                // Start transaction
+                await connection.beginTransaction();
                 // Validate subjectIds if provided
                 if (subjectIds.length > 0) {
                     const placeholders = subjectIds.map(() => '?').join(',');
-                    const [validSubjects] = await db.execute(
+                    const [validSubjects] = await connection.execute(
                         `SELECT subjectId FROM subject WHERE subjectId IN (${placeholders})`,
                         subjectIds
                     );
@@ -358,7 +362,8 @@ export class AuthService {
                     const invalidSubjects = subjectIds.filter(id => !validSubjectIds.includes(id));
                     
                     if (invalidSubjects.length > 0) {
-                        await db.execute('ROLLBACK');
+                        await connection.rollback();
+                        connection.release();
                         return {
                             success: false,
                             message: `Các môn học không hợp lệ: ${invalidSubjects.join(', ')}`
@@ -366,16 +371,16 @@ export class AuthService {
                     }
                 }
 
-                // Create student account
-                await db.execute(
-                    'INSERT INTO studentaccount (studentId, name, password) VALUES (?, ?, ?)',
-                    [studentId, name, hashedPassword]
+                // Create student account with provided email
+                await connection.execute(
+                    'INSERT INTO studentaccount (studentId, name, email, password) VALUES (?, ?, ?, ?)',
+                    [studentId, name, email, hashedPassword]
                 );
 
                 // Enroll student in selected subjects
                 if (subjectIds.length > 0) {
                     // Get current semester
-                    const [semesterResult] = await db.execute(
+                    const [semesterResult] = await connection.execute(
                         'SELECT semesterId FROM semester ORDER BY semesterId DESC LIMIT 1'
                     );
                     
@@ -385,7 +390,7 @@ export class AuthService {
                     } else {
                         // Tạo semester mặc định nếu chưa có
                         const defaultSemesterId = `SEM_${new Date().getFullYear()}_1`;
-                        await db.execute(
+                        await connection.execute(
                             'INSERT INTO semester (semesterId, name, start_date, end_date) VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 4 MONTH))',
                             [defaultSemesterId, `Học kỳ ${new Date().getFullYear()}`]
                         );
@@ -397,14 +402,15 @@ export class AuthService {
                         // Generate enrollmentId
                         const enrollmentId = `ENR_${studentId}_${subjectId}_${Date.now()}`;
                         
-                        await db.execute(
-                            'INSERT INTO enrollment (enrollmentId, studentId, subjectId, semesterId, enrollment_date) VALUES (?, ?, ?, ?, NOW())',
+                        await connection.execute(
+                            'INSERT INTO enrollment (enrollmentId, studentId, subjectId, semesterId) VALUES (?, ?, ?, ?)',
                             [enrollmentId, studentId, subjectId, currentSemesterId]
                         );
                     }
                 }
 
-                await db.execute('COMMIT');
+                await connection.commit();
+                connection.release();
 
                 const enrollmentMessage = subjectIds.length > 0 
                     ? ` và đã ghi danh vào ${subjectIds.length} môn học`
@@ -418,7 +424,8 @@ export class AuthService {
                 };
 
             } catch (error) {
-                await db.execute('ROLLBACK');
+                await connection.rollback();
+                connection.release();
                 throw error;
             }
 

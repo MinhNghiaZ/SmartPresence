@@ -111,7 +111,7 @@ export class AuthController {
             console.log('🔍 Raw request body:', JSON.stringify(req.body, null, 2));
             console.log('🔍 Request headers:', req.headers);
             
-            const { studentId, name, password, subjectIds } = req.body;
+            const { studentId, name, email, password, subjectIds } = req.body;
             
             console.log('🚀 AuthController.adminCreateStudent called:', {
                 studentId,
@@ -138,6 +138,15 @@ export class AuthController {
                 res.status(400).json({
                     success: false,
                     message: 'Thiếu tên sinh viên (name)!'
+                });
+                return;
+            }
+
+            if (!email) {
+                console.log('❌ Missing email');
+                res.status(400).json({
+                    success: false,
+                    message: 'Thiếu email!'
                 });
                 return;
             }
@@ -184,7 +193,8 @@ export class AuthController {
             // Call service
             const result = await AuthService.adminCreateStudentAccount(
                 studentId, 
-                name, 
+                name,
+                email,
                 password, 
                 subjectIds || []
             );

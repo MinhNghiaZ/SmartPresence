@@ -5,7 +5,7 @@ import './CreateAccountModal.css';
 interface CreateAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateAccount: (studentId: string, name: string, password: string, subjectIds: string[]) => Promise<{ success: boolean; message: string }>;
+  onCreateAccount: (studentId: string, name: string, email: string, password: string, subjectIds: string[]) => Promise<{ success: boolean; message: string }>;
   subjects: Array<{ subjectId: string; name: string; code: string }>;
 }
 
@@ -19,6 +19,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const [formData, setFormData] = useState({
     studentId: '',
     name: '',
+    email: '',
     password: ''
   });
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
@@ -46,8 +47,8 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.studentId || !formData.name || !formData.password) {
-      push('⚠️ Vui lòng điền đầy đủ MSSV, tên và mật khẩu!', 'warning');
+    if (!formData.studentId || !formData.name || !formData.email || !formData.password) {
+      push('⚠️ Vui lòng điền đầy đủ MSSV, tên, email và mật khẩu!', 'warning');
       return;
     }
 
@@ -78,13 +79,14 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       const result = await onCreateAccount(
         formData.studentId,
         formData.name,
+        formData.email,
         formData.password,
         selectedSubjects
       );
       
       if (result.success) {
         push('✅ Tạo tài khoản thành công!', 'success');
-        setFormData({ studentId: '', name: '', password: '' });
+        setFormData({ studentId: '', name: '', email: '', password: '' });
         setSelectedSubjects([]);
         onClose();
       } else {
@@ -99,7 +101,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
   const handleClose = () => {
     if (!isLoading) {
-      setFormData({ studentId: '', name: '', password: '' });
+      setFormData({ studentId: '', name: '', email: '', password: '' });
       setSelectedSubjects([]);
       onClose();
     }
@@ -149,6 +151,22 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               value={formData.name}
               onChange={handleChange}
               placeholder="VD: Nguyễn Văn A"
+              required
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="email">
+              Email <span className="required">*</span>
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="VD: sv001@eiu.edu.vn"
               required
               disabled={isLoading}
             />
