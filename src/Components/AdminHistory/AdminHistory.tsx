@@ -25,36 +25,42 @@ interface AdminHistoryProps {
   const API_BASE = '/api/storage';
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Function to load records from API
+  const loadRecords = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch(`${API_BASE}/captured-images?limit=100`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setRecords(data.images); // Note: StorageService returns 'images', not 'records'
+        console.log(`✅ Loaded ${data.count} captured images from database`);
+      } else {
+        throw new Error(data.message || 'Failed to load images');
+      }
+      
+    } catch (error) {
+      console.error('Error loading attendance records:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to refresh data only (not reload page)
+  const refreshData = async () => {
+    await loadRecords();
+  };
+
   // Load captured images from backend API (using working StorageService)
   useEffect(() => {
-    const loadRecords = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        const response = await fetch(`${API_BASE}/captured-images?limit=100`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          setRecords(data.images); // Note: StorageService returns 'images', not 'records'
-          console.log(`✅ Loaded ${data.count} captured images from database`);
-        } else {
-          throw new Error(data.message || 'Failed to load images');
-        }
-        
-      } catch (error) {
-        console.error('Error loading attendance records:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load records');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadRecords();
   }, []);
 
@@ -122,25 +128,14 @@ interface AdminHistoryProps {
     link.click();
   };
 
-  // Navigate to today if available
-  const goToToday = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayIndex = availableDates.indexOf(today);
-    if (todayIndex !== -1) {
-      setCurrentDateIndex(todayIndex);
-    }
-  };
-
-  // Navigate to latest (most recent) date
-  const goToLatest = () => {
-    setCurrentDateIndex(0);
-  };
-
   const formatStatus = (status: string) => {
     const statusMap: { [key: string]: string } = {
       'PRESENT': '✅ Có mặt',
-      'LATE': '⏰ Trễ',
-      'ABSENT': '❌ Vắng mặt'
+      'LATE': '⏰ Trễ', 
+      'ABSENT': '❌ Vắng mặt',
+      'SUCCESS': '✅ Nhận diện thành công',
+      'FAILED': '❌ Nhận diện thất bại',
+      'UNKNOWN': '❓ Không xác định'
     };
     return statusMap[status] || status;
   };
@@ -149,7 +144,10 @@ interface AdminHistoryProps {
     const colorMap: { [key: string]: string } = {
       'PRESENT': 'text-green-600',
       'LATE': 'text-yellow-600', 
-      'ABSENT': 'text-red-600'
+      'ABSENT': 'text-red-600',
+      'SUCCESS': 'text-green-600',
+      'FAILED': 'text-red-600',
+      'UNKNOWN': 'text-gray-600'
     };
     return colorMap[status] || 'text-gray-600';
   };
@@ -192,27 +190,11 @@ interface AdminHistoryProps {
           </div>
           
           <div className="flex gap-3">
-            {/* Quick Navigation */}
-            {availableDates.length > 0 && (
-              <>
-                <button 
-                  className="btn btn-secondary"
-                  onClick={goToLatest}
-                >
-                  📅 Mới nhất
-                </button>
-                <button 
-                  className="btn btn-secondary"
-                  onClick={goToToday}
-                >
-                  🗓️ Hôm nay
-                </button>
-              </>
-            )}
+            {/* Quick Navigation removed - Mới nhất and Hôm nay buttons */}
             
             <button 
               className="btn btn-refresh"
-              onClick={() => window.location.reload()}
+              onClick={refreshData}
             >
               🔄 Refresh
             </button>
@@ -242,7 +224,7 @@ interface AdminHistoryProps {
             <p>{error}</p>
             <button 
               className="btn btn-refresh"
-              onClick={() => window.location.reload()}
+              onClick={refreshData}
             >
               🔄 Thử lại
             </button>
@@ -299,8 +281,8 @@ interface AdminHistoryProps {
                     </div>
                     
                     <div className="record-info">
-                      <div className="student-name">{record.studentName || record.studentId || 'Unknown'}</div>
-                      <div className="subject-info">{record.subjectId}</div>
+                      <div className="student-name">{record.studentName || `ID: ${record.studentId}` || 'Không xác định'}</div>
+                      <div className="subject-info">{record.subjectName || record.subjectId}</div>
                       <div className="timestamp">{new Date(record.capturedAt).toLocaleString('vi-VN')}</div>
                       {record.confidence && (
                         <div className="confidence">Confidence: {record.confidence.toFixed(1)}%</div>
@@ -337,7 +319,7 @@ interface AdminHistoryProps {
                 <div className="detail-info">
                   <div className="info-row">
                     <span className="label">Sinh viên:</span>
-                    <span className="value">{selectedRecord.studentName || selectedRecord.studentId || 'Unknown'}</span>
+                    <span className="value">{selectedRecord.studentName || `ID: ${selectedRecord.studentId}` || 'Không xác định'}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Student ID:</span>
@@ -345,7 +327,7 @@ interface AdminHistoryProps {
                   </div>
                   <div className="info-row">
                     <span className="label">Môn học:</span>
-                    <span className="value">{selectedRecord.subjectName || selectedRecord.subjectId || 'N/A'}</span>
+                    <span className="value">{selectedRecord.subjectName || `ID: ${selectedRecord.subjectId}` || 'N/A'}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Thời gian:</span>

@@ -30,7 +30,7 @@ export class StorageService {
         try {
             console.log(`🔍 StorageService.getAllCapturedImages called with limit: ${limit}`);
             
-            // ✅ Simplest possible query
+            // ✅ Test với query đơn giản trước
             const [rows] = await db.execute(`SELECT * FROM captured_images ORDER BY captured_at DESC LIMIT 100`);
             
             if ((rows as any[]).length === 0) {
