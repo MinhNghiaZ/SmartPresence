@@ -38,9 +38,7 @@
   ],
   "exclude": [
     "node_modules",                        // Exclude node_modules
-    "dist",                                // Exclude build output
-    "**/*.test.ts",                        // Exclude test files
-    "**/*.spec.ts"
+    "dist"                                 // Exclude build output
   ],
   "ts-node": {
     "esm": false,                          // Dùng CommonJS cho ts-node
