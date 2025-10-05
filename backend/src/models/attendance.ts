@@ -171,6 +171,7 @@ export interface DateRange {
 export const ATTENDANCE_CONSTANTS = {
     LATE_THRESHOLD_MINUTES: 15, // Muộn hơn 15 phút = LATE
     CHECK_IN_WINDOW_MINUTES: 30, // Cho phép check-in trước 30 phút
+    CHECK_IN_DEADLINE_MINUTES: 30, // Hạn cuối check-in sau khi bắt đầu môn học
     MAX_DISTANCE_METERS: 500, // Khoảng cách tối đa cho GPS validation
 } as const;
 

@@ -97,8 +97,19 @@ export class AttendanceService {
                 }
             }
             
-            // 5. ✅ Determine attendance status (PRESENT/LATE)
+            // 5. ✅ Determine attendance status (PRESENT/LATE) or check if too late
             const attendanceStatus = this.determineAttendanceStatusFromSession(activeSession);
+            
+            // 5.1 ✅ Check if exceeded check-in time (30 minutes)
+            if (attendanceStatus === null) {
+                return {
+                    success: false,
+                    status: 'FAILED',
+                    message: 'Quá thời gian check-in! Chỉ được phép check-in trong vòng 30 phút từ lúc bắt đầu môn học.',
+                    timestamp: new Date(),
+                    locationValid: true
+                };
+            }
             
             // 6. ✅ Create attendance record with sessionId FIRST (without imageId)
             const attendanceId = await this.createAttendanceRecordWithSession({
@@ -627,19 +638,31 @@ export class AttendanceService {
     }
 
     /**
-     * Determine attendance status from session data (PRESENT vs LATE)
+     * Determine attendance status from session data (PRESENT vs LATE) 
+     * Returns null if check-in time is exceeded (>30 minutes from start)
      */
-    private static determineAttendanceStatusFromSession(session: any): 'PRESENT' | 'LATE' {
+    private static determineAttendanceStatusFromSession(session: any): 'PRESENT' | 'LATE' | null {
         const now = new Date();
         const currentTime = now.toTimeString().slice(0, 8); // HH:MM:SS
         
-        // Parse start time and add late threshold
+        // Parse start time
         const startTime = session.start_time;
         const [hours, minutes, seconds] = startTime.split(':').map(Number);
+        
+        // Calculate late threshold (15 minutes)
         const lateThresholdTime = new Date();
         lateThresholdTime.setHours(hours, minutes + ATTENDANCE_CONSTANTS.LATE_THRESHOLD_MINUTES, seconds);
-        
         const lateThreshold = lateThresholdTime.toTimeString().slice(0, 8);
+        
+        // Calculate check-in deadline (30 minutes from start)
+        const checkInDeadlineTime = new Date();
+        checkInDeadlineTime.setHours(hours, minutes + ATTENDANCE_CONSTANTS.CHECK_IN_DEADLINE_MINUTES, seconds);
+        const checkInDeadline = checkInDeadlineTime.toTimeString().slice(0, 8);
+        
+        // Check if exceeded check-in time
+        if (currentTime > checkInDeadline) {
+            return null; // Too late to check in
+        }
         
         return currentTime <= lateThreshold ? 'PRESENT' : 'LATE';
     }
