@@ -116,6 +116,56 @@ const fetchEnrolledStudents = async (subjectId: string): Promise<EnrolledStudent
 	}
 };
 
+// Function để fetch thống kê attendance cho toàn bộ môn học
+const fetchSubjectAttendanceStats = async (subjectId: string) => {
+	try {
+		const response = await fetch(`/api/attendance/subject/${subjectId}/students-stats`);
+		const data = await response.json();
+		
+		if (!data.success) {
+			throw new Error(data.message || 'Failed to fetch subject attendance stats');
+		}
+		
+		// Tính tổng từ data của tất cả sinh viên
+		const students = data.students || [];
+		const totalSessions = data.totalSessions || 0;
+		const totalStudents = students.length;
+		
+		let totalPresent = 0;
+		let totalLate = 0; 
+		let totalAbsent = 0;
+		
+		students.forEach((student: any) => {
+			totalPresent += student.presentDays || 0;
+			totalLate += student.lateDays || 0;
+			totalAbsent += student.absentDays || 0;
+		});
+		
+		const totalAttendances = totalPresent + totalLate;
+		const totalPossible = totalStudents * totalSessions;
+		const rate = totalPossible > 0 ? Math.round((totalAttendances / totalPossible) * 100) : 0;
+		
+		return {
+			totalSessions,
+			totalStudents,
+			present: totalPresent,
+			late: totalLate,
+			absent: totalAbsent,
+			rate
+		};
+	} catch (error) {
+		console.error('Error fetching subject attendance stats:', error);
+		return {
+			totalSessions: 0,
+			totalStudents: 0,
+			present: 0,
+			late: 0,
+			absent: 0,
+			rate: 0
+		};
+	}
+};
+
 
 
 const fetchRealConfidence = async (attendanceId: string): Promise<number | null> => {
@@ -512,6 +562,26 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
             const [currentDayIndex, setCurrentDayIndex] = useState<number>(0); // 0 = most recent day
             const [activeView, setActiveView] = useState<'attendance' | 'history'>('attendance'); // New state for view switching
             const [showStudentsList, setShowStudentsList] = useState<boolean>(false); // State for StudentsList modal
+            const [subjectAttendanceStats, setSubjectAttendanceStats] = useState<{
+                totalSessions: number;
+                totalStudents: number;
+                present: number;
+                late: number;
+                absent: number;
+                rate: number;
+            }>({
+                totalSessions: 0,
+                totalStudents: 0,
+                present: 0,
+                late: 0,
+                absent: 0,
+                rate: 0
+            });
+            const [absentStudentsList, setAbsentStudentsList] = useState<{
+                userId: string;
+                userName: string;
+                days: number;
+            }[]>([]);
 
 			// Update records when selectedSubject changes để hiển thị tất cả students
 			useEffect(() => {
@@ -551,6 +621,47 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				};
 				
 				loadSessionDates();
+			}, [selectedSubject, subjects]);
+
+			// Load subject attendance stats and absent students when selectedSubject changes
+			useEffect(() => {
+				const loadSubjectData = async () => {
+					if (selectedSubject && subjects.length > 0) {
+						const subjectObj = subjects.find(s => s.code === selectedSubject);
+						if (subjectObj) {
+							// Load attendance stats
+							const stats = await fetchSubjectAttendanceStats(subjectObj.subjectId);
+							setSubjectAttendanceStats(stats);
+							// console.log(`📊 Loaded stats for ${selectedSubject}:`, stats);
+
+							// Load individual student stats to get absent students
+							try {
+								const response = await fetch(`/api/attendance/subject/${subjectObj.subjectId}/students-stats`);
+								const data = await response.json();
+								
+								if (data.success && data.students) {
+									// Filter students with absentDays >= 3
+									const absentStudents = data.students
+										.filter((student: any) => student.absentDays >= 3)
+										.map((student: any) => ({
+											userId: student.studentId,
+											userName: student.studentName,
+											days: student.absentDays
+										}))
+										.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
+									
+									setAbsentStudentsList(absentStudents);
+									// console.log(`📋 Loaded absent students for ${selectedSubject}:`, absentStudents);
+								}
+							} catch (error) {
+								console.error('Error loading absent students:', error);
+								setAbsentStudentsList([]);
+							}
+						}
+					}
+				};
+				
+				loadSubjectData();
 			}, [selectedSubject, subjects]);
 
 			const subjectDates = sessionDates; // Use session dates instead of attendance dates
@@ -662,15 +773,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				}
 			}, [editingRecordId, dayRecords, selectedSubject, activeDate]);
 
+			// Use the new subject attendance stats from API instead of calculating from subjectRecords
 			const subjectStats = useMemo(() => {
-				const total = subjectRecords.length;
-				const present = subjectRecords.filter(r => r.status === 'Present').length;
-				const late = subjectRecords.filter(r => r.status === 'Late').length;
-				const absent = subjectRecords.filter(r => r.status === 'Absent').length;
-				const rate = total ? Math.round(((present + late) / total) * 100) : 0;
-				const uniqueStudents = new Set(subjectRecords.map(r => r.userId)).size;
-				return { total, present, late, absent, rate, uniqueStudents };
-			}, [subjectRecords]);
+				return {
+					totalSessions: subjectAttendanceStats.totalSessions,
+					totalStudents: subjectAttendanceStats.totalStudents, 
+					present: subjectAttendanceStats.present,
+					late: subjectAttendanceStats.late,
+					absent: subjectAttendanceStats.absent,
+					rate: subjectAttendanceStats.rate
+				};
+			}, [subjectAttendanceStats]);
 
 			// Day stats (activeDate)
 			const dayStats = useMemo(() => {
@@ -685,40 +798,12 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				return { total,present,late,absent,rate,uniqueStudents };
 			}, [subjectRecords, activeDate]);
 
-			// Week stats (last 7 calendar days relative to activeDate or today if undefined)
-			const weekStats = useMemo(() => {
-				const base = activeDate ? new Date(activeDate) : new Date();
-				const start = new Date(base); start.setDate(base.getDate() - 6); // 7 days window
-				const startIso = start.toISOString().slice(0,10);
-				const endIso = (activeDate ? activeDate : new Date().toISOString().slice(0,10));
-				const windowRecords = subjectRecords.filter(r => r.date >= startIso && r.date <= endIso);
-				const total = windowRecords.length;
-				const present = windowRecords.filter(r => r.status==='Present').length;
-				const late = windowRecords.filter(r => r.status==='Late').length;
-				const absent = windowRecords.filter(r => r.status==='Absent').length;
-				const rate = total ? Math.round(((present + late) / total) * 100) : 0;
-				const uniqueStudents = new Set(windowRecords.map(r=>r.userId)).size;
-				return { total,present,late,absent,rate,uniqueStudents, range:`${startIso} → ${endIso}` };
-			}, [subjectRecords, activeDate]);
+			// Note: Removed weekStats as it's no longer needed
 
-			// Students absent on more than 3 distinct dates for selected subject
-			const absentMoreThan3Days = useMemo(() => {
-				const map = new Map<string, Set<string>>();
-				subjectRecords.forEach(r => {
-					if (r.status === 'Absent') {
-						if (!map.has(r.userId)) map.set(r.userId, new Set());
-						map.get(r.userId)!.add(r.date);
-					}
-				});
-				const list: { userId:string; userName:string; days:number }[] = [];
-				map.forEach((dates, uid) => {
-					if (dates.size > 3) {
-						const sample = subjectRecords.find(s => s.userId === uid);
-						list.push({ userId: uid, userName: sample?.userName || uid, days: dates.size });
-					}
-				});
-				return list.sort((a,b)=> b.days - a.days || a.userName.localeCompare(b.userName));
-			}, [subjectRecords]);
+			// Students absent on 3 or more days for selected subject (using API data)
+			const absentMoreThan2Days = useMemo(() => {
+				return absentStudentsList.filter(student => student.days >= 3);
+			}, [absentStudentsList]);
 
 			// Handlers for editing attendance
 			const startEdit = (rec: DemoRecord) => {
@@ -1024,24 +1109,9 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 											<h3>📊 Tổng quan</h3>
 											<div className="overview-groups">
 												<div className="group-block">
-													<div className="group-title">Ngày</div>
-													<div className="kv"><span>Tổng:</span><span>{dayStats.total}</span></div>
-													<div className="kv"><span>Present:</span><span>{dayStats.present}</span></div>
-													<div className="kv"><span>Late:</span><span>{dayStats.late}</span></div>
-													<div className="kv"><span>Absent:</span><span>{dayStats.absent}</span></div>
-													<div className="kv"><span>Tỷ lệ:</span><span>{dayStats.rate}%</span></div>
-												</div>
-												<div className="group-block">
-													<div className="group-title">Tuần (7d)</div>
-													<div className="kv"><span>Tổng:</span><span>{weekStats.total}</span></div>
-													<div className="kv"><span>Present:</span><span>{weekStats.present}</span></div>
-													<div className="kv"><span>Late:</span><span>{weekStats.late}</span></div>
-													<div className="kv"><span>Absent:</span><span>{weekStats.absent}</span></div>
-													<div className="kv"><span>Tỷ lệ:</span><span>{weekStats.rate}%</span></div>
-												</div>
-												<div className="group-block">
-													<div className="group-title">Môn (All)</div>
-													<div className="kv"><span>Tổng:</span><span>{subjectStats.total}</span></div>
+													<div className="group-title">Môn {selectedSubject}</div>
+													<div className="kv"><span>Tổng sessions:</span><span>{subjectStats.totalSessions}</span></div>
+													<div className="kv"><span>Tổng sinh viên:</span><span>{subjectStats.totalStudents}</span></div>
 													<div className="kv"><span>Present:</span><span>{subjectStats.present}</span></div>
 													<div className="kv"><span>Late:</span><span>{subjectStats.late}</span></div>
 													<div className="kv"><span>Absent:</span><span>{subjectStats.absent}</span></div>
@@ -1050,13 +1120,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 											</div>
 										</div>
 										<div className="sidebar-section absent-alert">
-											<h3>🚨 Vắng &gt; 3 ngày</h3>
-											{absentMoreThan3Days.length === 0 && (
+											<h3>🚨 Vắng ≥ 3 ngày</h3>
+											{absentMoreThan2Days.length === 0 && (
 												<div className="text-xs text-gray-500">Không có sinh viên nào.</div>
 											)}
-											{absentMoreThan3Days.length > 0 && (
+											{absentMoreThan2Days.length > 0 && (
 												<ul className="absent-list" aria-label="Danh sách sinh viên vắng nhiều ngày">
-													{absentMoreThan3Days.map(s => (
+													{absentMoreThan2Days.map((s: any) => (
 														<li key={s.userId} className="absent-item">
 															<span className="name">{s.userName}</span>
 															<span className="days">{s.days} ngày</span>
@@ -1064,14 +1134,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 													))}
 												</ul>
 											)}
-										</div>
-										<div className="sidebar-section">
-											<h3>⚙️ Hành động</h3>
-											<div className="flex flex-col gap-2">
-												<button className="control-button" disabled>Xuất CSV</button>
-												<button className="control-button secondary" disabled>Làm mới</button>
-												<button className="control-button success" disabled>Thêm bộ lọc</button>
-											</div>
 										</div>
 										{/* Sidebar EIU Logo scroll-to-top */}
 										<div className="sidebar-section sidebar-eiu-logo" role="button" tabIndex={0} aria-label="Lên đầu trang" onClick={scrollToTop} onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); scrollToTop(); } }}>
@@ -1090,9 +1152,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				isOpen={showStudentsList}
 				onClose={() => setShowStudentsList(false)}
 				selectedSubject={selectedSubject}
-				subjectRecords={subjectRecords}
 				subjects={subjects}
-				allRecords={records}
 				onSubjectChange={setSelectedSubject}
 			/>
 		</div>

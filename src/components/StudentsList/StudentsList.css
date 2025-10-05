@@ -52,6 +52,24 @@
   font-size: 0.9rem;
 }
 
+.loading-text {
+  color: #fbbf24 !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  animation: pulse 2s infinite;
+}
+
+.error-text {
+  color: #ef4444 !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .subject-selector {
   display: flex;
   flex-direction: column;
@@ -307,6 +325,21 @@
   padding: 40px;
   color: #64748b;
   font-style: italic;
+}
+
+.loading-data {
+  text-align: center;
+  padding: 40px;
+  color: #fbbf24;
+  font-weight: 600;
+  animation: pulse 2s infinite;
+}
+
+.error-data {
+  text-align: center;
+  padding: 40px;
+  color: #ef4444;
+  font-weight: 600;
 }
 
 .students-list-footer {

@@ -195,6 +195,13 @@ router.get('/session-dates/:subjectId', AttendanceController.getSessionDates);
 router.post('/sessions/create-test', AttendanceController.createTestSession);
 
 /**
+ * @route GET /api/attendance/subject/:subjectId/students-stats
+ * @desc Get attendance statistics for all students in a subject
+ * @access Public
+ */
+router.get('/subject/:subjectId/students-stats', AttendanceController.getSubjectAttendanceStats);
+
+/**
  * @route GET /api/attendance/history-with-images
  * @desc Get attendance history with captured images for admin (DemoHistory)
  * @query limit - Number of records to return (default: 100, max: 500)

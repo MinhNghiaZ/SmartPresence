@@ -125,6 +125,7 @@ app.listen(PORT, () => {
     console.log(`   GET  http://localhost:${PORT}/api/attendance/stats/:studentId`);
     console.log(`   GET  http://localhost:${PORT}/api/attendance/today/:studentId`);
     console.log(`   GET  http://localhost:${PORT}/api/attendance/subject/:subjectId/session-status`);
+    console.log(`   GET  http://localhost:${PORT}/api/attendance/subject/:subjectId/students-stats`);
     console.log(`   DELETE http://localhost:${PORT}/api/attendance/:attendanceId (Admin)`);
     
     console.log('\n🏥 Health Check:');

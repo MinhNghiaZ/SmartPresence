@@ -4,7 +4,6 @@ import './SimpleAvatarDropdown.css';
 interface AvatarDropdownProps {
   userName: string;
   avatarUrl?: string; // Thêm prop để nhận avatar URL
-  onProfile: () => void;
   onSettings?: () => void; // Làm optional
   onLogout: () => void;
 }
@@ -12,7 +11,6 @@ interface AvatarDropdownProps {
 const AvatarDropdown: React.FC<AvatarDropdownProps> = ({ 
   userName,
   avatarUrl,
-  onProfile, 
   onSettings,
   onLogout 
 }) => {
@@ -54,13 +52,6 @@ const AvatarDropdown: React.FC<AvatarDropdownProps> = ({
           <div className="simple-dropdown-header">
             {userName}
           </div>
-          
-          <button 
-            className="simple-dropdown-item"
-            onClick={() => handleMenuClick(onProfile)}
-          >
-            👤 Thông tin cá nhân
-          </button>
           
           {onSettings && (
             <button 

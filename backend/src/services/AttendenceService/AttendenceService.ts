@@ -1049,4 +1049,105 @@ export class AttendanceService {
             };
         }
     }
+
+    /**
+     * Get attendance statistics for all students in a subject
+     * Returns comprehensive stats: total sessions, present, late, absent days for each student
+     */
+    static async getSubjectAttendanceStats(subjectId: string): Promise<{
+        success: boolean;
+        subjectId: string;
+        students: {
+            studentId: string;
+            studentName: string;
+            email: string;
+            totalSessions: number;
+            presentDays: number;
+            lateDays: number;
+            absentDays: number;
+            attendanceRate: number;
+        }[];
+        totalSessions: number;
+        message?: string;
+    }> {
+        try {
+            console.log(`🔍 AttendanceService.getSubjectAttendanceStats for subject: ${subjectId}`);
+            
+            // First, get total number of sessions (ACTIVE or COMPLETED) for this subject
+            const [totalSessionsResult] = await db.execute(`
+                SELECT COUNT(DISTINCT sessionId) as totalSessions
+                FROM ClassSession 
+                WHERE subjectId = ? 
+                AND session_status IN ('ACTIVE', 'COMPLETED')
+            `, [subjectId]);
+            
+            const totalSessionsCount = (totalSessionsResult as any[])[0].totalSessions;
+            
+            // Get all enrolled students for this subject with their attendance stats
+            const [rows] = await db.execute(`
+                SELECT 
+                    sa.studentId,
+                    sa.name as studentName,
+                    sa.email,
+                    COUNT(a.AttendanceId) as totalAttendances,
+                    SUM(CASE WHEN a.status = 'PRESENT' THEN 1 ELSE 0 END) as presentDays,
+                    SUM(CASE WHEN a.status = 'LATE' THEN 1 ELSE 0 END) as lateDays,
+                    SUM(CASE WHEN a.status = 'ABSENT' THEN 1 ELSE 0 END) as absentDays
+                FROM Enrollment e
+                INNER JOIN StudentAccount sa ON e.studentId = sa.studentId
+                LEFT JOIN Attendance a ON e.studentId = a.studentId 
+                    AND e.subjectId = a.subjectId
+                    AND a.sessionId IN (
+                        SELECT sessionId 
+                        FROM ClassSession 
+                        WHERE subjectId = ? 
+                        AND session_status IN ('ACTIVE', 'COMPLETED')
+                    )
+                WHERE e.subjectId = ?
+                GROUP BY sa.studentId, sa.name, sa.email
+                ORDER BY sa.name
+            `, [subjectId, subjectId]);
+            
+            const students = (rows as any[]).map(row => {
+                const presentDays = parseInt(row.presentDays) || 0;
+                const lateDays = parseInt(row.lateDays) || 0;
+                const absentDays = totalSessionsCount - (presentDays + lateDays);
+                
+                // Attendance rate = (Present + Late) / Total Sessions
+                const attendanceRate = totalSessionsCount > 0 
+                    ? Math.round(((presentDays + lateDays) / totalSessionsCount) * 100)
+                    : 0;
+                
+                return {
+                    studentId: row.studentId,
+                    studentName: row.studentName,
+                    email: row.email,
+                    totalSessions: totalSessionsCount,
+                    presentDays: presentDays,
+                    lateDays: lateDays,
+                    absentDays: Math.max(0, absentDays), // Ensure non-negative
+                    attendanceRate: attendanceRate
+                };
+            });
+            
+            console.log(`✅ Generated attendance stats for ${students.length} students in subject ${subjectId}, total sessions: ${totalSessionsCount}`);
+            
+            return {
+                success: true,
+                subjectId: subjectId,
+                students: students,
+                totalSessions: totalSessionsCount
+            };
+            
+        } catch (error) {
+            console.error('❌ Error getting subject attendance stats:', error);
+            return {
+                success: false,
+                subjectId: subjectId,
+                students: [],
+                totalSessions: 0,
+                message: 'Failed to fetch subject attendance statistics'
+            };
+        }
+    }
 }

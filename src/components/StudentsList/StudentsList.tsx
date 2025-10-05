@@ -4,7 +4,8 @@ import './StudentsList.css';
 interface StudentStats {
   studentId: string;
   studentName: string;
-  totalDays: number;
+  email: string;
+  totalSessions: number;
   presentDays: number;
   lateDays: number;
   absentDays: number;
@@ -21,9 +22,7 @@ interface StudentsListProps {
   isOpen: boolean;
   onClose: () => void;
   selectedSubject: string;
-  subjectRecords: any[]; // DemoRecord[]
   subjects: Subject[]; // Danh sách tất cả môn học
-  allRecords: any[]; // Tất cả records để tính toán cho môn khác
   onSubjectChange: (subjectCode: string) => void;
 }
 
@@ -31,71 +30,55 @@ const StudentsList: React.FC<StudentsListProps> = ({
   isOpen, 
   onClose, 
   selectedSubject, 
-  subjectRecords,
   subjects = [],
-  allRecords = [],
   onSubjectChange
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentSubject, setCurrentSubject] = useState(selectedSubject);
+  const [studentsStats, setStudentsStats] = useState<StudentStats[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Update local subject khi selectedSubject thay đổi từ bên ngoài
   useEffect(() => {
     setCurrentSubject(selectedSubject);
   }, [selectedSubject]);
 
-  // Function để lấy records theo môn học
-  const getRecordsForSubject = (subjectCode: string) => {
-    return allRecords.filter(record => record.subject === subjectCode);
+  // Function để fetch attendance stats cho một môn học
+  const fetchSubjectAttendanceStats = async (subjectCode: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Tìm subjectId từ subjectCode
+      const subject = subjects.find(s => s.code === subjectCode);
+      if (!subject) {
+        throw new Error(`Không tìm thấy môn học: ${subjectCode}`);
+      }
+      
+      const response = await fetch(`/api/attendance/subject/${subject.subjectId}/students-stats`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Không thể tải dữ liệu');
+      }
+      
+      setStudentsStats(data.students || []);
+    } catch (error) {
+      console.error('Error fetching subject attendance stats:', error);
+      setError(error instanceof Error ? error.message : 'Có lỗi xảy ra');
+      setStudentsStats([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Records hiện tại dựa trên currentSubject
-  const currentRecords = currentSubject === selectedSubject 
-    ? subjectRecords 
-    : getRecordsForSubject(currentSubject);
-
-  // Tính toán thống kê cho từng sinh viên
-  const studentsStats = useMemo(() => {
-    const statsMap = new Map<string, StudentStats>();
-    
-    currentRecords.forEach(record => {
-      const { userId: studentId, userName: studentName, status } = record;
-      
-      if (!statsMap.has(studentId)) {
-        statsMap.set(studentId, {
-          studentId,
-          studentName,
-          totalDays: 0,
-          presentDays: 0,
-          lateDays: 0,
-          absentDays: 0,
-          attendanceRate: 0
-        });
-      }
-      
-      const stats = statsMap.get(studentId)!;
-      stats.totalDays++;
-      
-      switch (status) {
-        case 'Present':
-          stats.presentDays++;
-          break;
-        case 'Late':
-          stats.lateDays++;
-          break;
-        case 'Absent':
-          stats.absentDays++;
-          break;
-      }
-      
-      // Tính tỷ lệ điểm danh (Present + Late) / Total
-      stats.attendanceRate = Math.round(((stats.presentDays + stats.lateDays) / stats.totalDays) * 100);
-    });
-    
-    return Array.from(statsMap.values()).sort((a, b) => 
-      a.studentName.localeCompare(b.studentName)
-    );
-  }, [currentRecords]);
+  // Load dữ liệu khi modal mở hoặc chuyển môn học
+  useEffect(() => {
+    if (isOpen && currentSubject) {
+      fetchSubjectAttendanceStats(currentSubject);
+    }
+  }, [isOpen, currentSubject, subjects]);
 
   // Lọc sinh viên theo tìm kiếm
   const filteredStudents = useMemo(() => {
@@ -120,6 +103,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
   const handleSubjectChange = (subjectCode: string) => {
     setCurrentSubject(subjectCode);
     setSearchTerm(''); // Reset search khi chuyển môn
+    onSubjectChange && onSubjectChange(subjectCode); // Notify parent component
   };
 
   if (!isOpen) return null;
@@ -131,6 +115,8 @@ const StudentsList: React.FC<StudentsListProps> = ({
           <div className="header-title">
             <h2>👥 Danh sách sinh viên - {currentSubject}</h2>
             <p>Tổng {studentsStats.length} sinh viên • Môn {currentSubject}</p>
+            {loading && <p className="loading-text">🔄 Đang tải dữ liệu...</p>}
+            {error && <p className="error-text">❌ {error}</p>}
           </div>
           
           {/* Subject Selector */}
@@ -185,7 +171,19 @@ const StudentsList: React.FC<StudentsListProps> = ({
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="loading-data">
+                    🔄 Đang tải dữ liệu...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={8} className="error-data">
+                    ❌ {error}
+                  </td>
+                </tr>
+              ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="no-data">
                     {searchTerm ? 'Không tìm thấy sinh viên nào' : 'Không có dữ liệu'}
@@ -197,7 +195,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
                     <td>{index + 1}</td>
                     <td className="student-id">{student.studentId}</td>
                     <td className="student-name">{student.studentName}</td>
-                    <td>{student.totalDays}</td>
+                    <td>{student.totalSessions}</td>
                     <td className="present-count">{student.presentDays}</td>
                     <td className="late-count">{student.lateDays}</td>
                     <td className="absent-count">{student.absentDays}</td>

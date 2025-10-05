@@ -6,7 +6,7 @@ import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRe
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import FaceRecognition, { type FaceRecognitionRef } from '../../components/CameraScreen/FaceRecognition';
 import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
-import ProfileModal from '../../components/ProfileModal';
+
 
 import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
@@ -36,7 +36,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   // State
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
-  const [showProfile, setShowProfile] = useState<boolean>(false);
+
   const [showFaceModal, setShowFaceModal] = useState<boolean>(false);
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [faceRegistrationStatus, setFaceRegistrationStatus] = useState<'unknown' | 'registered' | 'not_registered'>('unknown');
@@ -607,13 +607,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
-  const handleProfile = () => {
-    setShowProfile(true);
-  };
 
-  const handleCloseProfile = () => {
-    setShowProfile(false);
-  };
 
   const handleClearData = () => {
     if (window.confirm('This will clear all attendance records. Are you sure?')) {
@@ -652,7 +646,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
               <SimpleAvatarDropdown
                 userName={currentUser?.name || 'Unknown User'}
                 avatarUrl={userAvatar}
-                onProfile={handleProfile}
                 onLogout={handleLogout}
               />
             </div>
@@ -991,18 +984,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         </div>
       )}
 
-      {/* Profile Modal */}
-      {currentUser && (
-        <ProfileModal
-          user={{
-            id: currentUser.id,
-            name: currentUser.name,
-            email: currentUser.email
-          }}
-          isOpen={showProfile}
-          onClose={handleCloseProfile}
-        />
-      )}
+
     </div>
   );
 };

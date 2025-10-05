@@ -938,4 +938,36 @@ export class AttendanceController {
             });
         }
     }
+
+    /**
+     * GET /api/attendance/subject/:subjectId/students-stats
+     * Get attendance statistics for all students in a subject
+     */
+    static async getSubjectAttendanceStats(req: Request, res: Response) {
+        try {
+            const { subjectId } = req.params;
+            
+            console.log(`🚀 AttendanceController.getSubjectAttendanceStats called for: ${subjectId}`);
+            
+            // Validation
+            if (!subjectId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Subject ID is required'
+                });
+            }
+            
+            // Get attendance stats for all students in the subject
+            const result = await AttendanceService.getSubjectAttendanceStats(subjectId);
+            
+            return res.json(result);
+            
+        } catch (error) {
+            console.error('❌ AttendanceController.getSubjectAttendanceStats error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to get subject attendance statistics'
+            });
+        }
+    }
 }
