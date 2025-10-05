@@ -57,6 +57,7 @@ export class CronJobService {
         cron.schedule('30 0 * * *', async () => {
             try {
                 console.log('🔄 [CRON] Auto-generating sessions for upcoming days...');
+                console.log('🔍 [CRON] Only active TimeSlots within date range will generate sessions');
                 
                 // Generate sessions for next 7 days
                 const today = new Date();
@@ -65,11 +66,11 @@ export class CronJobService {
                     targetDate.setDate(today.getDate() + i);
                     const dateStr = targetDate.toISOString().split('T')[0];
                     
-                    console.log(`📅 Generating sessions for: ${dateStr}`);
+                    console.log(`📅 [CRON] Generating sessions for: ${dateStr}`);
                     await ClassSessionService.generateSessionsForDate(dateStr);
                 }
                 
-                console.log('✅ [CRON] Session generation completed for next 7 days');
+                console.log('✅ [CRON] Session generation completed for next 7 days (with TimeSlot validation)');
             } catch (error) {
                 console.error('❌ [CRON] Error in auto-generate sessions:', error);
             }
@@ -87,6 +88,7 @@ export class CronJobService {
     private static async generateSessionsOnStartup(): Promise<void> {
         try {
             console.log('🚀 [STARTUP] Generating sessions for next 7 days...');
+            console.log('🔍 [STARTUP] Using TimeSlot validation (active=1, date range check)');
             
             const today = new Date();
             for (let i = 0; i <= 7; i++) {
@@ -98,7 +100,7 @@ export class CronJobService {
                 await ClassSessionService.generateSessionsForDate(dateStr);
             }
             
-            console.log('✅ [STARTUP] Session generation completed for next 7 days');
+            console.log('✅ [STARTUP] Session generation completed for next 7 days (with validation)');
         } catch (error) {
             console.error('❌ [STARTUP] Error generating sessions on startup:', error);
         }

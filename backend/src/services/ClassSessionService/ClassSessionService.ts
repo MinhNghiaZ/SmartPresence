@@ -15,12 +15,22 @@ export class ClassSessionService {
             
             console.log(`🔄 Generating class sessions for ${dayOfWeek} (${targetDate})`);
             
-            // Get all timeslots for this day
+            // Get timeslots for this day that are active and within date range
             const [timeslots] = await db.execute(`
-                SELECT ts.timeSlotId, ts.subjectId, ts.start_time, ts.end_time, ts.roomId
+                SELECT ts.timeSlotId, ts.subjectId, ts.start_time, ts.end_time, ts.roomId,
+                       ts.start_date, ts.end_date, ts.active
                 FROM TimeSlot ts
                 WHERE ts.day_of_week = ?
-            `, [dayOfWeek]);
+                  AND ts.active = 1
+                  AND ? BETWEEN ts.start_date AND ts.end_date
+            `, [dayOfWeek, targetDate]);
+            
+            console.log(`📊 Found ${(timeslots as any[]).length} active timeslots for ${dayOfWeek} (${targetDate})`);
+            
+            if ((timeslots as any[]).length === 0) {
+                console.log(`ℹ️  No active timeslots found for ${dayOfWeek} (${targetDate}) - skipping session generation`);
+                return;
+            }
             
             let generatedCount = 0;
             
@@ -53,7 +63,7 @@ export class ClassSessionService {
                     ]);
                     
                     generatedCount++;
-                    console.log(`✅ Created session: ${sessionId}`);
+                    console.log(`✅ Created session: ${sessionId} (${timeslot.start_date} to ${timeslot.end_date})`);
                 }
             }
             
