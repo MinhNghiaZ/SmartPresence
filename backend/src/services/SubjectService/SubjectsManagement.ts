@@ -19,7 +19,7 @@ export class SubjectService {
             console.log('🔍 SubjectService.getAllSubjects called');
             
             const [rows] = await db.execute(`
-                SELECT subjectId, name, code, credit, semesterId 
+                SELECT subjectId, name, code, credit
                 FROM Subject 
                 ORDER BY code
             `);

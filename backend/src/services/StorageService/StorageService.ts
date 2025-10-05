@@ -30,8 +30,16 @@ export class StorageService {
         try {
             console.log(`🔍 StorageService.getAllCapturedImages called with limit: ${limit}`);
             
-            // ✅ Test với query đơn giản trước
-            const [rows] = await db.execute(`SELECT * FROM captured_images ORDER BY captured_at DESC LIMIT 100`);
+            // ✅ JOIN với studentaccount để lấy tên sinh viên
+            const [rows] = await db.execute(`
+                SELECT 
+                    ci.*,
+                    sa.name as studentName
+                FROM captured_images ci
+                LEFT JOIN studentaccount sa ON ci.studentId = sa.studentId
+                ORDER BY ci.captured_at DESC 
+                LIMIT 100
+            `);
             
             if ((rows as any[]).length === 0) {
                 console.log(`⚠️ No captured images found in database`);
@@ -57,7 +65,7 @@ export class StorageService {
                     images.push({
                         imageId: row.imageId,
                         studentId: row.studentId,
-                        studentName: row.studentId || 'Unknown', // ✅ Dùng studentId làm name tạm
+                        studentName: row.studentName || row.studentId || 'Unknown', // ✅ Dùng tên từ DB
                         imageData: imageDataBase64,
                         confidence: parseFloat(row.confidence) || 0,
                         status: row.recognition_result || 'UNKNOWN',
