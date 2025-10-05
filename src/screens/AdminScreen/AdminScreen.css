@@ -667,15 +667,85 @@ button {
 button:focus, select:focus, input:focus { outline:2px solid #3b82f6; outline-offset:2px; }
 @media (prefers-reduced-motion:reduce){ *,*::before,*::after { animation-duration:0.01ms!important; animation-iteration-count:1!important; transition-duration:0.01ms!important; } }
 
-/* Sidebar EIU logo scroll to top */
-.sidebar-eiu-logo { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; cursor:pointer; background:linear-gradient(145deg,#ffffff 0%,#f1f5fb 100%); border:1px solid var(--sp-border); box-shadow:0 2px 6px -2px rgba(0,0,0,.08); transition:all .35s ease; }
-.sidebar-eiu-logo .eiu-logo-img { width:200px; max-width:100%; height:auto; filter:drop-shadow(0 4px 8px rgba(0,0,0,.15)); transition:transform .6s cubic-bezier(.19,1,.22,1); }
-.sidebar-eiu-logo .eiu-logo-caption { font-size:.7rem; font-weight:600; letter-spacing:.75px; text-transform:uppercase; background:linear-gradient(90deg,#2563eb,#1d4ed8); -webkit-background-clip:text; background-clip:text; color:transparent; }
-.sidebar-eiu-logo:hover { transform:translateY(-3px); box-shadow:0 8px 20px -6px rgba(0,0,0,.15); }
-.sidebar-eiu-logo:hover .eiu-logo-img { transform:scale(1.08) rotate(-2deg); }
-.sidebar-eiu-logo:active { transform:translateY(-1px) scale(.97); }
-.sidebar-eiu-logo:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.35); }
-.sidebar-eiu-logo:focus-visible .eiu-logo-img { transform:scale(1.05); }
+/* Floating EIU logo back to top button */
+.floating-back-to-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffffff 0%, #f1f5fb 100%);
+  border: 2px solid var(--sp-border);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+.floating-back-to-top:hover {
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.floating-back-to-top:active {
+  transform: translateY(-2px) scale(0.98);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.floating-back-to-top .eiu-logo-img {
+  width: 45px;
+  height: auto;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: all 0.3s ease;
+}
+
+.floating-back-to-top:hover .eiu-logo-img {
+  transform: scale(1.1) rotate(-5deg);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+.floating-back-to-top:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4), 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Hide on small screens to avoid blocking content */
+@media (max-width: 768px) {
+  .floating-back-to-top {
+    bottom: 1rem;
+    right: 1rem;
+    width: 60px;
+    height: 60px;
+  }
+  
+  .floating-back-to-top .eiu-logo-img {
+    width: 35px;
+  }
+}
+
+@media (max-width: 480px) {
+  .floating-back-to-top {
+    bottom: 1rem;
+    right: 1rem;
+    width: 50px;
+    height: 50px;
+  }
+  
+  .floating-back-to-top .eiu-logo-img {
+    width: 30px;
+  }
+}
+
+/* Legacy sidebar EIU logo - kept for backward compatibility but hidden */
+.sidebar-eiu-logo { 
+  display: none; /* Hide the old sidebar logo */
+}
 
 /* Full width layout for AdminHistory */
 .admin-full-width {

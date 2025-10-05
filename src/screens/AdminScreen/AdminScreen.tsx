@@ -581,6 +581,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
                 userId: string;
                 userName: string;
                 days: number;
+                actualAbsent?: number;
+                lateDays?: number;
             }[]>([]);
 
 			// Update records when selectedSubject changes để hiển thị tất cả students
@@ -640,13 +642,15 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 								const data = await response.json();
 								
 								if (data.success && data.students) {
-									// Filter students with absentDays >= 3
+									// Filter students with absentEquivalent >= 3 (including late days calculation)
 									const absentStudents = data.students
-										.filter((student: any) => student.absentDays >= 3)
+										.filter((student: any) => student.absentEquivalent >= 3)
 										.map((student: any) => ({
 											userId: student.studentId,
 											userName: student.studentName,
-											days: student.absentDays
+											days: student.absentEquivalent,
+											actualAbsent: student.absentDays,
+											lateDays: student.lateDays
 										}))
 										.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
 									
@@ -1121,6 +1125,9 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 										</div>
 										<div className="sidebar-section absent-alert">
 											<h3>🚨 Vắng ≥ 3 ngày</h3>
+											<div className="text-xs text-gray-600 mb-2" style={{fontSize: '0.7rem', lineHeight: '1.2'}}>
+												* 2 lần trễ = 1 lần vắng
+											</div>
 											{absentMoreThan2Days.length === 0 && (
 												<div className="text-xs text-gray-500">Không có sinh viên nào.</div>
 											)}
@@ -1129,23 +1136,37 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 													{absentMoreThan2Days.map((s: any) => (
 														<li key={s.userId} className="absent-item">
 															<span className="name">{s.userName}</span>
-															<span className="days">{s.days} ngày</span>
+															<span className="days" title={`Vắng thực: ${s.actualAbsent || s.days}, Trễ: ${s.lateDays || 0}`}>
+																{s.days} ngày
+															</span>
 														</li>
 													))}
 												</ul>
 											)}
-										</div>
-										{/* Sidebar EIU Logo scroll-to-top */}
-										<div className="sidebar-section sidebar-eiu-logo" role="button" tabIndex={0} aria-label="Lên đầu trang" onClick={scrollToTop} onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); scrollToTop(); } }}>
-											<img src="/Logo_EIU.png" alt="EIU Logo" className="eiu-logo-img" />
-											<div className="eiu-logo-caption">EIU • Back to Top</div>
 										</div>
 									</div>
 								</div>
 							)}
 						</>
 					)}
+
+				{/* Floating Back to Top Button */}
+				<div 
+					className="floating-back-to-top" 
+					role="button" 
+					tabIndex={0} 
+					aria-label="Lên đầu trang" 
+					onClick={scrollToTop} 
+					onKeyDown={(e) => { 
+						if (e.key === 'Enter' || e.key === ' ') { 
+							e.preventDefault(); 
+							scrollToTop(); 
+						} 
+					}}
+				>
+					<img src="/Logo_EIU.png" alt="EIU Logo" className="eiu-logo-img" />
 				</div>
+			</div>
 
 			{/* Students List Modal */}
 			<StudentsList

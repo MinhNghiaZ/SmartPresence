@@ -1053,6 +1053,7 @@ export class AttendanceService {
     /**
      * Get attendance statistics for all students in a subject
      * Returns comprehensive stats: total sessions, present, late, absent days for each student
+     * Note: absentEquivalent = absentDays + (lateDays / 2) [2 late = 1 absent]
      */
     static async getSubjectAttendanceStats(subjectId: string): Promise<{
         success: boolean;
@@ -1065,6 +1066,7 @@ export class AttendanceService {
             presentDays: number;
             lateDays: number;
             absentDays: number;
+            absentEquivalent: number;
             attendanceRate: number;
         }[];
         totalSessions: number;
@@ -1113,6 +1115,9 @@ export class AttendanceService {
                 const lateDays = parseInt(row.lateDays) || 0;
                 const absentDays = totalSessionsCount - (presentDays + lateDays);
                 
+                // Calculate absent equivalent: 2 late days = 1 absent day
+                const absentEquivalent = Math.max(0, absentDays) + Math.floor(lateDays / 2);
+                
                 // Attendance rate = (Present + Late) / Total Sessions
                 const attendanceRate = totalSessionsCount > 0 
                     ? Math.round(((presentDays + lateDays) / totalSessionsCount) * 100)
@@ -1126,6 +1131,7 @@ export class AttendanceService {
                     presentDays: presentDays,
                     lateDays: lateDays,
                     absentDays: Math.max(0, absentDays), // Ensure non-negative
+                    absentEquivalent: absentEquivalent,
                     attendanceRate: attendanceRate
                 };
             });

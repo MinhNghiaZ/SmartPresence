@@ -106,11 +106,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
                       
                       {/* Password Field */}
                       <div className="mb-3">
-                        <div className="float-end">
-                          <a href="#" className="text-muted">
-                            Quên mật khẩu?
-                          </a>
-                        </div>
                         <label className="form-label" htmlFor="password-input">
                           Mật khẩu
                         </label>
@@ -163,18 +158,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
                             'Đăng nhập'
                           )}
                         </button>
-                      </div>
-
-                      {/* Demo Info */}
-                      <div className="mt-3">
-                        <div className="alert alert-info">
-                          <small>
-                            <strong>Thông tin demo:</strong><br/>
-                            • Sinh viên: SV001 .. SV030 / mật khẩu: 1<br/>
-                            • Admin: ID: ADMIN / mật khẩu: admin123<br/>
-                            • Ví dụ: ADMIN / admin123
-                          </small>
-                        </div>
                       </div>
                     </form>
                   </div>
