@@ -147,13 +147,6 @@ router.get('/debug/history/:studentId', AttendanceController.debugHistory);
  */
 router.get('/simple-history/:studentId', AttendanceController.getSimpleHistory);
 
-/**
- * @route DELETE /api/attendance/debug/clear
- * @desc Clear test data from tables
- * @access Debug
- */
-router.delete('/debug/clear', AttendanceController.clearTestData);
-
 // ===============================================
 // ADMIN ROUTES
 // ===============================================
@@ -185,14 +178,6 @@ router.get('/:attendanceId/confidence', AttendanceController.getAttendanceConfid
  * @access Public
  */
 router.get('/session-dates/:subjectId', AttendanceController.getSessionDates);
-
-/**
- * @route POST /api/attendance/sessions/create-test
- * @desc Create test ClassSession for development
- * @body subjectId, timeSlotId, sessionDate
- * @access Public
- */
-router.post('/sessions/create-test', AttendanceController.createTestSession);
 
 /**
  * @route GET /api/attendance/subject/:subjectId/students-stats

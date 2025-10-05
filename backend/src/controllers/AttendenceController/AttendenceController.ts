@@ -629,33 +629,6 @@ export class AttendanceController {
     }
 
     /**
-     * DELETE /api/attendance/debug/clear
-     * Clear test data from attendance and captured_images tables
-     */
-    static async clearTestData(req: Request, res: Response) {
-        try {
-            console.log('🧹 Clearing test data...');
-            
-            // Delete in correct order (foreign key constraints)
-            await db.execute(`DELETE FROM captured_images`);
-            await db.execute(`DELETE FROM Attendance`);
-            
-            return res.json({
-                success: true,
-                message: 'Test data cleared successfully'
-            });
-            
-        } catch (error) {
-            console.error('❌ AttendanceController.clearTestData error:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to clear test data',
-                error: error instanceof Error ? error.message : 'Unknown error'
-            });
-        }
-    }
-
-    /**
      * PUT /api/attendance/admin/update-status
      * Admin update attendance status
      */
@@ -821,49 +794,6 @@ export class AttendanceController {
             return res.status(500).json({
                 success: false,
                 message: 'Failed to get session dates'
-            });
-        }
-    }
-
-    /**
-     * POST /api/attendance/sessions/create-test
-     * Create test ClassSession for development
-     */
-    static async createTestSession(req: Request, res: Response) {
-        try {
-            const { subjectId, timeSlotId, sessionDate } = req.body;
-            
-            console.log(`🚀 AttendanceController.createTestSession called for: ${subjectId}, ${timeSlotId}, ${sessionDate}`);
-            
-            if (!subjectId || !timeSlotId || !sessionDate) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'subjectId, timeSlotId, and sessionDate are required'
-                });
-            }
-            
-            // Generate sessionId
-            const sessionId = `SESSION_${sessionDate}_${timeSlotId}`;
-            
-            // Insert new ClassSession
-            await db.execute(`
-                INSERT INTO ClassSession (sessionId, subjectId, timeSlotId, session_date, session_status, created_at, started_at)
-                VALUES (?, ?, ?, ?, 'ACTIVE', NOW(), CONCAT(?, ' 09:30:00'))
-            `, [sessionId, subjectId, timeSlotId, sessionDate, sessionDate]);
-            
-            console.log(`✅ Created test session: ${sessionId}`);
-            
-            return res.json({
-                success: true,
-                sessionId: sessionId,
-                message: 'Test session created successfully'
-            });
-            
-        } catch (error) {
-            console.error('❌ AttendanceController.createTestSession error:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to create test session'
             });
         }
     }
