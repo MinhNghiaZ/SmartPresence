@@ -109,7 +109,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="students-list-overlay" onClick={onClose}>
+    <div className="students-list-overlay">
       <div className="students-list-modal" onClick={(e) => e.stopPropagation()}>
         <div className="students-list-header">
           <div className="header-title">

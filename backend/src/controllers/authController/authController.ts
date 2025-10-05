@@ -102,5 +102,109 @@ export class AuthController {
         }
     }
 
+    /**
+     * POST /api/auth/admin/create-student
+     * Admin create new student account
+     */
+    static async adminCreateStudent(req: Request, res: Response): Promise<void> {
+        try {
+            console.log('🔍 Raw request body:', JSON.stringify(req.body, null, 2));
+            console.log('🔍 Request headers:', req.headers);
+            
+            const { studentId, name, password, subjectIds } = req.body;
+            
+            console.log('🚀 AuthController.adminCreateStudent called:', {
+                studentId,
+                name,
+                password: password ? `[${password.length} chars]` : 'undefined',
+                subjectIds: subjectIds || [],
+                hasPassword: !!password,
+                bodyType: typeof req.body,
+                bodyKeys: Object.keys(req.body)
+            });
+
+            // Detailed validation with specific error messages
+            if (!studentId) {
+                console.log('❌ Missing studentId');
+                res.status(400).json({
+                    success: false,
+                    message: 'Thiếu mã số sinh viên (studentId)!'
+                });
+                return;
+            }
+
+            if (!name) {
+                console.log('❌ Missing name');
+                res.status(400).json({
+                    success: false,
+                    message: 'Thiếu tên sinh viên (name)!'
+                });
+                return;
+            }
+
+            if (!password) {
+                console.log('❌ Missing password');
+                res.status(400).json({
+                    success: false,
+                    message: 'Thiếu mật khẩu (password)!'
+                });
+                return;
+            }
+
+            // Validate data types
+            if (typeof studentId !== 'string') {
+                console.log('❌ Invalid studentId type:', typeof studentId);
+                res.status(400).json({
+                    success: false,
+                    message: 'Mã số sinh viên phải là chuỗi ký tự!'
+                });
+                return;
+            }
+
+            if (typeof name !== 'string') {
+                console.log('❌ Invalid name type:', typeof name);
+                res.status(400).json({
+                    success: false,
+                    message: 'Tên sinh viên phải là chuỗi ký tự!'
+                });
+                return;
+            }
+
+            if (typeof password !== 'string') {
+                console.log('❌ Invalid password type:', typeof password);
+                res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu phải là chuỗi ký tự!'
+                });
+                return;
+            }
+
+            console.log('✅ Input validation passed, calling service...');
+
+            // Call service
+            const result = await AuthService.adminCreateStudentAccount(
+                studentId, 
+                name, 
+                password, 
+                subjectIds || []
+            );
+            
+            console.log('📤 Service result:', result);
+            
+            if (result.success) {
+                res.json(result);
+            } else {
+                console.log('❌ Service returned error:', result.message);
+                res.status(400).json(result);
+            }
+        } catch (error) {
+            console.error('❌ AuthController.adminCreateStudent error:', error);
+            console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi hệ thống khi tạo tài khoản!'
+            });
+        }
+    }
 
 }

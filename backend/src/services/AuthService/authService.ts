@@ -21,7 +21,7 @@ export class AuthService {
             try {
                 console.log('checking student Table');
                 const [studentRow] = await db.execute(
-                    'SELECT * FROM StudentAccount WHERE studentId = ?',
+                    'SELECT * FROM studentaccount WHERE studentId = ?',
                     [userId]
                 )
 
@@ -39,7 +39,7 @@ export class AuthService {
                 try {
                     console.log('checking admin Table');
                     const [AdminRow] = await db.execute(
-                        'SELECT * FROM AdminAccount WHERE id = ?',
+                        'SELECT * FROM adminaccount WHERE id = ?',
                         [userId]
                     )
 
@@ -126,13 +126,13 @@ export class AuthService {
             //check database
             if (decoded.userType === 'student') {
                 const [row] = await db.execute(
-                    'SELECT * FROM StudentAccount WHERE studentId = ?',
+                    'SELECT * FROM studentaccount WHERE studentId = ?',
                     [decoded.userId]
                 )
                 user = (row as any[])[0];
             } else {
                 const [row] = await db.execute(
-                    'SELECT * FROM AdminAccount WHERE id = ?',
+                    'SELECT * FROM adminaccount WHERE id = ?',
                     [decoded.userId]
                 )
                 user = (row as any[])[0];
@@ -195,13 +195,13 @@ export class AuthService {
             // Check if it's a student account
             try {
                 const [studentRow] = await db.execute(
-                    'SELECT * FROM StudentAccount WHERE studentId = ?',
+                    'SELECT * FROM studentaccount WHERE studentId = ?',
                     [studentId]
                 );
 
                 if ((studentRow as any[]).length > 0) {
                     user = (studentRow as any[])[0];
-                    tableName = 'StudentAccount';
+                    tableName = 'studentaccount';
                 }
             } catch (error) {
                 console.error('Error checking student table:', error);
@@ -211,13 +211,13 @@ export class AuthService {
             if (!user) {
                 try {
                     const [adminRow] = await db.execute(
-                        'SELECT * FROM AdminAccount WHERE id = ?',
+                        'SELECT * FROM adminaccount WHERE id = ?',
                         [studentId]
                     );
 
                     if ((adminRow as any[]).length > 0) {
                         user = (adminRow as any[])[0];
-                        tableName = 'AdminAccount';
+                        tableName = 'adminaccount';
                     }
                 } catch (error) {
                     console.error('Error checking admin table:', error);
@@ -254,7 +254,7 @@ export class AuthService {
             const hashedNewPassword = await PasswordUtils.hashPassword(newPassword);
 
             // Update password
-            const updateField = tableName === 'StudentAccount' ? 'studentId' : 'id';
+            const updateField = tableName === 'studentaccount' ? 'studentId' : 'id';
             await db.execute(
                 `UPDATE ${tableName} SET password = ? WHERE ${updateField} = ?`,
                 [hashedNewPassword, studentId]
@@ -272,6 +272,161 @@ export class AuthService {
             return {
                 success: false,
                 message: 'Lỗi hệ thống khi đổi mật khẩu!'
+            };
+        }
+    }
+
+    /**
+     * Admin function: Create new student account
+     */
+    static async adminCreateStudentAccount(
+        studentId: string,
+        name: string,
+        password: string,
+        subjectIds: string[] = []
+    ): Promise<{ success: boolean; message: string }> {
+        console.log(`🚀 AuthService.adminCreateStudentAccount called:`, {
+            studentId,
+            name,
+            subjectIds,
+            passwordLength: password?.length
+        });
+
+        try {
+            // Validate input
+            if (!studentId || !name || !password) {
+                return {
+                    success: false,
+                    message: 'Vui lòng điền đầy đủ MSSV, tên và mật khẩu!'
+                };
+            }
+
+            // Validate studentId format (chỉ cho phép alphanumeric)
+            if (!/^[A-Za-z0-9]+$/.test(studentId)) {
+                return {
+                    success: false,
+                    message: 'MSSV chỉ được chứa chữ cái và số!'
+                };
+            }
+
+            // Validate name (không được chứa số và ký tự đặc biệt)
+            if (!/^[A-Za-zÀ-ỹ\s]+$/.test(name)) {
+                return {
+                    success: false,
+                    message: 'Tên sinh viên chỉ được chứa chữ cái và khoảng trắng!'
+                };
+            }
+
+            // Validate password strength
+            const passwordValidation = PasswordUtils.validatePasswordStrength(password);
+            if (!passwordValidation.isValid) {
+                return {
+                    success: false,
+                    message: `Mật khẩu không đủ mạnh: ${passwordValidation.errors.join(', ')}`
+                };
+            }
+
+            // Check if studentId already exists
+            const [existingStudent] = await db.execute(
+                'SELECT studentId FROM studentaccount WHERE studentId = ?',
+                [studentId]
+            );
+
+            if ((existingStudent as any[]).length > 0) {
+                return {
+                    success: false,
+                    message: 'Mã số sinh viên đã tồn tại!'
+                };
+            }
+
+            // Hash password
+            const hashedPassword = await PasswordUtils.hashPassword(password);
+
+            // Start transaction
+            await db.execute('START TRANSACTION');
+
+            try {
+                // Validate subjectIds if provided
+                if (subjectIds.length > 0) {
+                    const placeholders = subjectIds.map(() => '?').join(',');
+                    const [validSubjects] = await db.execute(
+                        `SELECT subjectId FROM subject WHERE subjectId IN (${placeholders})`,
+                        subjectIds
+                    );
+                    
+                    const validSubjectIds = (validSubjects as any[]).map(row => row.subjectId);
+                    const invalidSubjects = subjectIds.filter(id => !validSubjectIds.includes(id));
+                    
+                    if (invalidSubjects.length > 0) {
+                        await db.execute('ROLLBACK');
+                        return {
+                            success: false,
+                            message: `Các môn học không hợp lệ: ${invalidSubjects.join(', ')}`
+                        };
+                    }
+                }
+
+                // Create student account
+                await db.execute(
+                    'INSERT INTO studentaccount (studentId, name, password) VALUES (?, ?, ?)',
+                    [studentId, name, hashedPassword]
+                );
+
+                // Enroll student in selected subjects
+                if (subjectIds.length > 0) {
+                    // Get current semester
+                    const [semesterResult] = await db.execute(
+                        'SELECT semesterId FROM semester ORDER BY semesterId DESC LIMIT 1'
+                    );
+                    
+                    let currentSemesterId;
+                    if ((semesterResult as any[]).length > 0) {
+                        currentSemesterId = (semesterResult as any[])[0].semesterId;
+                    } else {
+                        // Tạo semester mặc định nếu chưa có
+                        const defaultSemesterId = `SEM_${new Date().getFullYear()}_1`;
+                        await db.execute(
+                            'INSERT INTO semester (semesterId, name, start_date, end_date) VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 4 MONTH))',
+                            [defaultSemesterId, `Học kỳ ${new Date().getFullYear()}`]
+                        );
+                        currentSemesterId = defaultSemesterId;
+                        console.log(`Created default semester: ${defaultSemesterId}`);
+                    }
+
+                    for (const subjectId of subjectIds) {
+                        // Generate enrollmentId
+                        const enrollmentId = `ENR_${studentId}_${subjectId}_${Date.now()}`;
+                        
+                        await db.execute(
+                            'INSERT INTO enrollment (enrollmentId, studentId, subjectId, semesterId, enrollment_date) VALUES (?, ?, ?, ?, NOW())',
+                            [enrollmentId, studentId, subjectId, currentSemesterId]
+                        );
+                    }
+                }
+
+                await db.execute('COMMIT');
+
+                const enrollmentMessage = subjectIds.length > 0 
+                    ? ` và đã ghi danh vào ${subjectIds.length} môn học`
+                    : '';
+
+                console.log(`✅ Created new student account: ${studentId} - ${name}${enrollmentMessage}`);
+                
+                return {
+                    success: true,
+                    message: `Tạo tài khoản sinh viên thành công${enrollmentMessage}!`
+                };
+
+            } catch (error) {
+                await db.execute('ROLLBACK');
+                throw error;
+            }
+
+        } catch (error) {
+            console.error('❌ Admin create student account error:', error);
+            return {
+                success: false,
+                message: 'Lỗi hệ thống khi tạo tài khoản!'
             };
         }
     }

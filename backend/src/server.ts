@@ -38,6 +38,14 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' })); // Increased limit for face images
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Request logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+    console.log(`📝 ${new Date().toISOString()} - ${req.method} ${req.url}`);
+    console.log('📝 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('📝 Body:', JSON.stringify(req.body, null, 2));
+    next();
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/gps', gpsRoutes);
@@ -90,6 +98,7 @@ app.listen(PORT, () => {
     console.log(`   GET  http://localhost:${PORT}/api/auth/me (Protected)`);
     console.log(`   GET  http://localhost:${PORT}/api/auth/admin/dashboard (Admin only)`);
     console.log(`   GET  http://localhost:${PORT}/api/auth/student/profile (Student only)`);
+    console.log(`   POST http://localhost:${PORT}/api/auth/admin/create-student (Admin only)`);
     
     console.log('\n📍 GPS Validation:');
     console.log(`   POST http://localhost:${PORT}/api/gps/validate-location`);
@@ -132,6 +141,17 @@ app.listen(PORT, () => {
     console.log(`   GET  http://localhost:${PORT}/api/health`);
     
     console.log('\n🎯 Ready for frontend connections!');
+});
+
+// Global error handler
+app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error('🚨 Global error handler caught:', error);
+    console.error('🚨 Error stack:', error.stack);
+    res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+    });
 });
 
 // Graceful shutdown

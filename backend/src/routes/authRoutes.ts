@@ -26,6 +26,13 @@ router.get('/admin/dashboard', authenticateToken, requireAdmin, (req, res) => {
     });
 });
 
+/**
+ * @route POST /api/auth/admin/create-student
+ * @desc Admin create new student account
+ * @access Admin only
+ */
+router.post('/admin/create-student', authenticateToken, requireAdmin, AuthController.adminCreateStudent);
+
 // Student routes  
 router.get('/student/profile', authenticateToken, requireStudent, (req, res) => {
     res.json({

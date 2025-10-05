@@ -4,6 +4,7 @@ import './AdminScreen.css';
 import { authService } from '../../Services/AuthService';
 import AdminHistory from '../../components/AdminHistory/AdminHistory';
 import StudentsList from '../../components/StudentsList/StudentsList';
+import CreateAccountModal from '../../components/CreateAccountModal/CreateAccountModal';
 // import { logger } from '../../utils/logger'; // Unused for now
 
 // Interface cho dữ liệu thực từ database
@@ -449,6 +450,49 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				return { success: false, message: 'Network error' };
 			}
 		};
+
+		// Admin API function to create student account
+		const adminCreateStudentAccount = async (
+			studentId: string,
+			name: string,
+			password: string,
+			subjectIds: string[]
+		): Promise<{ success: boolean; message: string }> => {
+			try {
+				const token = authService.getToken();
+				console.log('🚀 Frontend: Creating student account...');
+				console.log('📤 Request data:', {
+					studentId,
+					name,
+					password: password ? `[${password.length} chars]` : 'undefined',
+					subjectIds,
+					token: token ? 'Present' : 'Missing'
+				});
+				
+				const requestBody = { studentId, name, password, subjectIds };
+				console.log('📤 Request body:', JSON.stringify(requestBody, null, 2));
+				
+				const response = await fetch('/api/auth/admin/create-student', {
+					method: 'POST',
+					headers: { 
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${token}`
+					},
+					body: JSON.stringify(requestBody)
+				});
+				
+				console.log('📥 Response status:', response.status);
+				console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+				
+				const result = await response.json();
+				console.log('📥 Response data:', result);
+				
+				return result;
+			} catch (error) {
+				console.error('❌ Frontend error creating student account:', error);
+				return { success: false, message: 'Network error' };
+			}
+		};
 		
 		// Check if user is logged in and is admin
 		useEffect(() => {
@@ -562,6 +606,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
             const [currentDayIndex, setCurrentDayIndex] = useState<number>(0); // 0 = most recent day
             const [activeView, setActiveView] = useState<'attendance' | 'history'>('attendance'); // New state for view switching
             const [showStudentsList, setShowStudentsList] = useState<boolean>(false); // State for StudentsList modal
+            const [showCreateAccountModal, setShowCreateAccountModal] = useState<boolean>(false); // State for Create Account modal
             const [subjectAttendanceStats, setSubjectAttendanceStats] = useState<{
                 totalSessions: number;
                 totalStudents: number;
@@ -935,6 +980,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 									<span className="text-lg">👥</span>
 									<span>Danh sách SV</span>
 								</button>
+								<button
+									className="px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 hover:shadow-lg flex items-center justify-center gap-2"
+									onClick={() => setShowCreateAccountModal(true)}
+								>
+									<span className="text-lg">➕</span>
+									<span>Tạo tài khoản</span>
+								</button>
 							</div>
 						</div>
 						
@@ -1175,6 +1227,14 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				selectedSubject={selectedSubject}
 				subjects={subjects}
 				onSubjectChange={setSelectedSubject}
+			/>
+
+			{/* Create Account Modal */}
+			<CreateAccountModal
+				isOpen={showCreateAccountModal}
+				onClose={() => setShowCreateAccountModal(false)}
+				onCreateAccount={adminCreateStudentAccount}
+				subjects={subjects}
 			/>
 		</div>
 	);
