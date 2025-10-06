@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './HomeScreen_modern.css';
-// import { CheckInService } from '../../Services/CheckInService'; // Removed for production
 import type { SubjectInfo } from '../../Services/CheckInService';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
@@ -12,18 +11,15 @@ import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
 import { subjectService } from '../../Services/SubjectService/SubjectService';
 import { UnifiedCheckInService } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
-// import { unifiedCheckInService } from '../../Services/UnifiedCheckInService/UnifiedCheckInService'; // For future use
 import { logger } from '../../utils/logger';
 import type { CheckInRequest, CheckInResult } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
 import { GPSService } from '../../Services/GPSService/GpsService';
-
-// Interfaces
 
 interface AttendanceRecord {
   id: string;
   subject: string;
   timestamp: string;
-  location?: string; // ✅ Make location optional
+  location?: string;
   status: 'Present' | 'Late' | 'Absent';
 }
 
@@ -33,7 +29,6 @@ interface HomeScreenProps {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const notify = useNotifications();
-  // State
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
 
@@ -47,25 +42,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const [availableSubjects, setAvailableSubjects] = useState<SubjectInfo[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState<boolean>(true);
   
-  // Refs
   const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
   const errorTimeoutRef = useRef<number | null>(null);
   
-  // Get current student from AuthService
   const currentUser = authService.getCurrentUser();
 
-  // Debug state changes - only in development
   useEffect(() => {
-    logger.ui.debug('State changed', { showFaceModal, isRegisterMode, gpsStatus, isCheckingIn });
   }, [showFaceModal, isRegisterMode, gpsStatus, isCheckingIn]);
 
-  // Check face registration status when component loads
   useEffect(() => {
     const checkFaceRegistrationStatus = async () => {
       if (!currentUser) return;
       
       try {
-        logger.face.debug('Checking face registration status', { userId: currentUser.id });
         const isRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
         setFaceRegistrationStatus(isRegistered ? 'registered' : 'not_registered');
         logger.face.info('Face registration status', { userId: currentUser.id, isRegistered });
@@ -78,23 +67,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     checkFaceRegistrationStatus();
   }, [currentUser?.id]);
 
-  // If no user is logged in, redirect to login (this should be handled by app routing)
   useEffect(() => {
     if (!currentUser) {
       logger.auth.warn('No user logged in, should redirect to login');
-      // In a real app, this would trigger a redirect to login
       if (onLogout) {
         onLogout();
       }
     }
   }, [currentUser, onLogout]);
 
-  // Get user's first registered face image
   const getUserRegisteredFaceImage = (): string => {
     if (!currentUser) return '';
     
     try {
-      // Note: User avatar functionality now requires backend API call
       logger.api.info('Avatar functionality moved to backend. Consider implementing API call.');
       return '';
     } catch (error) {
@@ -103,7 +88,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
-  // Load user avatar on component mount
   useEffect(() => {
     const loadUserAvatar = () => {
       const faceImage = getUserRegisteredFaceImage();
@@ -112,7 +96,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
     loadUserAvatar();
 
-    // Listen for new face captures
     const handleNewFaceCapture = () => {
       loadUserAvatar();
     };
@@ -124,24 +107,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     };
   }, [currentUser?.id]);
 
-  // Utils removed - isLateCheckIn logic now handled by backend
-
-  // Load student subjects from backend
   useEffect(() => {
     const loadStudentSubjects = async () => {
       if (!currentUser) return;
       
       try {
         setIsLoadingSubjects(true);
-        logger.api.debug('Loading student subjects', { userId: currentUser.id });
         
-        // Retry logic for token availability
         let retries = 3;
         let subjects;
         
         while (retries > 0) {
           if (!authService.getToken()) {
-            logger.auth.debug(`No token found, waiting... (${retries} retries left)`);
             await new Promise(resolve => setTimeout(resolve, 500));
             retries--;
             continue;
@@ -149,7 +126,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           
           try {
             subjects = await subjectService.getStudentSubjectsFormatted(currentUser.id);
-            break; // Success, exit retry loop
+            break;
           } catch (error) {
             logger.api.warn(`Error loading subjects, retrying... (${retries} retries left)`, error);
             retries--;
@@ -180,26 +157,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     };
 
     loadStudentSubjects();
-  }, [currentUser]); // Removed 'notify' from dependencies as it's memoized
+  }, [currentUser]);
 
   const [selectedSubject, setSelectedSubject] = useState<SubjectInfo | null>(null);
 
-  // Set default selected subject when available subjects are loaded
   useEffect(() => {
     if (availableSubjects.length > 0 && !selectedSubject) {
       setSelectedSubject(availableSubjects[0]);
     }
   }, [availableSubjects, selectedSubject]);
 
-  // Load attendance history from backend
   useEffect(() => {
     const loadAttendanceHistory = async () => {
       if (!currentUser) return;
       
       try {
-        logger.attendance.debug('Loading attendance history', { userId: currentUser.id });
-        
-        // ✅ USE SIMPLE HISTORY API TEMPORARILY
         const response = await fetch(`/api/attendance/simple-history/${currentUser.id}`, {
           method: 'GET',
           headers: {
@@ -213,7 +185,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
             // Transform simple records to HomeScreen format
             const transformedRecords: AttendanceRecord[] = historyData.records.map((record: any) => ({
               id: record.AttendanceId,
-              subject: record.subjectId, // Will show subject ID for now
+              subject: record.subjectId,
               timestamp: new Date(record.checked_in_at).toLocaleString('vi-VN'),
               status: record.status as 'Present' | 'Late' | 'Absent'
             }));
@@ -225,14 +197,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         
       } catch (error) {
         logger.attendance.error('Error loading attendance history', error);
-        // Don't show error to user, just use local storage fallback
       }
     };
 
     loadAttendanceHistory();
   }, [currentUser]);
 
-  // Cleanup timeouts khi component unmount
   useEffect(() => {
     return () => {
       if (errorTimeoutRef.current) {
@@ -241,8 +211,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       }
     };
   }, []);
-
-  // Handlers
 
   const handleFaceRecognitionSuccess = async (result: FaceRecognitionResult) => {
     if (isProcessing || isCheckingIn || !currentUser || !selectedSubject) return;
@@ -365,7 +333,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       // Set to registration mode and open camera modal
       setIsRegisterMode(true);
       setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để đăng ký khuôn mặt...`);
-      logger.ui.debug('Opening camera modal for registration');
       setShowFaceModal(true);
       setIsProcessing(false);
 
@@ -410,9 +377,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     try {
       // BƯỚC 1: Kiểm tra eligibility (face registration, đã check-in chưa)
       setGpsStatus('🔍 Đang kiểm tra điều kiện thời gian và vị trí cho phép điểm danh...');
-      logger.attendance.debug('Checking eligibility', { subjectId: selectedSubject.subjectId });
       const eligibility = await UnifiedCheckInService.canCheckIn(selectedSubject.subjectId);
-      logger.attendance.debug('Eligibility result', eligibility);
       
       if (!eligibility.canCheckIn) {
         throw new Error(eligibility.reason || 'Không thể check-in');
@@ -459,7 +424,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       };
 
       // Mở camera modal
-      logger.ui.debug('Opening camera modal');
       setShowFaceModal(true);
       setIsProcessing(false);
       
@@ -607,10 +571,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
+<<<<<<< HEAD
 
 
 
 
+=======
+>>>>>>> 274028e36a52ec9ce5d526054b541db674d654a4
   // Render with modern design based on the HTML template
   return (
     <div className="min-h-screen bg-gray-100">
@@ -653,8 +620,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
               <p className="text-gray-600 mb-4">
                 MSSV: {currentUser?.id || 'N/A'} | {currentUser?.email || 'N/A'}
               </p>
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 274028e36a52ec9ce5d526054b541db674d654a4
             </div>
           </div>
         </div>
@@ -742,10 +712,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                         : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:shadow-lg transform hover:scale-105'
                     }`}
                     onClick={() => {
-                      logger.ui.debug('Check-in button clicked', { 
-                        subjectId: selectedSubject?.subjectId, 
-                        userId: currentUser?.id 
-                      });
                       performUnifiedCheckIn(selectedSubject);
                     }}
                     disabled={isCheckingIn}
@@ -795,10 +761,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                             : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg transform hover:scale-105'
                         }`}
                         onClick={() => {
-                          logger.ui.debug('Face registration button clicked', { 
-                            userId: currentUser?.id, 
-                            registrationStatus: faceRegistrationStatus 
-                          });
                           performFaceRegistration();
                         }}
                         disabled={isCheckingIn || faceRegistrationStatus === 'unknown'}
