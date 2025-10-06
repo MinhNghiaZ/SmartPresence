@@ -31,7 +31,7 @@ export class GPSController {
 
             const result = await GPSService.validateLocation(validationRequest);
 
-            res.json({
+            return res.json({
                 success: true,
                 message: 'validate completed',
                 validation: result
@@ -39,7 +39,7 @@ export class GPSController {
 
         } catch (error) {
             console.error('location validation error: ',error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'System error during location validation'
             })

@@ -1,5 +1,5 @@
 import React from 'react';
-import SimpleCameraTest from '../../Components/SimpleCameraTest';
+import SimpleCameraTest from '../../components/SimpleCameraTest';
 
 const CameraDebugScreen: React.FC = () => {
   return (

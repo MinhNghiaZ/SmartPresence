@@ -58,12 +58,12 @@ export class FaceController {
             const result = await FaceRecognitionService.registerStudentFace(request);
 
             if (result) {
-                res.json({
+                return res.json({
                     success: true,
                     message: 'Face registered successfully'
                 });
             } else {
-                res.status(400).json({
+                return res.status(400).json({
                     success: false,
                     message: 'Face registration failed. Student may already have face registered or not found.'
                 });
@@ -71,7 +71,7 @@ export class FaceController {
 
         } catch (error) {
             console.error('❌ Face registration API error:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'System error during face registration'
             });
@@ -115,11 +115,11 @@ export class FaceController {
 
             const result = await FaceRecognitionService.recognizeFace(request);
             
-            res.json(result);
+            return res.json(result);
 
         } catch (error) {
             console.error('❌ Face recognition API error:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 isMatch: false,
                 confidence: 0,
@@ -147,14 +147,14 @@ export class FaceController {
             const faceInfo = await FaceRecognitionService.getStudentFaceInfo(studentId);
             console.log(`📡 API returning faceInfo:`, faceInfo);
             
-            res.json({
+            return res.json({
                 success: true,
                 ...faceInfo
             });
 
         } catch (error) {
             console.error('❌ Check registration API error:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'System error checking registration'
             });
@@ -189,12 +189,12 @@ export class FaceController {
             const result = await FaceRecognitionService.adminResetStudentFace(studentId, adminId);
             
             if (result) {
-                res.json({
+                return res.json({
                     success: true,
                     message: 'Student face registration reset successfully'
                 });
             } else {
-                res.status(400).json({
+                return res.status(400).json({
                     success: false,
                     message: 'Failed to reset face registration. Student may not exist.'
                 });
@@ -202,7 +202,7 @@ export class FaceController {
 
         } catch (error) {
             console.error('❌ Admin reset face API error:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'System error resetting face registration'
             });

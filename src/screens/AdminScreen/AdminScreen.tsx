@@ -8,11 +8,11 @@ import CreateAccountModal from '../../components/CreateAccountModal/CreateAccoun
 // import { logger } from '../../utils/logger'; // Unused for now
 
 // Interface cho dữ liệu thực từ database
-interface StudentAccount {
-	userId: string;
-	name: string;
-	email: string;
-}
+// interface StudentAccount {
+// 	userId: string;
+// 	name: string;
+// 	email: string;
+// }
 
 interface AttendanceRecord {
 	AttendanceId: string;
@@ -181,47 +181,47 @@ const fetchRealConfidence = async (attendanceId: string): Promise<number | null>
 };
 
 // Function để convert AttendanceRecord thành DemoRecord format cho UI
-const convertAttendanceToDemo = (
-	attendanceRecords: AttendanceRecord[], 
-	subjects: Subject[]
-): DemoRecord[] => {
-	return attendanceRecords.map(record => {
-		// Tìm subject name từ subjectId
-		const subject = subjects.find(s => s.subjectId === record.subjectId);
-		const subjectDisplay = subject ? subject.code : record.subjectId;
+// const convertAttendanceToDemo = (
+// 	attendanceRecords: AttendanceRecord[], 
+// 	subjects: Subject[]
+// ): DemoRecord[] => {
+// 	return attendanceRecords.map(record => {
+// 		// Tìm subject name từ subjectId
+// 		const subject = subjects.find(s => s.subjectId === record.subjectId);
+// 		const subjectDisplay = subject ? subject.code : record.subjectId;
 		
-		// Convert status từ database format sang UI format
-		const statusMap: { [key: string]: DemoRecord['status'] } = {
-			'PRESENT': 'Present',
-			'LATE': 'Late', 
-			'ABSENT': 'Absent'
-		};
+// 		// Convert status từ database format sang UI format
+// 		const statusMap: { [key: string]: DemoRecord['status'] } = {
+// 			'PRESENT': 'Present',
+// 			'LATE': 'Late', 
+// 			'ABSENT': 'Absent'
+// 		};
 		
-		// Extract time từ timestamp
-		const checkInDate = new Date(record.checked_in_at);
-		const timeStr = checkInDate.toLocaleTimeString('en-GB', { 
-			hour: '2-digit', 
-			minute: '2-digit' 
-		});
+// 		// Extract time từ timestamp
+// 		const checkInDate = new Date(record.checked_in_at);
+// 		const timeStr = checkInDate.toLocaleTimeString('en-GB', { 
+// 			hour: '2-digit', 
+// 			minute: '2-digit' 
+// 		});
 		
-		return {
-			id: record.AttendanceId,
-			userId: record.studentId,
-			userName: record.studentName,
-			subject: subjectDisplay,
-			time: timeStr,
-			date: checkInDate.toISOString().split('T')[0], // YYYY-MM-DD
-			status: statusMap[record.status] || 'Absent',
-			confidence: record.confidence ? `${record.confidence}%` : '95.00%',
-			checkInStatus: record.hasImage ? 'success' : 'failed'
-		};
-	});
-};
+// 		return {
+// 			id: record.AttendanceId,
+// 			userId: record.studentId,
+// 			userName: record.studentName,
+// 			subject: subjectDisplay,
+// 			time: timeStr,
+// 			date: checkInDate.toISOString().split('T')[0], // YYYY-MM-DD
+// 			status: statusMap[record.status] || 'Absent',
+// 			confidence: record.confidence ? `${record.confidence}%` : '95.00%',
+// 			checkInStatus: record.hasImage ? 'success' : 'failed'
+// 		};
+// 	});
+// };
 
 // Function để tạo complete attendance list với real enrolled students
 const generateCompleteAttendanceListWithRealData = async (
 	attendanceRecords: AttendanceRecord[],
-	dashboardSessions: DashboardSession[],
+	_dashboardSessions: DashboardSession[],
 	subjects: Subject[],
 	selectedSubjectCode: string,
 	targetDate?: string // Optional date parameter, defaults to today

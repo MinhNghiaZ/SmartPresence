@@ -57,7 +57,11 @@ class Logger {
   info(category: string, message: string, data?: any): void {
     if (this.shouldLog(LogLevel.INFO)) {
       const [msg, payload] = this.formatMessage(category, message, data);
-      payload ? console.log(msg, payload) : console.log(msg);
+      if (payload) {
+        console.log(msg, payload);
+      } else {
+        console.log(msg);
+      }
     }
   }
 
@@ -65,7 +69,11 @@ class Logger {
   debug(category: string, message: string, data?: any): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
       const [msg, payload] = this.formatMessage(category, message, data);
-      payload ? console.log(msg, payload) : console.log(msg);
+      if (payload) {
+        console.log(msg, payload);
+      } else {
+        console.log(msg);
+      }
     }
   }
 

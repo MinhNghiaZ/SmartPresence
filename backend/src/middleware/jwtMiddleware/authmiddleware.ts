@@ -43,10 +43,11 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
         console.log('✅ Token verified, user:', result.user?.id, result.user?.userType);
         req.user = result.user;
         next();
+        return;
 
     } catch (error) {
         console.error('❌ authenticateToken error:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: 'token failed'
         });
@@ -60,19 +61,21 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction) =>
     
     if (!req.user) {
         console.log('❌ No user in request');
-        return res.status(401).json({
+        res.status(401).json({
             success: false,
             message: 'Please login!'
         });
+        return;
     }
 
     console.log('🔒 User type:', req.user.userType);
     if (req.user.userType !== 'admin') {
         console.log('❌ User is not admin');
-        return res.status(403).json({
+        res.status(403).json({
             success: false,
             message: 'Only admin!'
         });
+        return;
     }
 
     console.log('✅ Admin access granted');
@@ -82,18 +85,20 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction) =>
 // Check if user is student
 export const requireStudent = (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-        return res.status(401).json({
+        res.status(401).json({
             success: false,
             message: 'Login please!'
         });
+        return;
     }
 
     if (req.user.userType !== 'student') {
-        return res.status(403).json({
+        res.status(403).json({
             success: false,
             message: 'Only Student!'
         });
+        return;
     }
-
+    
     next();
 };

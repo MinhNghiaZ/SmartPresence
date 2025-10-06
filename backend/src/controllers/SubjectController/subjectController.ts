@@ -53,7 +53,7 @@ export class SubjectController {
             const subjects = await SubjectService.getStudentSubjects(studentId);
             console.log(`✅ SubjectService returned ${subjects.length} subjects`);
             
-            res.json({
+            return res.json({
                 success: true,
                 studentId: studentId,
                 count: subjects.length,
@@ -63,7 +63,7 @@ export class SubjectController {
         } catch (error) {
             console.error('❌ SubjectController.getStudentSubjects error:', error);
             console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'Failed to fetch student subjects',
                 error: error instanceof Error ? error.message : 'Unknown error'
@@ -98,7 +98,7 @@ export class SubjectController {
                 });
             }
             
-            res.json({
+            return res.json({
                 success: true,
                 hasActiveTimeSlot: true,
                 timeSlot: timeSlot,
@@ -107,7 +107,7 @@ export class SubjectController {
             
         } catch (error) {
             console.error('❌ SubjectController.getCurrentTimeSlot error:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'Failed to fetch current timeslot'
             });
@@ -140,14 +140,14 @@ export class SubjectController {
                 });
             }
             
-            res.json({
+            return res.json({
                 success: true,
                 room: room
             });
             
         } catch (error) {
             console.error('❌ SubjectController.getRoomInfo error:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'Failed to fetch room info'
             });
@@ -173,7 +173,7 @@ export class SubjectController {
             
             const isEnrolled = await SubjectService.isStudentEnrolled(studentId, subjectId);
             
-            res.json({
+            return res.json({
                 success: true,
                 studentId: studentId,
                 subjectId: subjectId,
@@ -183,7 +183,7 @@ export class SubjectController {
             
         } catch (error) {
             console.error('❌ SubjectController.checkEnrollment error:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'Failed to check enrollment'
             });
@@ -220,7 +220,7 @@ export class SubjectController {
             
         } catch (error) {
             console.error('❌ SubjectController.getEnrolledStudents error:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 message: 'Failed to fetch enrolled students'
             });
