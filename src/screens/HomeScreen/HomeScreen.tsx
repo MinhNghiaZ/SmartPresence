@@ -607,35 +607,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 
 
 
-=======
->>>>>>> 274028e36a52ec9ce5d526054b541db674d654a4
-=======
-
-
-  const handleClearData = () => {
-    if (window.confirm('This will clear all attendance records. Are you sure?')) {
-      notify.push('✅ Dữ liệu đã được xóa thành công! Ứng dụng sẽ tải lại thông tin mới.', 'success');
-    }
-  };
-
-  const handleCheckLocation = async () => {
-    try {
-      // Debug info removed for production
-      logger.gps.debug('GPS debug info requested');
-      notify.push('ℹ️ Thông tin GPS đã được sao chép vào console để kiểm tra kỹ thuật.', 'info');
-    } catch (error) {
-      logger.gps.error('GPS error', error);
-      notify.push(`❌ Lỗi GPS: ${(error as Error).message}`, 'error');
-    }
-  };
-
->>>>>>> 5b72400273465b5a405305aa0ef599aedde616fb
   // Render with modern design based on the HTML template
   return (
     <div className="min-h-screen bg-gray-100">
@@ -678,30 +653,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
               <p className="text-gray-600 mb-4">
                 MSSV: {currentUser?.id || 'N/A'} | {currentUser?.email || 'N/A'}
               </p>
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 
-=======
->>>>>>> 274028e36a52ec9ce5d526054b541db674d654a4
-=======
-
-              {/* Quick Actions */}
-              <div className="flex flex-wrap gap-2">
-                <button 
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition-colors duration-300 flex items-center"
-                  onClick={handleClearData}
-                >
-                  🗑️ Clear Data (Debug)
-                </button>
-                <button 
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors duration-300 flex items-center"
-                  onClick={handleCheckLocation}
-                >
-                  📍 Check GPS (Debug)
-                </button>
-              </div>
->>>>>>> 5b72400273465b5a405305aa0ef599aedde616fb
             </div>
           </div>
         </div>
