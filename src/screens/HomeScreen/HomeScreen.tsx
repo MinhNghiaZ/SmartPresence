@@ -180,7 +180,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     };
 
     loadStudentSubjects();
-  }, [currentUser, notify]);
+  }, [currentUser]); // Removed 'notify' from dependencies as it's memoized
 
   const [selectedSubject, setSelectedSubject] = useState<SubjectInfo | null>(null);
 

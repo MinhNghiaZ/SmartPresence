@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 
 export type NotificationType = 'info' | 'success' | 'error' | 'warning';
 
@@ -29,6 +29,12 @@ interface ProviderProps { children: React.ReactNode }
 export const NotificationProvider: React.FC<ProviderProps> = ({ children }) => {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const timersRef = useRef<Record<string, number>>({});
+  const itemsRef = useRef<NotificationItem[]>([]);
+
+  // Keep itemsRef in sync with items state
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   const remove = useCallback((id: string) => {
     setItems(prev => prev.filter(i => i.id !== id));
@@ -40,6 +46,12 @@ export const NotificationProvider: React.FC<ProviderProps> = ({ children }) => {
   }, []);
 
   const push = useCallback((message: string, type: NotificationType = 'info', ttl: number = 4000) => {
+    // Check for duplicate notifications using ref to avoid dependency issues
+    const isDuplicate = itemsRef.current.some(item => item.message === message && item.type === type);
+    if (isDuplicate) {
+      return ''; // Return empty string for duplicate
+    }
+    
     const id = crypto.randomUUID();
     const item: NotificationItem = { id, message, type, createdAt: Date.now(), ttl };
     setItems(prev => [...prev, item]);
@@ -58,8 +70,14 @@ export const NotificationProvider: React.FC<ProviderProps> = ({ children }) => {
   // Cleanup on unmount
   useEffect(() => () => clear(), [clear]);
 
+  const contextValue = useMemo(() => ({
+    push,
+    remove,
+    clear
+  }), [push, remove, clear]);
+
   return (
-    <NotificationContext.Provider value={{ push, remove, clear }}>
+    <NotificationContext.Provider value={contextValue}>
       {children}
       <div className="notification-portal" aria-live="polite" aria-atomic="true">
         {items.map(item => (
