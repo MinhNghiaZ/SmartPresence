@@ -38,11 +38,60 @@ const StudentsList: React.FC<StudentsListProps> = ({
   const [studentsStats, setStudentsStats] = useState<StudentStats[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingFaceId, setDeletingFaceId] = useState<string | null>(null);
 
   // Update local subject khi selectedSubject thay đổi từ bên ngoài
   useEffect(() => {
     setCurrentSubject(selectedSubject);
   }, [selectedSubject]);
+
+  // Function để xóa face embedding của sinh viên
+  const deleteFaceEmbedding = async (studentId: string) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa thông tin khuôn mặt của sinh viên ${studentId}?`)) {
+      return;
+    }
+
+    try {
+      setDeletingFaceId(studentId);
+      
+      // Get admin info from localStorage
+      const adminInfo = localStorage.getItem('user');
+      let adminId = 'admin'; // default fallback
+      
+      if (adminInfo) {
+        try {
+          const parsedAdmin = JSON.parse(adminInfo);
+          adminId = parsedAdmin.id || parsedAdmin.studentId || adminId;
+        } catch (e) {
+          console.warn('Could not parse admin info, using default adminId');
+        }
+      }
+      
+      const response = await fetch(`/api/face/delete-embedding/${studentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          adminId: adminId
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('✅ Đã xóa thông tin khuôn mặt thành công!');
+      } else {
+        throw new Error(data.message || 'Không thể xóa thông tin khuôn mặt');
+      }
+    } catch (error) {
+      console.error('Error deleting face embedding:', error);
+      alert(`❌ Lỗi: ${error instanceof Error ? error.message : 'Có lỗi xảy ra'}`);
+    } finally {
+      setDeletingFaceId(null);
+    }
+  };
 
   // Function để fetch attendance stats cho một môn học
   const fetchSubjectAttendanceStats = async (subjectCode: string) => {
@@ -168,24 +217,25 @@ const StudentsList: React.FC<StudentsListProps> = ({
                 <th>Trễ</th>
                 <th>Vắng</th>
                 <th>Tỷ lệ (%)</th>
+                <th>Reset faceId</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="loading-data">
+                  <td colSpan={9} className="loading-data">
                     🔄 Đang tải dữ liệu...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={8} className="error-data">
+                  <td colSpan={9} className="error-data">
                     ❌ {error}
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="no-data">
+                  <td colSpan={9} className="no-data">
                     {searchTerm ? 'Không tìm thấy sinh viên nào' : 'Không có dữ liệu'}
                   </td>
                 </tr>
@@ -201,6 +251,16 @@ const StudentsList: React.FC<StudentsListProps> = ({
                     <td className="absent-count">{student.absentDays}</td>
                     <td className={`attendance-rate ${getAttendanceRateClass(student.attendanceRate)}`}>
                       {student.attendanceRate}%
+                    </td>
+                    <td>
+                      <button 
+                        onClick={() => deleteFaceEmbedding(student.studentId)}
+                        disabled={deletingFaceId === student.studentId}
+                        className={`delete-face-btn ${deletingFaceId === student.studentId ? 'deleting' : ''}`}
+                        title="Xóa dữ liệu nhận diện khuôn mặt"
+                      >
+                        {deletingFaceId === student.studentId ? '⏳' : '🗑️'}
+                      </button>
                     </td>
                   </tr>
                 ))
