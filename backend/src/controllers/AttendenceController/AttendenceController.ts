@@ -459,8 +459,8 @@ export class AttendanceController {
                         ELSE false 
                     END as hasImage,
                     ci.attendanceId as linkedAttendanceId
-                FROM Attendance a
-                INNER JOIN StudentAccount sa ON a.studentId = sa.studentId
+                FROM attendance a
+                INNER JOIN studentaccount sa ON a.studentId = sa.studentId
                 LEFT JOIN captured_images ci ON a.imageId = ci.imageId
                 WHERE DATE(a.checked_in_at) = ?
                 ORDER BY a.checked_in_at DESC
@@ -565,7 +565,7 @@ export class AttendanceController {
             
             // Simple query without complex JOINs first
             const [simpleRecords] = await db.execute(`
-                SELECT * FROM Attendance WHERE studentId = ? ORDER BY checked_in_at DESC LIMIT 5
+                SELECT * FROM attendance WHERE studentId = ? ORDER BY checked_in_at DESC LIMIT 5
             `, [studentId]);
             
             return res.json({
@@ -605,7 +605,7 @@ export class AttendanceController {
                     checked_in_at,
                     status,
                     imageId
-                FROM Attendance 
+                FROM attendance 
                 WHERE studentId = ? 
                 ORDER BY checked_in_at DESC 
                 LIMIT 10
@@ -763,7 +763,7 @@ export class AttendanceController {
             
             const [dates] = await db.execute(`
                 SELECT DISTINCT cs.session_date
-                FROM ClassSession cs
+                FROM classsession cs
                 WHERE cs.subjectId = ?
                 ORDER BY cs.session_date DESC
             `, [subjectId]);

@@ -609,22 +609,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
 
 
-  const handleClearData = () => {
-    if (window.confirm('This will clear all attendance records. Are you sure?')) {
-      notify.push('✅ Dữ liệu đã được xóa thành công! Ứng dụng sẽ tải lại thông tin mới.', 'success');
-    }
-  };
 
-  const handleCheckLocation = async () => {
-    try {
-      // Debug info removed for production
-      logger.gps.debug('GPS debug info requested');
-      notify.push('ℹ️ Thông tin GPS đã được sao chép vào console để kiểm tra kỹ thuật.', 'info');
-    } catch (error) {
-      logger.gps.error('GPS error', error);
-      notify.push(`❌ Lỗi GPS: ${(error as Error).message}`, 'error');
-    }
-  };
 
   // Render with modern design based on the HTML template
   return (
@@ -669,21 +654,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                 MSSV: {currentUser?.id || 'N/A'} | {currentUser?.email || 'N/A'}
               </p>
 
-              {/* Quick Actions */}
-              <div className="flex flex-wrap gap-2">
-                <button 
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition-colors duration-300 flex items-center"
-                  onClick={handleClearData}
-                >
-                  🗑️ Clear Data (Debug)
-                </button>
-                <button 
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors duration-300 flex items-center"
-                  onClick={handleCheckLocation}
-                >
-                  📍 Check GPS (Debug)
-                </button>
-              </div>
+
             </div>
           </div>
         </div>

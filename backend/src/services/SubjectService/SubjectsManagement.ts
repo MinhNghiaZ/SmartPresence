@@ -20,7 +20,7 @@ export class SubjectService {
             
             const [rows] = await db.execute(`
                 SELECT subjectId, name, code, credit
-                FROM Subject 
+                FROM subject 
                 ORDER BY code
             `);
             
@@ -55,10 +55,10 @@ export class SubjectService {
                     r.latitude,
                     r.longitude,
                     r.radius
-                FROM Subject s
-                INNER JOIN Enrollment e ON s.subjectId = e.subjectId
-                INNER JOIN TimeSlot ts ON s.subjectId = ts.subjectId
-                LEFT JOIN Room r ON ts.roomId = r.roomId
+                FROM subject s
+                INNER JOIN enrollment e ON s.subjectId = e.subjectId
+                INNER JOIN timeslot ts ON s.subjectId = ts.subjectId
+                LEFT JOIN room r ON ts.roomId = r.roomId
                 WHERE e.studentId = ?
                 ORDER BY s.code, ts.day_of_week, ts.start_time
             `, [studentId]);
@@ -114,8 +114,8 @@ export class SubjectService {
                     r.latitude,
                     r.longitude,
                     r.radius
-                FROM TimeSlot ts
-                LEFT JOIN Room r ON ts.roomId = r.roomId
+                FROM timeslot ts
+                LEFT JOIN room r ON ts.roomId = r.roomId
                 WHERE ts.subjectId = ? 
                 AND ts.day_of_week = ?
                 AND ? BETWEEN ts.start_time AND ts.end_time
@@ -165,7 +165,7 @@ export class SubjectService {
         try {
             const [rows] = await db.execute(`
                 SELECT enrollmentId 
-                FROM Enrollment 
+                FROM enrollment 
                 WHERE studentId = ? AND subjectId = ?
             `, [studentId, subjectId]);
             
@@ -183,7 +183,7 @@ export class SubjectService {
         try {
             const [rows] = await db.execute(`
                 SELECT roomId, latitude, longitude, radius
-                FROM Room
+                FROM room
                 WHERE roomId = ?
             `, [roomId]);
             
@@ -217,8 +217,8 @@ export class SubjectService {
                     sa.studentId as studentId,
                     sa.name as studentName,
                     sa.email
-                FROM Enrollment e
-                INNER JOIN StudentAccount sa ON e.studentId = sa.studentId
+                FROM enrollment e
+                INNER JOIN studentaccount sa ON e.studentId = sa.studentId
                 WHERE e.subjectId = ?
                 ORDER BY sa.studentId
             `, [subjectId]);

@@ -110,8 +110,8 @@ export class StorageService {
                     ci.captured_at,
                     ci.ip_address
                 FROM captured_images ci
-                LEFT JOIN StudentAccount sa ON ci.studentId = sa.studentId
-                LEFT JOIN Subject s ON ci.subjectId = s.subjectId
+                LEFT JOIN studentaccount sa ON ci.studentId = sa.studentId
+                LEFT JOIN subject s ON ci.subjectId = s.subjectId
                 WHERE ci.studentId = ?
                 ORDER BY ci.captured_at DESC
             `, [studentId]);
@@ -153,8 +153,8 @@ export class StorageService {
                     ci.captured_at,
                     ci.ip_address
                 FROM captured_images ci
-                LEFT JOIN StudentAccount sa ON ci.studentId = sa.studentId
-                LEFT JOIN Subject s ON ci.subjectId = s.subjectId
+                LEFT JOIN studentaccount sa ON ci.studentId = sa.studentId
+                LEFT JOIN subject s ON ci.subjectId = s.subjectId
                 WHERE ci.imageId = ?
             `, [imageId]);
 
@@ -301,8 +301,8 @@ export class StorageService {
                     ci.captured_at,
                     ci.ip_address
                 FROM captured_images ci
-                LEFT JOIN StudentAccount sa ON ci.studentId = sa.studentId
-                LEFT JOIN Subject s ON ci.subjectId = s.subjectId
+                LEFT JOIN studentaccount sa ON ci.studentId = sa.studentId
+                LEFT JOIN subject s ON ci.subjectId = s.subjectId
                 WHERE ci.captured_at BETWEEN ? AND ?
                 ORDER BY ci.captured_at DESC
                 LIMIT ?

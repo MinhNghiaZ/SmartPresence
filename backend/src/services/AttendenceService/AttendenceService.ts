@@ -184,7 +184,7 @@ export class AttendanceService {
                     a.checked_in_at,
                     a.status,
                     a.imageId
-                FROM Attendance a
+                FROM attendance a
                 WHERE a.studentId = ?
             `;
             
@@ -201,7 +201,7 @@ export class AttendanceService {
             const [rows] = await db.execute(query, params);
             
             // Get total count
-            let countQuery = `SELECT COUNT(*) as total FROM Attendance WHERE studentId = ?`;
+            let countQuery = `SELECT COUNT(*) as total FROM attendance WHERE studentId = ?`;
             const countParams: any[] = [studentId];
             if (subjectId) {
                 countQuery += ` AND subjectId = ?`;
@@ -267,7 +267,7 @@ export class AttendanceService {
                     SUM(CASE WHEN status = 'PRESENT' THEN 1 ELSE 0 END) as presentSessions,
                     SUM(CASE WHEN status = 'LATE' THEN 1 ELSE 0 END) as lateSessions,
                     SUM(CASE WHEN status = 'ABSENT' THEN 1 ELSE 0 END) as absentSessions
-                FROM Attendance 
+                FROM attendance 
                 WHERE studentId = ?
             `;
             
@@ -291,8 +291,8 @@ export class AttendanceService {
                         (SUM(CASE WHEN a.status = 'PRESENT' THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
                         2
                     ) as attendanceRate
-                FROM Attendance a
-                INNER JOIN Subject s ON a.subjectId = s.subjectId
+                FROM attendance a
+                INNER JOIN subject s ON a.subjectId = s.subjectId
                 WHERE a.studentId = ?
             `;
             
@@ -352,7 +352,7 @@ export class AttendanceService {
             
             const [rows] = await db.execute(`
                 SELECT AttendanceId, studentId, subjectId, timeSlotId, checked_in_at, status, imageId
-                FROM Attendance 
+                FROM attendance 
                 WHERE studentId = ? 
                 AND subjectId = ? 
                 AND timeSlotId = ?
@@ -391,7 +391,7 @@ export class AttendanceService {
         try {
             const [rows] = await db.execute(`
                 SELECT enrollmentId, studentId, subjectId, semesterId
-                FROM Enrollment 
+                FROM enrollment 
                 WHERE studentId = ? AND subjectId = ?
             `, [studentId, subjectId]);
             
@@ -603,7 +603,7 @@ export class AttendanceService {
         try {
             const [rows] = await db.execute(`
                 SELECT AttendanceId, studentId, subjectId, sessionId, checked_in_at, status, imageId
-                FROM Attendance 
+                FROM attendance 
                 WHERE studentId = ? AND sessionId = ?
             `, [studentId, sessionId]);
             
@@ -681,7 +681,7 @@ export class AttendanceService {
             // Get enrollment record
             const [enrollmentRows] = await db.execute(`
                 SELECT enrollmentId 
-                FROM Enrollment 
+                FROM enrollment 
                 WHERE studentId = ? AND subjectId = ?
             `, [data.studentId, data.subjectId]);
             
@@ -828,7 +828,7 @@ export class AttendanceService {
             // Validate attendance exists
             const [existingRows] = await db.execute(`
                 SELECT AttendanceId, studentId, subjectId, status 
-                FROM Attendance 
+                FROM attendance 
                 WHERE AttendanceId = ?
             `, [attendanceId]);
             
@@ -866,7 +866,7 @@ export class AttendanceService {
             
             // Check if already exists - commented out for admin override capability
             // const [existingRows] = await db.execute(`
-            //     SELECT AttendanceId FROM Attendance 
+            //     SELECT AttendanceId FROM attendance 
             //     WHERE studentId = ? AND subjectId = ? AND DATE(checked_in_at) = CURDATE()
             // `, [studentId, subjectId]);
             
@@ -880,7 +880,7 @@ export class AttendanceService {
             
             // Get current active session for the subject
             const [sessionRows] = await db.execute(`
-                SELECT sessionId FROM ClassSession 
+                SELECT sessionId FROM classsession 
                 WHERE subjectId = ? AND session_status = 'ACTIVE' AND DATE(session_date) = CURDATE()
                 LIMIT 1
             `, [subjectId]);
@@ -893,7 +893,7 @@ export class AttendanceService {
             
             // Get real enrollment ID
             const [enrollmentRows] = await db.execute(`
-                SELECT enrollmentId FROM Enrollment 
+                SELECT enrollmentId FROM enrollment 
                 WHERE studentId = ? AND subjectId = ? 
                 LIMIT 1
             `, [studentId, subjectId]);
@@ -969,7 +969,7 @@ export class AttendanceService {
                     a.checked_in_at,
                     a.imageId,
                     CASE WHEN a.imageId IS NOT NULL THEN true ELSE false END as hasImage
-                FROM Attendance a 
+                FROM attendance a 
                 WHERE DATE(a.checked_in_at) = ?
                 ORDER BY a.checked_in_at DESC
             `, [date]);
@@ -1101,7 +1101,7 @@ export class AttendanceService {
             // First, get total number of sessions (ACTIVE or COMPLETED) for this subject
             const [totalSessionsResult] = await db.execute(`
                 SELECT COUNT(DISTINCT sessionId) as totalSessions
-                FROM ClassSession 
+                FROM classsession 
                 WHERE subjectId = ? 
                 AND session_status IN ('ACTIVE', 'COMPLETED')
             `, [subjectId]);
@@ -1118,13 +1118,13 @@ export class AttendanceService {
                     SUM(CASE WHEN a.status = 'PRESENT' THEN 1 ELSE 0 END) as presentDays,
                     SUM(CASE WHEN a.status = 'LATE' THEN 1 ELSE 0 END) as lateDays,
                     SUM(CASE WHEN a.status = 'ABSENT' THEN 1 ELSE 0 END) as absentDays
-                FROM Enrollment e
-                INNER JOIN StudentAccount sa ON e.studentId = sa.studentId
-                LEFT JOIN Attendance a ON e.studentId = a.studentId 
+                FROM enrollment e
+                INNER JOIN studentaccount sa ON e.studentId = sa.studentId
+                LEFT JOIN attendance a ON e.studentId = a.studentId 
                     AND e.subjectId = a.subjectId
                     AND a.sessionId IN (
                         SELECT sessionId 
-                        FROM ClassSession 
+                        FROM classsession 
                         WHERE subjectId = ? 
                         AND session_status IN ('ACTIVE', 'COMPLETED')
                     )

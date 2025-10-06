@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import removeConsole from 'vite-plugin-remove-console'
 
 // Production configuration for deployment
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), removeConsole()],
   base: '/', // Adjust if deployed in subdirectory
   build: {
     outDir: 'dist',
@@ -24,7 +25,7 @@ export default defineConfig({
     https: true,
     proxy: {
       '/api': {
-        target: 'https://sas.eiu.com.vn:3001', // Production backend URL
+        target: 'https://sas.eiu.com.vn', // Production backend URL
         changeOrigin: true,
         secure: true, // Enable for HTTPS backend
         rewrite: (path) => path.replace(/^\/api/, '/api')

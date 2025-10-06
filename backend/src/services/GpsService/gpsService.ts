@@ -41,7 +41,7 @@ export class GPSService {
                     ts.day_of_week,
                     cs.sessionId,
                     cs.session_status
-                FROM ClassSession cs
+                FROM classsession cs
                 INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId
                 INNER JOIN Room r ON ts.roomId = r.roomId
                 WHERE cs.subjectId = ? 

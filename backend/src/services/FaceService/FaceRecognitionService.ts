@@ -31,7 +31,7 @@ export class FaceRecognitionService {
 
             // Check if student exists
             const [studentRows] = await db.execute(`
-                SELECT studentId, name, faceEmbedding FROM StudentAccount WHERE studentId = ?
+                SELECT studentId, name, faceEmbedding FROM studentaccount WHERE studentId = ?
             `, [studentId]);
 
             if ((studentRows as any[]).length === 0) {
@@ -56,7 +56,7 @@ export class FaceRecognitionService {
 
             // ✅ Verify the update was successful
             const [verifyRows] = await db.execute(`
-                SELECT faceEmbedding FROM StudentAccount WHERE studentId = ?
+                SELECT faceEmbedding FROM studentaccount WHERE studentId = ?
             `, [studentId]);
 
             const updatedStudent = (verifyRows as any[])[0];
@@ -85,7 +85,7 @@ export class FaceRecognitionService {
         try {
             const [rows] = await db.execute(`
                 SELECT studentId, name, faceEmbedding
-                FROM StudentAccount 
+                FROM studentaccount 
                 WHERE faceEmbedding IS NOT NULL AND faceEmbedding != ''
             `);
             
@@ -185,7 +185,7 @@ export class FaceRecognitionService {
             let userDescriptor: number[];
             try {
                 const [rows] = await db.execute(`
-                    SELECT faceEmbedding FROM StudentAccount WHERE studentId = ?
+                    SELECT faceEmbedding FROM studentaccount WHERE studentId = ?
                 `, [studentId]);
                 
                 const student = (rows as any[])[0];
@@ -280,7 +280,7 @@ export class FaceRecognitionService {
             
             const [rows] = await db.execute(`
                 SELECT studentId, name, faceEmbedding
-                FROM StudentAccount 
+                FROM studentaccount 
                 WHERE studentId = ?
             `, [studentId]);
             
@@ -362,7 +362,7 @@ export class FaceRecognitionService {
 
             // Check if student exists
             const [studentRows] = await db.execute(`
-                SELECT studentId, name, faceEmbedding FROM StudentAccount WHERE studentId = ?
+                SELECT studentId, name, faceEmbedding FROM studentaccount WHERE studentId = ?
             `, [studentId]);
 
             if ((studentRows as any[]).length === 0) {
@@ -403,7 +403,7 @@ export class FaceRecognitionService {
         try {
             const [rows] = await db.execute(`
                 SELECT COUNT(*) as count
-                FROM StudentAccount 
+                FROM studentaccount 
                 WHERE faceEmbedding IS NOT NULL AND faceEmbedding != ''
             `);
             

@@ -19,7 +19,7 @@ export class ClassSessionService {
             const [timeslots] = await db.execute(`
                 SELECT ts.timeSlotId, ts.subjectId, ts.start_time, ts.end_time, ts.roomId,
                        ts.start_date, ts.end_date, ts.active
-                FROM TimeSlot ts
+                FROM timeslot ts
                 WHERE ts.day_of_week = ?
                   AND ts.active = 1
                   AND ? BETWEEN ts.start_date AND ts.end_date
@@ -39,7 +39,7 @@ export class ClassSessionService {
                 
                 // Check if session already exists
                 const [existing] = await db.execute(`
-                    SELECT sessionId FROM ClassSession 
+                    SELECT sessionId FROM classsession 
                     WHERE sessionId = ?
                 `, [sessionId]);
                 
@@ -107,10 +107,10 @@ export class ClassSessionService {
                     r.latitude,
                     r.longitude,
                     r.radius
-                FROM ClassSession cs
-                INNER JOIN Subject s ON cs.subjectId = s.subjectId
-                INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId
-                LEFT JOIN Room r ON ts.roomId = r.roomId
+                FROM classsession cs
+                INNER JOIN subject s ON cs.subjectId = s.subjectId
+                INNER JOIN timeslot ts ON cs.timeSlotId = ts.timeSlotId
+                LEFT JOIN room r ON ts.roomId = r.roomId
                 WHERE cs.subjectId = ?
                   AND cs.session_date = ?
                   AND ? BETWEEN ts.start_time AND ts.end_time
@@ -196,10 +196,10 @@ export class ClassSessionService {
                     sa.name as studentName,
                     sa.email as studentEmail,
                     cs.session_date
-                FROM ClassSession cs
-                INNER JOIN Enrollment e ON cs.subjectId = e.subjectId
-                INNER JOIN StudentAccount sa ON e.studentId = sa.studentId
-                LEFT JOIN Attendance a ON (cs.sessionId = a.sessionId AND e.studentId = a.studentId)
+                FROM classsession cs
+                INNER JOIN enrollment e ON cs.subjectId = e.subjectId
+                INNER JOIN studentaccount sa ON e.studentId = sa.studentId
+                LEFT JOIN attendance a ON (cs.sessionId = a.sessionId AND e.studentId = a.studentId)
                 WHERE cs.sessionId = ?
                   AND a.AttendanceId IS NULL
                 ORDER BY sa.name
@@ -246,11 +246,11 @@ export class ClassSessionService {
                     ts.roomId,
                     COUNT(DISTINCT e.studentId) as totalEnrolled,
                     COUNT(DISTINCT a.studentId) as totalPresent
-                FROM ClassSession cs
-                INNER JOIN Subject s ON cs.subjectId = s.subjectId
-                INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId
-                INNER JOIN Enrollment e ON s.subjectId = e.subjectId
-                LEFT JOIN Attendance a ON (cs.sessionId = a.sessionId AND a.status IN ('PRESENT', 'LATE'))
+                FROM classsession cs
+                INNER JOIN subject s ON cs.subjectId = s.subjectId
+                INNER JOIN timeslot ts ON cs.timeSlotId = ts.timeSlotId
+                INNER JOIN enrollment e ON s.subjectId = e.subjectId
+                LEFT JOIN attendance a ON (cs.sessionId = a.sessionId AND a.status IN ('PRESENT', 'LATE'))
                 WHERE cs.session_date = ?
                 GROUP BY cs.sessionId, cs.subjectId, s.name, s.code, cs.session_status, ts.start_time, ts.end_time, ts.roomId
                 ORDER BY ts.start_time
@@ -297,7 +297,7 @@ export class ClassSessionService {
 
             // Get count before generation
             const [beforeCount] = await db.execute(`
-                SELECT COUNT(*) as count FROM ClassSession 
+                SELECT COUNT(*) as count FROM classsession 
                 WHERE session_date = ?
             `, [today]);
             
@@ -308,7 +308,7 @@ export class ClassSessionService {
             
             // Get count after generation
             const [afterCount] = await db.execute(`
-                SELECT COUNT(*) as count FROM ClassSession 
+                SELECT COUNT(*) as count FROM classsession 
                 WHERE session_date = ?
             `, [today]);
             
@@ -362,9 +362,9 @@ export class ClassSessionService {
                     ts.end_time,
                     ts.roomId,
                     r.roomId as room_name
-                FROM ClassSession cs
-                LEFT JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId
-                LEFT JOIN Room r ON ts.roomId = r.roomId
+                FROM classsession cs
+                LEFT JOIN timeslot ts ON cs.timeSlotId = ts.timeSlotId
+                LEFT JOIN room r ON ts.roomId = r.roomId
                 WHERE cs.session_date = ?
                 ORDER BY ts.start_time ASC
             `, [today]);
@@ -403,8 +403,8 @@ export class ClassSessionService {
             // First, activate SCHEDULED sessions that should start now
             const [scheduledSessions] = await db.execute(`
                 SELECT cs.sessionId, cs.session_date, ts.start_time
-                FROM ClassSession cs
-                INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId  
+                FROM classsession cs
+                INNER JOIN timeslot ts ON cs.timeSlotId = ts.timeSlotId  
                 WHERE cs.session_status = 'SCHEDULED'
                   AND cs.session_date = ?
                   AND ? >= ts.start_time
@@ -423,8 +423,8 @@ export class ClassSessionService {
             const [expiredSessions] = await db.execute(`
                 SELECT cs.sessionId, cs.session_date, ts.end_time,
                        CONCAT(cs.session_date, ' ', ts.end_time) as full_end_time
-                FROM ClassSession cs
-                INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId  
+                FROM classsession cs
+                INNER JOIN timeslot ts ON cs.timeSlotId = ts.timeSlotId  
                 WHERE cs.session_status = 'ACTIVE'
                   AND (
                     -- Sessions from previous dates (automatically expired)
