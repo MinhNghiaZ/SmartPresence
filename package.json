@@ -16,7 +16,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:https": "vite preview --host",
-    "start:fullstack": "concurrently \"npm run preview\" \"npm run start:backend\"",
+    "preview:prod": "vite preview --config vite.config.production.ts --host",
+    "start:fullstack": "concurrently \"npm run preview:https\" \"npm run start:backend\"",
+    "start:fullstack:prod": "concurrently \"npm run preview:prod\" \"npm run start:backend\"",
     "start:backend": "cd backend && npm run start"
   },
   "dependencies": {

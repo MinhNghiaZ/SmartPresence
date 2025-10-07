@@ -49,7 +49,7 @@ export class FaceRecognitionService {
 
             // ✅ Only allow registration when faceEmbedding is NULL
             await db.execute(`
-                UPDATE StudentAccount 
+                UPDATE studentaccount 
                 SET faceEmbedding = ?
                 WHERE studentId = ? AND faceEmbedding IS NULL
             `, [JSON.stringify(descriptor), studentId]);
@@ -379,7 +379,7 @@ export class FaceRecognitionService {
 
             // Clear the faceEmbedding
             await db.execute(`
-                UPDATE StudentAccount 
+                UPDATE studentaccount 
                 SET faceEmbedding = NULL
                 WHERE studentId = ?
             `, [studentId]);

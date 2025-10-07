@@ -25,6 +25,19 @@ export default defineConfig({
       }
     }
   },
+  preview: {
+    host: '0.0.0.0',
+    port: 4173,
+    https: true, // Enable HTTPS for preview mode
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api')
+      }
+    }
+  },
   // Optimizations for HTTPS development
   define: {
     // Ensure camera/microphone APIs work with HTTPS

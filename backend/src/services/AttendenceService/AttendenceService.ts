@@ -417,7 +417,7 @@ export class AttendanceService {
             const attendanceId = `ATT_${Date.now()}_${data.studentId}_${Math.random().toString(36).substr(2, 9)}`;
             
             await db.execute(`
-                INSERT INTO Attendance (
+                INSERT INTO attendance (
                     AttendanceId, 
                     studentId, 
                     subjectId, 
@@ -693,7 +693,7 @@ export class AttendanceService {
             const attendanceId = `ATT_${Date.now()}_${data.studentId}_${Math.random().toString(36).substr(2, 9)}`;
             
             await db.execute(`
-                INSERT INTO Attendance (
+                INSERT INTO attendance (
                     AttendanceId, 
                     studentId, 
                     subjectId, 
@@ -782,7 +782,7 @@ export class AttendanceService {
     private static async updateAttendanceImageId(attendanceId: string, imageId: string): Promise<void> {
         try {
             await db.execute(`
-                UPDATE Attendance 
+                UPDATE attendance 
                 SET imageId = ? 
                 WHERE AttendanceId = ?
             `, [imageId, attendanceId]);

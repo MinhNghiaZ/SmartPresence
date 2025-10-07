@@ -46,7 +46,7 @@ export class ClassSessionService {
                 if ((existing as any[]).length === 0) {
                     // Create new session with started_at and ended_at as NULL initially
                     await db.execute(`
-                        INSERT INTO ClassSession (
+                        INSERT INTO classsession (
                             sessionId, 
                             subjectId,
                             timeSlotId, 
@@ -156,7 +156,7 @@ export class ClassSessionService {
         status: 'SCHEDULED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
     ): Promise<void> {
         try {
-            let updateQuery = `UPDATE ClassSession SET session_status = ?`;
+            let updateQuery = `UPDATE classsession SET session_status = ?`;
             const params: any[] = [status];
             
             if (status === 'ACTIVE') {
