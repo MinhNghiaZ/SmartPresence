@@ -698,98 +698,97 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
                 lateDays?: number;
             }[]>([]);
 
-			// Update records when selectedSubject changes để hiển thị tất cả students
-			useEffect(() => {
-				const updateRecords = async () => {
-					if (selectedSubject && subjects.length > 0) {
-						const today = new Date().toISOString().split('T')[0];
-						const completeRecords = await generateCompleteAttendanceListWithRealData(
-							attendanceRecords, 
-							dashboardSessions, 
-							subjects, 
-							selectedSubject,
-							today
-						);
-						setRecords(completeRecords);
-						// console.log(`✅ Updated records for ${selectedSubject}:`, completeRecords.length);
-					}
-				};
-				
-				updateRecords();
-			}, [selectedSubject, subjects, attendanceRecords, dashboardSessions]);
-
-			const subjectRecords = useMemo(() => records.filter(r => r.subject === selectedSubject), [records, selectedSubject]);
-
-			// Load session dates for navigation (based on ClassSession instead of Attendance)
+		// Update records when selectedSubject changes để hiển thị tất cả students
+		useEffect(() => {
+			const updateRecords = async () => {
+				if (selectedSubject && subjects.length > 0) {
+					const today = new Date().toISOString().split('T')[0];
+					const completeRecords = await generateCompleteAttendanceListWithRealData(
+						attendanceRecords, 
+						dashboardSessions, 
+						subjects, 
+						selectedSubject,
+						today
+					);
+					setRecords(completeRecords);
+					// console.log(`✅ Updated records for ${selectedSubject}:`, completeRecords.length);
+				}
+		};
+		
+		updateRecords();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedSubject]); // Only trigger when selectedSubject changes, not on every data update
+	
+	const subjectRecords = useMemo(() => records.filter(r => r.subject === selectedSubject), [records, selectedSubject]);			// Load session dates for navigation (based on ClassSession instead of Attendance)
 			const [sessionDates, setSessionDates] = useState<string[]>([]);
 			
-			useEffect(() => {
-				const loadSessionDates = async () => {
-					if (selectedSubject && subjects.length > 0) {
-						const subjectObj = subjects.find(s => s.code === selectedSubject);
-						if (subjectObj) {
-							const dates = await fetchSessionDates(subjectObj.subjectId);
-							setSessionDates(dates);
-							// console.log(`📅 Loaded ${dates.length} session dates for ${selectedSubject}:`, dates);
-						}
+		useEffect(() => {
+			const loadSessionDates = async () => {
+				if (selectedSubject && subjects.length > 0) {
+					const subjectObj = subjects.find(s => s.code === selectedSubject);
+					if (subjectObj) {
+						const dates = await fetchSessionDates(subjectObj.subjectId);
+						setSessionDates(dates);
+						// console.log(`📅 Loaded ${dates.length} session dates for ${selectedSubject}:`, dates);
 					}
-				};
-				
-				loadSessionDates();
-			}, [selectedSubject, subjects]);
+				}
+			};
+			
+			loadSessionDates();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedSubject]); // Only trigger when selectedSubject changes
+	
+	// Load subject attendance stats and absent students when selectedSubject changes
+	useEffect(() => {
+		const loadSubjectData = async () => {
+			if (selectedSubject && subjects.length > 0) {
+				const subjectObj = subjects.find(s => s.code === selectedSubject);
+				if (subjectObj) {
+					// Load attendance stats
+					const stats = await fetchSubjectAttendanceStats(subjectObj.subjectId);
+					setSubjectAttendanceStats(stats);
+					// console.log(`📊 Loaded stats for ${selectedSubject}:`, stats);
 
-			// Load subject attendance stats and absent students when selectedSubject changes
-			useEffect(() => {
-				const loadSubjectData = async () => {
-					if (selectedSubject && subjects.length > 0) {
-						const subjectObj = subjects.find(s => s.code === selectedSubject);
-						if (subjectObj) {
-							// Load attendance stats
-							const stats = await fetchSubjectAttendanceStats(subjectObj.subjectId);
-							setSubjectAttendanceStats(stats);
-							// console.log(`📊 Loaded stats for ${selectedSubject}:`, stats);
-
-							// Load individual student stats to get absent students
-							try {
-								const response = await fetch(`/api/attendance/subject/${subjectObj.subjectId}/students-stats`);
-								const data = await response.json();
-								
-								if (data.success && data.students) {
-									// Filter students with absentEquivalent >= 3 (including late days calculation)
-									const absentStudents = data.students
-										.filter((student: any) => student.absentEquivalent >= 3)
-										.map((student: any) => ({
-											userId: student.studentId,
-											userName: student.studentName,
-											days: student.absentEquivalent,
-											actualAbsent: student.absentDays,
-											lateDays: student.lateDays
-										}))
-										.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
-									
-									setAbsentStudentsList(absentStudents);
-									// console.log(`📋 Loaded absent students for ${selectedSubject}:`, absentStudents);
-								}
-							} catch (error) {
-								console.error('Error loading absent students:', error);
-								setAbsentStudentsList([]);
-							}
+					// Load individual student stats to get absent students
+					try {
+						const response = await fetch(`/api/attendance/subject/${subjectObj.subjectId}/students-stats`);
+						const data = await response.json();
+						
+						if (data.success && data.students) {
+							// Filter students with absentEquivalent >= 3 (including late days calculation)
+							const absentStudents = data.students
+								.filter((student: any) => student.absentEquivalent >= 3)
+								.map((student: any) => ({
+									userId: student.studentId,
+									userName: student.studentName,
+									days: student.absentEquivalent,
+									actualAbsent: student.absentDays,
+									lateDays: student.lateDays
+								}))
+								.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
+							
+							setAbsentStudentsList(absentStudents);
+							// console.log(`📋 Loaded absent students for ${selectedSubject}:`, absentStudents);
 						}
-					}
-				};
-				
-				loadSubjectData();
-			}, [selectedSubject, subjects]);
+					} catch (error) {
+						console.error('Error loading absent students:', error);
+					setAbsentStudentsList([]);
+				}
+			}
+		}
+	};
+	
+	loadSubjectData();
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [selectedSubject]); // Only trigger when selectedSubject changes
 
-			const subjectDates = sessionDates; // Use session dates instead of attendance dates
+const subjectDates = sessionDates; // Use session dates instead of attendance dates
 
-            // Set intelligent initial date when subject changes or sessionDates load
-            useEffect(() => {
-                if (sessionDates.length === 0) return;
-                
-                const today = new Date().toISOString().split('T')[0];
-                
-                // Find today's index
+// Set intelligent initial date when subject changes or sessionDates load
+useEffect(() => {
+	if (sessionDates.length === 0) return;
+	
+	const today = new Date().toISOString().split('T')[0];                // Find today's index
                 const todayIndex = sessionDates.findIndex(date => date === today);
                 
                 if (todayIndex !== -1) {
@@ -1073,6 +1072,38 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 							>
 								<span className="text-lg">🔑</span>
 								<span>Reset mật khẩu</span>
+							</button>
+
+							<button
+								className="px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 bg-gradient-to-r from-purple-500 to-pink-600 text-white hover:from-purple-600 hover:to-pink-700 hover:shadow-lg flex items-center justify-center gap-2"
+								onClick={async () => {
+									if (isLoading) return;
+									
+									setIsLoading(true);
+									push('Đang tải lại dữ liệu...', 'info');
+									
+									try {
+										const today = new Date().toISOString().split('T')[0];
+										
+										// Reload subjects
+										await fetchSubjects();
+										// Reload attendance for today
+										await fetchAttendanceByDate(today);
+										// Reload dashboard sessions for today
+										await fetchDashboardSessions(today);
+										
+										push('Tải lại dữ liệu thành công!', 'success');
+									} catch (error) {
+										console.error('Error reloading data:', error);
+										push('Lỗi khi tải lại dữ liệu', 'error');
+									} finally {
+										setIsLoading(false);
+									}
+								}}
+								disabled={isLoading}
+							>
+								<span className="text-lg">{isLoading ? '⏳' : '🔄'}</span>
+								<span>{isLoading ? 'Đang tải...' : 'Reload'}</span>
 							</button>
 						</div>
 					</div>						<div className="flex items-center space-x-4">

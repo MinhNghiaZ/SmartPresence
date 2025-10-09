@@ -124,10 +124,11 @@ const StudentsList: React.FC<StudentsListProps> = ({
 
   // Load dữ liệu khi modal mở hoặc chuyển môn học
   useEffect(() => {
-    if (isOpen && currentSubject) {
+    if (isOpen && currentSubject && subjects.length > 0) {
       fetchSubjectAttendanceStats(currentSubject);
     }
-  }, [isOpen, currentSubject, subjects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, currentSubject]); // Removed 'subjects' dependency to prevent unnecessary re-fetches
 
   // Lọc sinh viên theo tìm kiếm
   const filteredStudents = useMemo(() => {
@@ -155,6 +156,13 @@ const StudentsList: React.FC<StudentsListProps> = ({
     onSubjectChange && onSubjectChange(subjectCode); // Notify parent component
   };
 
+  // Handler để reload dữ liệu thủ công
+  const handleReloadData = () => {
+    if (currentSubject) {
+      fetchSubjectAttendanceStats(currentSubject);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -168,7 +176,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
             {error && <p className="students-error-text">❌ {error}</p>}
           </div>
           
-          {/* Subject Selector */}
+          {/* Subject Selector with Reload Button */}
           <div className="subject-selector">
             <label className="subject-label">Chọn môn:</label>
             <select 
@@ -182,6 +190,14 @@ const StudentsList: React.FC<StudentsListProps> = ({
                 </option>
               ))}
             </select>
+            <button 
+              className="reload-btn" 
+              onClick={handleReloadData}
+              disabled={loading}
+              title="Tải lại dữ liệu"
+            >
+              🔄
+            </button>
           </div>
           
           <button className="close-btn" onClick={onClose}>
