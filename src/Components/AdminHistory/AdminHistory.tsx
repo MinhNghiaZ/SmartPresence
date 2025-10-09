@@ -14,14 +14,24 @@ interface AttendanceImageRecord {
   ipAddress?: string;
 }
 
+interface Subject {
+  subjectId: string;
+  name: string;
+  code: string;
+}
+
 interface AdminHistoryProps {
 	onClose?: () => void;
-}const AdminHistory: React.FC<AdminHistoryProps> = ({ onClose }) => {
+}
+
+const AdminHistory: React.FC<AdminHistoryProps> = ({ onClose }) => {
   const [records, setRecords] = useState<AttendanceImageRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<AttendanceImageRecord[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<AttendanceImageRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string>('ALL'); // 'ALL' or subjectId
   const API_BASE = '/api/storage';
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -54,6 +64,23 @@ interface AdminHistoryProps {
     }
   };
 
+  // Function to load subjects from API
+  const loadSubjects = async () => {
+    try {
+      const response = await fetch('/api/subjects');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.success) {
+        setSubjects(data.subjects);
+        console.log(`✅ Loaded ${data.subjects.length} subjects`);
+      }
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+    }
+  };
+
   // Function to refresh data only (not reload page)
   const refreshData = async () => {
     await loadRecords();
@@ -62,11 +89,18 @@ interface AdminHistoryProps {
   // Load captured images from backend API (using working StorageService)
   useEffect(() => {
     loadRecords();
+    loadSubjects();
   }, []);
 
   // Extract available dates from records and set up date navigation
   const availableDates = React.useMemo(() => {
-    const dates = records.map(record => {
+    // Filter records by selected subject first
+    let relevantRecords = records;
+    if (selectedSubject !== 'ALL') {
+      relevantRecords = records.filter(record => record.subjectId === selectedSubject);
+    }
+    
+    const dates = relevantRecords.map(record => {
       const capturedDate = new Date(record.capturedAt);
       return capturedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
     });
@@ -74,31 +108,41 @@ interface AdminHistoryProps {
     // Remove duplicates and sort by date (newest first)
     const uniqueDates = [...new Set(dates)].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
     return uniqueDates;
-  }, [records]);
+  }, [records, selectedSubject]);
 
   // Current date index for navigation
   const [currentDateIndex, setCurrentDateIndex] = useState<number>(0);
   const activeDate = availableDates[currentDateIndex];
 
-  // Filter records by active date
+  // Reset date index when subject changes
+  useEffect(() => {
+    setCurrentDateIndex(0);
+  }, [selectedSubject]);
+
+  // Filter records by active date and subject
   React.useEffect(() => {
-    if (!activeDate) {
-      setFilteredRecords(records);
-      return;
+    let filtered = records;
+    
+    // Filter by subject if not ALL
+    if (selectedSubject !== 'ALL') {
+      filtered = filtered.filter(record => record.subjectId === selectedSubject);
     }
     
-    const filtered = records.filter(record => {
-      const recordDate = new Date(record.capturedAt).toISOString().split('T')[0];
-      return recordDate === activeDate;
-    });
+    // Filter by date if activeDate is set
+    if (activeDate) {
+      filtered = filtered.filter(record => {
+        const recordDate = new Date(record.capturedAt).toISOString().split('T')[0];
+        return recordDate === activeDate;
+      });
+    }
     
     setFilteredRecords(filtered);
     
-    // Clear selected record when changing date to avoid showing detail for non-visible record
+    // Clear selected record when changing filter to avoid showing detail for non-visible record
     setSelectedRecord(null);
     
-    console.log(`📅 Filtered records for ${activeDate}: ${filtered.length} records`);
-  }, [records, activeDate]);
+    console.log(`📅 Filtered records for ${activeDate || 'All dates'}, Subject: ${selectedSubject}: ${filtered.length} records`);
+  }, [records, activeDate, selectedSubject]);
 
   // Handle click outside to close detail panel (more sensitive area)
   useEffect(() => {
@@ -156,36 +200,54 @@ interface AdminHistoryProps {
     <div className="admin-history-fullwidth" ref={containerRef}>
       <header className="admin-history-header">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">📸 Attendance History</h1>
-            <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-gray-800 mb-3">📸 Attendance History</h1>
+            <div className="flex flex-col gap-2">
               <p className="text-gray-600">Lịch sử điểm danh có hình ảnh ({filteredRecords.length} records)</p>
-              <p className="text-sm text-blue-600">Dates: {availableDates.length} | Current: {currentDateIndex} | Available: [{availableDates.slice(0, 3).join(', ')}{availableDates.length > 3 ? '...' : ''}]</p>
               
-              {/* Date Navigation - Always show if we have dates */}
-              {availableDates.length > 0 && (
-                <div className="date-navigation">
-                  <button
-                    type="button"
-                    className="date-nav-btn"
-                    onClick={() => setCurrentDateIndex(i => Math.max(0, i - 1))}
-                    disabled={currentDateIndex === 0}
-                    aria-label="Ngày mới hơn"
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Subject Filter */}
+                <div className="subject-filter-inline">
+                  <label className="text-sm font-medium text-gray-700">Môn học:</label>
+                  <select 
+                    value={selectedSubject}
+                    onChange={(e) => setSelectedSubject(e.target.value)}
+                    className="subject-select"
                   >
-                    ← Mới hơn
-                  </button>
-                  <span className="current-date">{activeDate || 'Tất cả'}</span>
-                  <button
-                    type="button"
-                    className="date-nav-btn"
-                    onClick={() => setCurrentDateIndex(i => Math.min(availableDates.length - 1, i + 1))}
-                    disabled={currentDateIndex >= availableDates.length - 1}
-                    aria-label="Ngày cũ hơn"
-                  >
-                    Cũ hơn →
-                  </button>
+                    <option value="ALL">Tất cả môn học</option>
+                    {subjects.map(subject => (
+                      <option key={subject.subjectId} value={subject.subjectId}>
+                        {subject.code} - {subject.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
+                
+                {/* Date Navigation - Always show if we have dates */}
+                {availableDates.length > 0 && (
+                  <div className="date-navigation">
+                    <button
+                      type="button"
+                      className="date-nav-btn"
+                      onClick={() => setCurrentDateIndex(i => Math.max(0, i - 1))}
+                      disabled={currentDateIndex === 0}
+                      aria-label="Ngày mới hơn"
+                    >
+                      ← Mới hơn
+                    </button>
+                    <span className="current-date">{activeDate || 'Tất cả'}</span>
+                    <button
+                      type="button"
+                      className="date-nav-btn"
+                      onClick={() => setCurrentDateIndex(i => Math.min(availableDates.length - 1, i + 1))}
+                      disabled={currentDateIndex >= availableDates.length - 1}
+                      aria-label="Ngày cũ hơn"
+                    >
+                      Cũ hơn →
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           
@@ -232,14 +294,23 @@ interface AdminHistoryProps {
         ) : filteredRecords.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📷</div>
-            <h3>Không có dữ liệu cho ngày này</h3>
-            <p>Không có record nào có hình ảnh cho {activeDate || 'ngày đã chọn'}</p>
+            <h3>Không có dữ liệu</h3>
+            <p>
+              Không có record nào có hình ảnh cho{' '}
+              {selectedSubject !== 'ALL' 
+                ? `môn ${subjects.find(s => s.subjectId === selectedSubject)?.code || 'đã chọn'} - ` 
+                : ''}
+              {activeDate || 'ngày đã chọn'}
+            </p>
           </div>
         ) : (
           <div className={`records-layout ${selectedRecord ? 'with-detail' : 'full-width'}`}>
             {/* Records Grid */}
             <div className="records-grid">
               <h3>
+                {selectedSubject !== 'ALL' 
+                  ? `${subjects.find(s => s.subjectId === selectedSubject)?.code || 'Môn học'} - ` 
+                  : 'Tất cả môn - '}
                 Records cho {activeDate || 'Tất cả'} ({filteredRecords.length})
                 {availableDates.length > 1 && (
                   <span className="text-sm text-gray-500 font-normal ml-2">
