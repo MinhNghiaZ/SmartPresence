@@ -33,6 +33,13 @@ router.get('/admin/dashboard', authenticateToken, requireAdmin, (req, res) => {
  */
 router.post('/admin/create-student', authenticateToken, requireAdmin, AuthController.adminCreateStudent);
 
+/**
+ * @route POST /api/auth/admin/reset-password
+ * @desc Admin reset student password
+ * @access Admin only
+ */
+router.post('/admin/reset-password', authenticateToken, requireAdmin, AuthController.adminResetPassword);
+
 // Student routes  
 router.get('/student/profile', authenticateToken, requireStudent, (req, res) => {
     res.json({

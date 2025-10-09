@@ -2,6 +2,8 @@ import db from "../../database/connection";
 import { User, LoginRequest, LoginResult } from "../../models/student";
 import { JWTUtils, JWTPayload } from "../../utils/jwt";
 import { PasswordUtils } from "../../utils/passwordUtils";
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+
 export class AuthService {
     static async login(credentials: LoginRequest): Promise<LoginResult> {
 
@@ -434,6 +436,76 @@ export class AuthService {
             return {
                 success: false,
                 message: 'Lỗi hệ thống khi tạo tài khoản!'
+            };
+        }
+    }
+
+    /**
+     * Admin reset student password
+     */
+    static async adminResetStudentPassword(
+        studentId: string,
+        newPassword: string
+    ): Promise<{ success: boolean; message: string }> {
+        try {
+            console.log(`🔑 AuthService.adminResetStudentPassword called for: ${studentId}`);
+            
+            const connection = await db.getConnection();
+            
+            try {
+                // Check if student exists
+                const [students] = await connection.query<RowDataPacket[]>(
+                    'SELECT StudentId, Name FROM studentaccount WHERE StudentId = ?',
+                    [studentId]
+                );
+                
+                if (students.length === 0) {
+                    connection.release();
+                    return {
+                        success: false,
+                        message: 'Không tìm thấy sinh viên với MSSV này!'
+                    };
+                }
+                
+                const studentName = students[0].Name;
+                console.log(`✅ Found student: ${studentName}`);
+                
+                // Hash the new password
+                const hashedPassword = await PasswordUtils.hashPassword(newPassword);
+                console.log('✅ Password hashed successfully');
+                
+                // Update password in database
+                const [result] = await connection.query<ResultSetHeader>(
+                    'UPDATE studentaccount SET Password = ? WHERE StudentId = ?',
+                    [hashedPassword, studentId]
+                );
+                
+                connection.release();
+                
+                if (result.affectedRows === 0) {
+                    return {
+                        success: false,
+                        message: 'Không thể cập nhật mật khẩu!'
+                    };
+                }
+                
+                console.log(`✅ Password reset successfully for ${studentId}`);
+                
+                return {
+                    success: true,
+                    message: `Đã reset mật khẩu cho sinh viên ${studentName} (${studentId}) thành công!`
+                };
+                
+            } catch (error) {
+                connection.release();
+                throw error;
+            }
+            
+        } catch (error) {
+            console.error('❌ Admin reset password error:', error);
+            return {
+                success: false,
+                message: 'Lỗi hệ thống khi reset mật khẩu!'
             };
         }
     }

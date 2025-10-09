@@ -217,4 +217,78 @@ export class AuthController {
         }
     }
 
+    /**
+     * Admin reset student password
+     * POST /api/auth/admin/reset-password
+     */
+    static async adminResetPassword(req: Request, res: Response): Promise<void> {
+        try {
+            console.log('🔑 AuthController.adminResetPassword called');
+            
+            const { studentId, newPassword } = req.body;
+            
+            // Validate input
+            if (!studentId || !newPassword) {
+                console.log('❌ Missing required fields');
+                res.status(400).json({
+                    success: false,
+                    message: 'Vui lòng cung cấp đầy đủ MSSV và mật khẩu mới!'
+                });
+                return;
+            }
+            
+            // Validate password requirements
+            if (newPassword.length < 6) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu phải có ít nhất 6 ký tự!'
+                });
+                return;
+            }
+            
+            if (!/[a-z]/.test(newPassword)) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu phải chứa ít nhất 1 chữ cái thường!'
+                });
+                return;
+            }
+            
+            if (!/[A-Z]/.test(newPassword)) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu phải chứa ít nhất 1 chữ cái HOA!'
+                });
+                return;
+            }
+            
+            if (!/[0-9]/.test(newPassword)) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu phải chứa ít nhất 1 chữ số!'
+                });
+                return;
+            }
+            
+            console.log('✅ Validation passed, calling service...');
+            
+            const result = await AuthService.adminResetStudentPassword(studentId, newPassword);
+            
+            console.log('📤 Service result:', result);
+            
+            if (result.success) {
+                res.json(result);
+            } else {
+                console.log('❌ Service returned error:', result.message);
+                res.status(400).json(result);
+            }
+        } catch (error) {
+            console.error('❌ AuthController.adminResetPassword error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi hệ thống khi reset mật khẩu!'
+            });
+        }
+    }
+
 }

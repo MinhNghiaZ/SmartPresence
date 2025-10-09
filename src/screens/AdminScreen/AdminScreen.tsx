@@ -5,6 +5,7 @@ import { authService } from '../../Services/AuthService';
 import AdminHistory from '../../components/AdminHistory/AdminHistory';
 import StudentsList from '../../components/StudentsList/StudentsList';
 import CreateAccountModal from '../../components/CreateAccountModal/CreateAccountModal';
+import ResetPasswordModal from '../../components/ResetPasswordModal/ResetPasswordModal';
 // import { logger } from '../../utils/logger'; // Unused for now
 
 // Interface cho dữ liệu thực từ database
@@ -526,6 +527,40 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 			}
 		};
 		
+		// Admin API function to reset student password
+		const adminResetStudentPassword = async (
+			studentId: string,
+			newPassword: string
+		): Promise<{ success: boolean; message: string }> => {
+			try {
+				const token = authService.getToken();
+				console.log('🔑 Frontend: Resetting student password...');
+				console.log('📤 Request data:', {
+					studentId,
+					newPassword: newPassword ? `[${newPassword.length} chars]` : 'undefined',
+					token: token ? 'Present' : 'Missing'
+				});
+				
+				const response = await fetch('/api/auth/admin/reset-password', {
+					method: 'POST',
+					headers: { 
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${token}`
+					},
+					body: JSON.stringify({ studentId, newPassword })
+				});
+				
+				console.log('📥 Response status:', response.status);
+				const result = await response.json();
+				console.log('📥 Response data:', result);
+				
+				return result;
+			} catch (error) {
+				console.error('❌ Frontend error resetting password:', error);
+				return { success: false, message: 'Network error' };
+			}
+		};
+		
 		// Check if user is logged in and is admin
 		useEffect(() => {
 			// console.log('AdminScreen: currentUser =', currentUser);
@@ -639,6 +674,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
             const [activeView, setActiveView] = useState<'attendance' | 'history'>('attendance'); // New state for view switching
             const [showStudentsList, setShowStudentsList] = useState<boolean>(false); // State for StudentsList modal
             const [showCreateAccountModal, setShowCreateAccountModal] = useState<boolean>(false); // State for Create Account modal
+            const [showResetPasswordModal, setShowResetPasswordModal] = useState<boolean>(false); // State for Reset Password modal
             const [subjectAttendanceStats, setSubjectAttendanceStats] = useState<{
                 totalSessions: number;
                 totalStudents: number;
@@ -1024,17 +1060,22 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 									<span className="text-lg">👥</span>
 									<span>Danh sách SV</span>
 								</button>
-								<button
-									className="px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 hover:shadow-lg flex items-center justify-center gap-2"
-									onClick={() => setShowCreateAccountModal(true)}
-								>
-									<span className="text-lg">➕</span>
-									<span>Tạo tài khoản</span>
-								</button>
-							</div>
+							<button
+								className="px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 hover:shadow-lg flex items-center justify-center gap-2"
+								onClick={() => setShowCreateAccountModal(true)}
+							>
+								<span className="text-lg">➕</span>
+								<span>Tạo tài khoản</span>
+							</button>
+							<button
+								className="px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 hover:shadow-lg flex items-center justify-center gap-2"
+								onClick={() => setShowResetPasswordModal(true)}
+							>
+								<span className="text-lg">🔑</span>
+								<span>Reset mật khẩu</span>
+							</button>
 						</div>
-						
-						<div className="flex items-center space-x-4">
+					</div>						<div className="flex items-center space-x-4">
 							<div className="text-right">
 												<p className="text-sm text-white font-medium">{currentUser?.name}</p>
 												<p className="text-xs text-gray-300">{currentUser?.email}</p>
@@ -1280,6 +1321,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				onClose={() => setShowCreateAccountModal(false)}
 				onCreateAccount={adminCreateStudentAccount}
 				subjects={subjects}
+			/>
+
+			{/* Reset Password Modal */}
+			<ResetPasswordModal
+				isOpen={showResetPasswordModal}
+				onClose={() => setShowResetPasswordModal(false)}
+				onResetPassword={adminResetStudentPassword}
 			/>
 		</div>
 	);
