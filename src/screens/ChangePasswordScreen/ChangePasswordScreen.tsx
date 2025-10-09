@@ -141,7 +141,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ onBack, onS
                           id="studentId"
                           value={studentId}
                           onChange={(e) => setStudentId(e.target.value)}
-                          placeholder="Nhập MSSV (VD: SV001)"
+                          placeholder="Nhập MSSV (VD: 22312000xx)"
                           required
                         />
                       </div>

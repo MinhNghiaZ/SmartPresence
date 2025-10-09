@@ -1,5 +1,5 @@
 export interface User {
-    id: string; // MSSV (SV001, SV002, ...)
+    id: string; // MSSV (22312000xx, 22312000yy, ...)
     name: string;
     email: string;
     password: string;

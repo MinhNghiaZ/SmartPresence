@@ -134,7 +134,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               name="studentId"
               value={formData.studentId}
               onChange={handleChange}
-              placeholder="VD: SV001"
+              placeholder="VD: 22312000xx"
               required
               disabled={isLoading}
             />
@@ -166,7 +166,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="VD: sv001@eiu.edu.vn"
+              placeholder="VD: 22312000xx@eiu.edu.vn"
               required
               disabled={isLoading}
             />

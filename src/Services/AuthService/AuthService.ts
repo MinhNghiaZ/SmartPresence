@@ -1,7 +1,7 @@
 // AuthService.ts - Quản lý xác thực và thông tin sinh viên
 
 export interface User {
-    id: string; // MSSV (SV001, SV002, ...)
+    id: string; // MSSV (22312000xx, 22312000yy, ...)
     studentId?: string; // Backend compatibility field
     name: string;
     email: string;

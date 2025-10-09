@@ -105,7 +105,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-group">
             <label htmlFor="studentId" className="form-label">
-              MSSV <span className="required">*</span>
+              Mã số sinh viên (MSSV) <span className="required">*</span>
             </label>
             <input
               type="text"
@@ -114,7 +114,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
               value={formData.studentId}
               onChange={handleChange}
               className="form-input"
-              placeholder="Ví dụ: 2231200033"
+              placeholder="VD: 22312000xx"
               required
             />
           </div>
