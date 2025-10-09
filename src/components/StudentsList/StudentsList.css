@@ -52,14 +52,14 @@
   font-size: 0.9rem;
 }
 
-.loading-text {
+.students-loading-text {
   color: #fbbf24 !important;
   font-size: 0.85rem !important;
   font-weight: 600 !important;
   animation: pulse 2s infinite;
 }
 
-.error-text {
+.students-error-text {
   color: #ef4444 !important;
   font-size: 0.85rem !important;
   font-weight: 600 !important;

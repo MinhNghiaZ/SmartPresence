@@ -164,8 +164,8 @@ const StudentsList: React.FC<StudentsListProps> = ({
           <div className="header-title">
             <h2>👥 Danh sách sinh viên - {currentSubject}</h2>
             <p>Tổng {studentsStats.length} sinh viên • Môn {currentSubject}</p>
-            {loading && <p className="loading-text">🔄 Đang tải dữ liệu...</p>}
-            {error && <p className="error-text">❌ {error}</p>}
+            {loading && <p className="students-loading-text">🔄 Đang tải dữ liệu...</p>}
+            {error && <p className="students-error-text">❌ {error}</p>}
           </div>
           
           {/* Subject Selector */}

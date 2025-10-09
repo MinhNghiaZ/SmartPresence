@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNotifications } from './context/NotificationContext';
 import LoginScreen from './screens/LoginScreen/LoginScreen';
 import HomeScreen from './screens/HomeScreen/HomeScreen';
@@ -11,7 +11,7 @@ import './App.css';
 function App() {
   const notify = useNotifications();
   // Configuration
-  const LOADING_TIME = 2000;
+  const LOADING_TIME = 1500; // Giảm từ 2000ms xuống 1500ms cho máy yếu
   
   // State
   const [currentScreen, setCurrentScreen] = useState<'login' | 'home' | 'camera-debug' | 'admin' | 'change-password'>('login');
@@ -109,32 +109,40 @@ function App() {
     }
   }, []);
 
-  // Loading screen
-  if (isLoading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-content">
-          <div className="loading-logo">
-            <img src="/Logo2eiu.png" alt="EIU Logo" />
-          </div>
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-          </div>
-          <div className="loading-text">
-            <h2>SmartPresence</h2>
-            <p>Đang khởi tạo ứng dụng...</p>
-          </div>
-          <div className="loading-progress">
-            <div 
-              className="progress-bar" 
-              style={{ 
-                animationDuration: `${LOADING_TIME}ms` 
-              }}
-            ></div>
-          </div>
+  // Memoize loading screen để tránh re-render không cần thiết
+  const loadingScreen = useMemo(() => (
+    <div className="loading-container" key="loading">
+      <div className="loading-content">
+        <div className="loading-logo">
+          <img 
+            src="/Logo2eiu.png" 
+            alt="EIU Logo"
+            loading="eager" 
+            decoding="async"
+          />
+        </div>
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+        </div>
+        <div className="loading-text">
+          <h2>SmartPresence</h2>
+          <p>Đang khởi tạo ứng dụng...</p>
+        </div>
+        <div className="loading-progress">
+          <div 
+            className="progress-bar" 
+            style={{ 
+              animationDuration: `${LOADING_TIME}ms` 
+            }}
+          ></div>
         </div>
       </div>
-    );
+    </div>
+  ), [LOADING_TIME]);
+
+  // Loading screen
+  if (isLoading) {
+    return loadingScreen;
   }
 
   // Main render
