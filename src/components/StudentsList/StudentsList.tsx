@@ -39,11 +39,48 @@ const StudentsList: React.FC<StudentsListProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingFaceId, setDeletingFaceId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'id' | 'rate'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [showScrollHint, setShowScrollHint] = useState(false);
 
   // Update local subject khi selectedSubject thay đổi từ bên ngoài
   useEffect(() => {
     setCurrentSubject(selectedSubject);
   }, [selectedSubject]);
+
+  // Lock body scroll when modal is open (for mobile)
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('modal-open');
+      // Prevent scroll on iOS
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isOpen]);
+
+  // Show scroll hint on mobile when table is loaded
+  useEffect(() => {
+    if (isOpen && studentsStats.length > 0 && window.innerWidth <= 768) {
+      setShowScrollHint(true);
+      const timer = setTimeout(() => {
+        setShowScrollHint(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, studentsStats]);
 
   // Function để xóa face embedding của sinh viên
   const deleteFaceEmbedding = async (studentId: string) => {
@@ -141,11 +178,61 @@ const StudentsList: React.FC<StudentsListProps> = ({
     );
   }, [studentsStats, searchTerm]);
 
+  // Helper function to extract Vietnamese given name (last word)
+  // Example: "Nguyễn Văn Anh" → "Anh", "Trần Thị Bình" → "Bình"
+  const extractGivenName = (fullName: string): string => {
+    const parts = fullName.trim().split(/\s+/);
+    return parts[parts.length - 1] || fullName;
+  };
+
+  // Sort students
+  const sortedStudents = useMemo(() => {
+    const sorted = [...filteredStudents];
+    
+    sorted.sort((a, b) => {
+      let compareResult = 0;
+      
+      if (sortBy === 'name') {
+        // Sort by given name (TÊN - last word), then full name, then MSSV
+        const givenNameA = extractGivenName(a.studentName);
+        const givenNameB = extractGivenName(b.studentName);
+        
+        compareResult = givenNameA.localeCompare(givenNameB, 'vi', { sensitivity: 'base' });
+        if (compareResult === 0) {
+          compareResult = a.studentName.localeCompare(b.studentName, 'vi', { sensitivity: 'base' });
+        }
+        if (compareResult === 0) {
+          compareResult = a.studentId.localeCompare(b.studentId);
+        }
+      } else if (sortBy === 'id') {
+        compareResult = a.studentId.localeCompare(b.studentId);
+      } else if (sortBy === 'rate') {
+        compareResult = a.attendanceRate - b.attendanceRate;
+      }
+      
+      return sortOrder === 'asc' ? compareResult : -compareResult;
+    });
+    
+    return sorted;
+  }, [filteredStudents, sortBy, sortOrder]);
+
+  // Handle sort column click
+  const handleSort = (column: 'name' | 'id' | 'rate') => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+  };
+
   // Reset search khi đóng modal hoặc đổi môn
   useEffect(() => {
     if (!isOpen) {
       setSearchTerm('');
       setCurrentSubject(selectedSubject);
+      setSortBy('name');
+      setSortOrder('asc');
     }
   }, [isOpen, selectedSubject]);
 
@@ -156,17 +243,10 @@ const StudentsList: React.FC<StudentsListProps> = ({
     onSubjectChange && onSubjectChange(subjectCode); // Notify parent component
   };
 
-  // Handler để reload dữ liệu thủ công
-  const handleReloadData = () => {
-    if (currentSubject) {
-      fetchSubjectAttendanceStats(currentSubject);
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div className="students-list-overlay">
+    <div className="students-list-overlay" onClick={onClose}>
       <div className="students-list-modal" onClick={(e) => e.stopPropagation()}>
         <div className="students-list-header">
           <div className="header-title">
@@ -176,7 +256,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
             {error && <p className="students-error-text">❌ {error}</p>}
           </div>
           
-          {/* Subject Selector with Reload Button */}
+          {/* Subject Selector */}
           <div className="subject-selector">
             <label className="subject-label">Chọn môn:</label>
             <select 
@@ -190,14 +270,6 @@ const StudentsList: React.FC<StudentsListProps> = ({
                 </option>
               ))}
             </select>
-            <button 
-              className="reload-btn" 
-              onClick={handleReloadData}
-              disabled={loading}
-              title="Tải lại dữ liệu"
-            >
-              🔄
-            </button>
           </div>
           
           <button className="close-btn" onClick={onClose}>
@@ -217,58 +289,73 @@ const StudentsList: React.FC<StudentsListProps> = ({
             <span className="search-icon">🔍</span>
           </div>
           <div className="results-count">
-            {filteredStudents.length} / {studentsStats.length} sinh viên
+            {sortedStudents.length} / {studentsStats.length} sinh viên
           </div>
         </div>
 
-        <div className="students-table-container">
+        <div className={`students-table-container ${showScrollHint ? 'show-hint' : ''}`}>
           <table className="students-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>MSSV</th>
-                <th>Họ tên</th>
-                <th>Tổng ngày</th>
-                <th>Có mặt</th>
-                <th>Trễ</th>
-                <th>Vắng</th>
-                <th>Tỷ lệ (%)</th>
-                <th>Reset faceId</th>
+                <th className="text-center">#</th>
+                <th 
+                  className="sortable text-center"
+                  onClick={() => handleSort('id')}
+                >
+                  MSSV {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th 
+                  className="sortable text-center"
+                  onClick={() => handleSort('name')}
+                >
+                  Họ tên {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="text-center">Tổng ngày</th>
+                <th className="text-center">Có mặt</th>
+                <th className="text-center">Trễ</th>
+                <th className="text-center">Vắng</th>
+                <th 
+                  className="sortable text-center"
+                  onClick={() => handleSort('rate')}
+                >
+                  Tỷ lệ (%) {sortBy === 'rate' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="text-center">Reset faceId</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="loading-data">
+                  <td colSpan={9} className="loading-data text-center">
                     🔄 Đang tải dữ liệu...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={9} className="error-data">
+                  <td colSpan={9} className="error-data text-center">
                     ❌ {error}
                   </td>
                 </tr>
-              ) : filteredStudents.length === 0 ? (
+              ) : sortedStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="no-data">
+                  <td colSpan={9} className="no-data text-center">
                     {searchTerm ? 'Không tìm thấy sinh viên nào' : 'Không có dữ liệu'}
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((student, index) => (
+                sortedStudents.map((student, index) => (
                   <tr key={student.studentId} className="student-row">
-                    <td>{index + 1}</td>
-                    <td className="student-id">{student.studentId}</td>
-                    <td className="student-name">{student.studentName}</td>
-                    <td>{student.totalSessions}</td>
-                    <td className="present-count">{student.presentDays}</td>
-                    <td className="late-count">{student.lateDays}</td>
-                    <td className="absent-count">{student.absentDays}</td>
-                    <td className={`attendance-rate ${getAttendanceRateClass(student.attendanceRate)}`}>
+                    <td className="text-center">{index + 1}</td>
+                    <td className="student-id text-center">{student.studentId}</td>
+                    <td className="student-name text-center">{student.studentName}</td>
+                    <td className="text-center">{student.totalSessions}</td>
+                    <td className="present-count text-center">{student.presentDays}</td>
+                    <td className="late-count text-center">{student.lateDays}</td>
+                    <td className="absent-count text-center">{student.absentDays}</td>
+                    <td className={`attendance-rate text-center ${getAttendanceRateClass(student.attendanceRate)}`}>
                       {student.attendanceRate}%
                     </td>
-                    <td>
+                    <td className="text-center">
                       <button 
                         onClick={() => deleteFaceEmbedding(student.studentId)}
                         disabled={deletingFaceId === student.studentId}

@@ -10,6 +10,8 @@
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .students-list-modal {
@@ -22,6 +24,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  margin: auto;
 }
 
 .students-list-header {
@@ -103,43 +107,6 @@
   min-width: 120px;
   width: 100%;
   max-width: 200px;
-}
-
-.reload-btn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  margin-top: 4px;
-}
-
-.reload-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: rotate(180deg);
-}
-
-.reload-btn:active:not(:disabled) {
-  transform: rotate(180deg) scale(0.95);
-}
-
-.reload-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 .subject-select:focus {
@@ -239,13 +206,20 @@
 .students-table-container {
   flex: 1;
   overflow: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   min-height: 0;
+  position: relative;
+  background: white;
 }
 
 .students-table {
   width: 100%;
+  min-width: 800px; /* Đảm bảo bảng có chiều rộng tối thiểu */
   border-collapse: collapse;
   font-size: 0.9rem;
+  position: relative;
+  z-index: 1;
 }
 
 .students-table th {
@@ -258,6 +232,22 @@
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.students-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.students-table th.sortable:hover {
+  background: #e2e8f0;
+  color: #1e40af;
+}
+
+.students-table th.text-center,
+.students-table td.text-center {
+  text-align: center;
 }
 
 .students-table th:first-child {
@@ -517,14 +507,28 @@
     text-align: center;
     font-size: 0.85rem;
   }
+
+  /* Đảm bảo table container có thể scroll */
+  .students-table-container {
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    position: relative;
+    background: white;
+  }
   
   .students-table {
     font-size: 0.8rem;
+    min-width: 700px; /* Giảm min-width cho tablet */
+    position: relative;
+    z-index: 1;
   }
   
   .students-table th,
   .students-table td {
     padding: 10px 6px;
+    white-space: nowrap; /* Ngăn text wrap */
   }
   
   .students-table th:first-child,
@@ -628,18 +632,37 @@
   .results-count {
     font-size: 0.8rem;
   }
+
+  /* Tối ưu scroll cho mobile */
+  .students-table-container {
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    position: relative;
+    background: white;
+  }
   
   .students-table {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
+    min-width: 650px; /* Giảm min-width cho mobile */
+    position: relative;
+    z-index: 1;
   }
   
   .students-table th {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     padding: 8px 4px;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    background: #f1f5f9;
+    z-index: 10;
   }
   
   .students-table td {
     padding: 8px 4px;
+    white-space: nowrap;
   }
   
   .students-table th:first-child,
@@ -649,7 +672,7 @@
   
   .students-table th:nth-child(2),
   .students-table td:nth-child(2) {
-    width: 80px;
+    width: 85px;
   }
   
   .students-table th:nth-child(5),
@@ -660,16 +683,22 @@
   }
   
   .student-name {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
   }
   
   .student-id {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
   }
   
   .attendance-rate {
-    font-size: 0.7rem;
-    padding: 4px 8px;
+    font-size: 0.68rem;
+    padding: 4px 6px;
+  }
+
+  .delete-face-btn {
+    font-size: 1rem;
+    width: 32px;
+    height: 32px;
   }
   
   .students-list-footer {
@@ -681,6 +710,7 @@
   
   .summary-stats {
     gap: 12px;
+    flex-direction: column;
   }
   
   .stat-label {
@@ -715,6 +745,36 @@
 
 .students-table-container::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Mobile scroll hint */
+@media (max-width: 768px) {
+  /* Chỉ hiển thị hint khi bảng chưa được scroll */
+  .students-table-container.show-hint::before {
+    content: '← Vuốt để xem thêm →';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(59, 130, 246, 0.95);
+    color: white;
+    padding: 10px 24px;
+    border-radius: 24px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    pointer-events: none;
+    opacity: 0;
+    animation: fadeInOutOnce 4s ease-in-out forwards;
+    z-index: 1000;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  @keyframes fadeInOutOnce {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    15% { opacity: 0.95; transform: translate(-50%, -50%) scale(1); }
+    85% { opacity: 0.95; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  }
 }
 
 /* Delete Face Embedding Button Styles */

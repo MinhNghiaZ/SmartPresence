@@ -210,10 +210,12 @@
   .profile-modal-content {
     max-height: 95vh;
     margin: 0;
+    border-radius: 16px;
   }
 
   .profile-header {
     padding: 20px 25px;
+    border-radius: 16px 16px 0 0;
   }
 
   .profile-title {
@@ -224,6 +226,8 @@
     width: 35px;
     height: 35px;
     font-size: 1.5rem;
+    top: 18px;
+    right: 20px;
   }
 
   .profile-image-section {
@@ -233,6 +237,7 @@
   .profile-avatar {
     width: 100px;
     height: 100px;
+    border: 3px solid white;
   }
 
   .info-section {
@@ -242,6 +247,7 @@
 
   .section-title {
     font-size: 1.2rem;
+    margin-bottom: 15px;
   }
 
   .info-label,
@@ -260,22 +266,187 @@
   }
 }
 
+@media (max-width: 640px) {
+  .profile-modal-overlay {
+    padding: 5px;
+  }
+  
+  .profile-modal-content {
+    border-radius: 12px;
+  }
+  
+  .profile-header {
+    padding: 18px 20px;
+    border-radius: 12px 12px 0 0;
+  }
+  
+  .profile-title {
+    font-size: 1.4rem;
+  }
+  
+  .close-button {
+    width: 32px;
+    height: 32px;
+    font-size: 1.3rem;
+    top: 16px;
+    right: 18px;
+  }
+  
+  .profile-image-section {
+    padding: 20px;
+  }
+  
+  .profile-avatar {
+    width: 90px;
+    height: 90px;
+  }
+  
+  .info-section {
+    margin: 12px 15px;
+    padding: 16px;
+  }
+  
+  .section-title {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+  
+  .info-row {
+    padding: 10px 0;
+  }
+  
+  .info-label {
+    font-size: 0.85rem;
+  }
+  
+  .info-value {
+    font-size: 0.85rem;
+  }
+  
+  .action-section {
+    padding: 20px 15px;
+  }
+  
+  .action-button {
+    padding: 11px 25px;
+    font-size: 0.95rem;
+  }
+}
+
 @media (max-width: 480px) {
+  .profile-modal-content {
+    border-radius: 10px;
+  }
+  
+  .profile-header {
+    padding: 15px 18px;
+    border-radius: 10px 10px 0 0;
+  }
+  
+  .profile-title {
+    font-size: 1.3rem;
+  }
+  
+  .close-button {
+    width: 30px;
+    height: 30px;
+    font-size: 1.2rem;
+    top: 14px;
+    right: 15px;
+  }
+  
+  .profile-image-section {
+    padding: 18px;
+  }
+  
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    border: 2px solid white;
+  }
+  
+  .info-section {
+    margin: 10px 12px;
+    padding: 14px;
+  }
+  
+  .section-title {
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
+  
   .info-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 5px;
+    padding: 8px 0;
   }
 
+  .info-label {
+    font-size: 0.8rem;
+  }
+  
   .info-value {
     text-align: left;
+    font-size: 0.8rem;
   }
+  
+  .action-section {
+    padding: 18px 12px;
+  }
+  
+  .action-button {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}
 
+@media (max-width: 360px) {
   .profile-header {
-    padding: 15px 20px;
+    padding: 12px 15px;
   }
-
+  
   .profile-title {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
+  }
+  
+  .close-button {
+    width: 28px;
+    height: 28px;
+    font-size: 1.1rem;
+    top: 12px;
+    right: 12px;
+  }
+  
+  .profile-image-section {
+    padding: 15px;
+  }
+  
+  .profile-avatar {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .info-section {
+    margin: 8px 10px;
+    padding: 12px;
+  }
+  
+  .section-title {
+    font-size: 0.95rem;
+  }
+  
+  .info-label,
+  .info-value {
+    font-size: 0.75rem;
+  }
+  
+  .action-section {
+    padding: 15px 10px;
+  }
+  
+  .action-button {
+    padding: 9px 18px;
+    font-size: 0.85rem;
   }
 }
