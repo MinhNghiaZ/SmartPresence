@@ -340,6 +340,36 @@ const generateCompleteAttendanceListWithRealData = async (
 		}
 	}
 	
+	// Helper function to extract Vietnamese given name (last word)
+	// Example: "Nguyễn Văn Anh" → "Anh", "Trần Thị Bình" → "Bình"
+	const extractGivenName = (fullName: string): string => {
+		const parts = fullName.trim().split(/\s+/);
+		return parts[parts.length - 1] || fullName;
+	};
+	
+	// Sort student list by given name (TÊN - last word), then full name, then student ID
+	// Vietnamese naming convention: Sort by given name first (e.g., "Anh" in "Nguyễn Văn Anh")
+	// Example: Anh (various surnames) → Bình → Châu → ...
+	completeList.sort((a, b) => {
+		const givenNameA = extractGivenName(a.userName);
+		const givenNameB = extractGivenName(b.userName);
+		
+		// First, sort by given name (TÊN)
+		const givenNameCompare = givenNameA.localeCompare(givenNameB, 'vi', { sensitivity: 'base' });
+		if (givenNameCompare !== 0) {
+			return givenNameCompare;
+		}
+		
+		// If given names are equal, sort by full name (to differentiate "Nguyễn Văn Anh" vs "Lê Minh Anh")
+		const fullNameCompare = a.userName.localeCompare(b.userName, 'vi', { sensitivity: 'base' });
+		if (fullNameCompare !== 0) {
+			return fullNameCompare;
+		}
+		
+		// If full names are equal, sort by userId (MSSV)
+		return a.userId.localeCompare(b.userId);
+	});
+	
 	return completeList;
 };
 
@@ -760,6 +790,18 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 
 			const activeDate = subjectDates[currentDayIndex];
 
+			// Format date to Vietnamese format: "Ngày DD/MM/YYYY"
+			const formatDateDisplay = (dateStr: string): string => {
+				if (!dateStr) return '—';
+				const [year, month, day] = dateStr.split('-');
+				return `Ngày ${day}/${month}/${year}`;
+			};
+
+			// NOTE: sessionDates is sorted DESC (newest to oldest) from backend
+			// Index 0 = newest date, Index max = oldest date
+			// Button < : increase index → go to older date
+			// Button > : decrease index → go to newer date
+
 			// Load attendance data when activeDate changes
 			useEffect(() => {
 				const loadAttendanceForDate = async () => {
@@ -1086,21 +1128,22 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				                                        <button
 				                                            type="button"
 				                                            className="day-nav-btn"
-				                                            onClick={() => setCurrentDayIndex(i => Math.max(0, i - 1))}
-				                                            disabled={currentDayIndex === 0}
-				                                            aria-label="Ngày mới hơn"
-				                                        >&lt;</button>
-				                                        <span className="day-indicator" aria-live="polite">{activeDate || '—'}</span>
-				                                        <button
-				                                            type="button"
-				                                            className="day-nav-btn"
 				                                            onClick={() => setCurrentDayIndex(i => Math.min(totalDays - 1, i + 1))}
 				                                            disabled={currentDayIndex >= totalDays - 1}
 				                                            aria-label="Ngày cũ hơn"
+				                                            title="Xem ngày trước đó"
+				                                        >&lt;</button>
+				                                        <span className="day-indicator" aria-live="polite">{formatDateDisplay(activeDate)}</span>
+				                                        <button
+				                                            type="button"
+				                                            className="day-nav-btn"
+				                                            onClick={() => setCurrentDayIndex(i => Math.max(0, i - 1))}
+				                                            disabled={currentDayIndex === 0}
+				                                            aria-label="Ngày mới hơn"
+				                                            title="Xem ngày sau đó"
 				                                        >&gt;</button>
 				                                    </span>
 				                                </h3>
-											<div className="text-sm text-gray-500">{dayRecords.length} bản ghi (demo) • {totalDays} ngày</div>
 										</div>
 										<div className="data-table custom-scrollbar" role="table" aria-label={`Bảng điểm danh môn ${selectedSubject}`}>
 											<table>
