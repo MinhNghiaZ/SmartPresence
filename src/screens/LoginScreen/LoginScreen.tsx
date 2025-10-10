@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './LoginScreen.css';
 import { authService } from '../../Services/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
+import { isDesktopDevice } from '../../utils/deviceDetection';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -14,7 +15,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const notify = useNotifications();
+
+  // Check device type on component mount
+  useEffect(() => {
+    setIsDesktop(isDesktopDevice());
+  }, []);
+
+  // Helper function to detect if ID is likely a student ID
+  // Student IDs typically follow pattern: 8 digits starting with year (e.g., 22312000, 23312000)
+  const isStudentId = (id: string): boolean => {
+    // Check if ID matches student pattern: 8 digits
+    const studentPattern = /^\d{8,10}$/;
+    return studentPattern.test(id);
+  };
+
+  // Check if should block login (desktop + student ID)
+  const shouldBlockLogin = isDesktop && isStudentId(studentId);
 
   // Handlers
   const handleLogin = async (e: React.FormEvent) => {
@@ -77,6 +95,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
           {/* Login Form */}
           <div className="row justify-content-center">
             <div className="col-md-8 col-lg-6 col-xl-5">
+              {/* Desktop Warning Message - Always show on desktop */}
+              {isDesktop && (
+                <div className="alert alert-warning alert-dismissible fade show" role="alert">
+                  <div className="d-flex align-items-center">
+                    <i className="ri-smartphone-line fs-2 me-3"></i>
+                    <div>
+                      <h5 className="alert-heading mb-1">
+                        <i className="ri-information-line"></i> Thông báo quan trọng
+                      </h5>
+                      <p className="mb-0">
+                        <strong>Sinh viên vui lòng sử dụng điện thoại di động để đăng nhập và điểm danh!</strong>
+                      </p>
+                      <small className="text-muted">
+                        Hệ thống yêu cầu sử dụng thiết bị di động để đảm bảo tính xác thực và vị trí điểm danh chính xác.
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="card mt-4">
                 <div className="card-body p-4">
                   {/* Header */}
@@ -147,12 +185,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
                         <button 
                           className="btn btn-success w-100" 
                           type="submit"
-                          disabled={isLoading}
+                          disabled={isLoading || shouldBlockLogin}
                         >
                           {isLoading ? (
                             <>
                               <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                               Đang đăng nhập...
+                            </>
+                          ) : shouldBlockLogin ? (
+                            <>
+                              <i className="ri-smartphone-line me-2"></i>
+                              Vui lòng sử dụng điện thoại
                             </>
                           ) : (
                             'Đăng nhập'

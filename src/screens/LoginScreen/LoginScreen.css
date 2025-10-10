@@ -370,3 +370,39 @@ a.text-primary:hover {
   background: transparent;
   z-index: 10;
 }
+
+/* Desktop Warning Styles */
+.alert-warning {
+  background-color: #fff3cd;
+  border-color: #ffc107;
+  color: #856404;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.5s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert-warning .alert-heading {
+  color: #856404;
+  font-weight: 600;
+}
+
+.alert-warning i.ri-smartphone-line {
+  color: #ffc107;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
