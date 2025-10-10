@@ -59,12 +59,17 @@ const getGPSOptions = (): PositionOptions => {
 
 export class CheckInService {
   /**
-   * Get location with mobile-optimized settings
+   * Get location with mobile-optimized settings and multiple samples
+   * @param onProgress Callback to report GPS sampling progress
    * @returns Promise<Location>
    */
-  static async getLocationWithMobileSupport(): Promise<Location> {
+  static async getLocationWithMobileSupport(
+    onProgress?: (progress: { sample: number; total: number; message: string }) => void
+  ): Promise<Location> {
     const options = getGPSOptions();
-    return await GPSService.getCurrentLocation(options);
+    
+    // Sử dụng getAccurateLocation với nhiều mẫu để tăng độ chính xác
+    return await GPSService.getAccurateLocation(onProgress, options);
   }
 
   /**
@@ -103,13 +108,32 @@ export class CheckInService {
         }
       }
 
-      // Step 2: Get current location
-      onProgress?.({ status: mobile ? 'Đang lấy vị trí GPS...' : 'Getting location...', step: 'location' });
+      // Step 2: Get current location with accurate sampling
+      onProgress?.({ 
+        status: mobile ? 'Đang lấy vị trí GPS (nhiều mẫu)...' : 'Getting accurate GPS location...', 
+        step: 'location' 
+      });
       
       let currentLocation: Location;
       try {
-        currentLocation = await this.getLocationWithMobileSupport();
+        // Callback để cập nhật progress trong quá trình lấy GPS
+        const gpsProgressCallback = (gpsProgress: { sample: number; total: number; accuracy?: number; message: string }) => {
+          onProgress?.({ 
+            status: gpsProgress.message, 
+            step: 'location' 
+          });
+        };
+
+        currentLocation = await this.getLocationWithMobileSupport(gpsProgressCallback);
         console.log('📍 GPS Success:', currentLocation);
+        
+        // Hiển thị độ chính xác nếu có
+        if (currentLocation.accuracy) {
+          const accuracyMsg = mobile ? 
+            `GPS: ${currentLocation.accuracy.toFixed(1)}m độ chính xác` :
+            `GPS accuracy: ${currentLocation.accuracy.toFixed(1)}m`;
+          console.log(`✅ ${accuracyMsg}`);
+        }
       } catch (locationError) {
         const errorMessage = mobile ?
           `Lỗi GPS: ${(locationError as Error).message}\n\nVui lòng bật GPS và thử lại.` :
