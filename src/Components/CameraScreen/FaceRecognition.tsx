@@ -166,6 +166,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
   const [error, setError] = useState<string>('');
   const [lastResults, setLastResults] = useState<FaceRecognitionResult[]>([]);
   const [showRequirements, setShowRequirements] = useState(false);
+  const [isFaceAligned, setIsFaceAligned] = useState(false); // Khuôn mặt có nằm trong vùng guide không
 
   // Khởi tạo models khi component mount
   useEffect(() => {
@@ -456,8 +457,166 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     }
   };
 
+  /**
+   * Vẽ face guide overlay (hình oval) để hướng dẫn user
+   */
+  const drawFaceGuide = useCallback(() => {
+    if (!overlayCanvasRef.current || !videoRef.current) return;
+
+    const canvas = overlayCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Calculate guide position (center of video)
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    // Guide size (oval shape for face)
+    const guideWidth = canvas.width * 0.5;  // 50% of video width
+    const guideHeight = canvas.height * 0.65; // 65% of video height
+
+    // Draw semi-transparent overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Clear the guide area (create "hole" in overlay)
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, guideWidth / 2, guideHeight / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Draw guide border
+    ctx.strokeStyle = isFaceAligned ? '#00ff00' : '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.setLineDash(isFaceAligned ? [] : [10, 5]); // Solid when aligned, dashed when not
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, guideWidth / 2, guideHeight / 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]); // Reset dash
+
+    // Draw instruction text
+    ctx.font = isMobile() ? '14px Arial' : '16px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 4;
+    
+    const instructionY = centerY + guideHeight / 2 + 40;
+    if (isFaceAligned) {
+      ctx.fillStyle = '#00ff00';
+      ctx.fillText('✓ Khuôn mặt đã căn chỉnh!', centerX, instructionY);
+    } else {
+      ctx.fillText('Đặt khuôn mặt vào trong khung', centerX, instructionY);
+    }
+    
+    ctx.shadowBlur = 0; // Reset shadow
+
+    // Return guide boundaries for alignment check
+    return {
+      centerX,
+      centerY,
+      radiusX: guideWidth / 2,
+      radiusY: guideHeight / 2
+    };
+  }, [isFaceAligned]);
+
+  /**
+   * Kiểm tra xem khuôn mặt có nằm trong vùng guide không
+   */
+  const checkFaceAlignment = useCallback(async () => {
+    if (!videoRef.current || !overlayCanvasRef.current || !isModelLoaded) {
+      return false;
+    }
+
+    try {
+      // Detect face without full recognition
+      const detections = await faceRecognizeService.detectFace(videoRef.current);
+      
+      if (detections.length === 0) {
+        setIsFaceAligned(false);
+        return false;
+      }
+
+      // Get guide boundaries
+      const canvas = overlayCanvasRef.current;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const guideRadiusX = canvas.width * 0.25;
+      const guideRadiusY = canvas.height * 0.325;
+
+      // Check if face is within guide area
+      const detection = detections[0]; // Check first face only
+      const box = detection.detection.box;
+      const faceCenterX = box.x + box.width / 2;
+      const faceCenterY = box.y + box.height / 2;
+
+      // Calculate if face center is within ellipse
+      const dx = (faceCenterX - centerX) / guideRadiusX;
+      const dy = (faceCenterY - centerY) / guideRadiusY;
+      const isInside = (dx * dx + dy * dy) <= 1;
+
+      // Check if face size is appropriate (not too small or too large)
+      const faceArea = box.width * box.height;
+      const videoArea = canvas.width * canvas.height;
+      const faceRatio = faceArea / videoArea;
+      const isSizeOk = faceRatio >= 0.08 && faceRatio <= 0.5; // 8% to 50% of video
+
+      const aligned = isInside && isSizeOk;
+      setIsFaceAligned(aligned);
+      
+      return aligned;
+    } catch (err) {
+      console.warn('Face alignment check failed:', err);
+      setIsFaceAligned(false);
+      return false;
+    }
+  }, [isModelLoaded]);
+
+  /**
+   * Animation loop để vẽ guide và check alignment
+   */
+  useEffect(() => {
+    if (!isCameraActive || !isModelLoaded) return;
+
+    let animationFrameId: number;
+    let lastAlignmentCheck = 0;
+    const ALIGNMENT_CHECK_INTERVAL = 500; // Check alignment every 500ms
+
+    const animate = async (timestamp: number) => {
+      // Draw guide overlay
+      drawFaceGuide();
+
+      // Check alignment periodically (not every frame for performance)
+      if (timestamp - lastAlignmentCheck >= ALIGNMENT_CHECK_INTERVAL) {
+        await checkFaceAlignment();
+        lastAlignmentCheck = timestamp;
+      }
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [isCameraActive, isModelLoaded, drawFaceGuide, checkFaceAlignment]);
+
   const recognizeFromVideo = useCallback(async () => {
     if (!videoRef.current || !overlayCanvasRef.current || !isModelLoaded || isRecognizing) {
+      return;
+    }
+
+    // ✨ NEW: Chỉ nhận diện nếu khuôn mặt đã căn chỉnh
+    if (!isFaceAligned) {
+      console.log('⚠️ Face not aligned, skipping recognition');
       return;
     }
 
