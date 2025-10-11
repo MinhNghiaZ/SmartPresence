@@ -418,8 +418,43 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         throw new Error(eligibility.reason || 'Không thể check-in');
       }
 
-      // BƯỚC 2: Lấy GPS location
+      // BƯỚC 2: Lấy GPS location (force clear cache trước)
       setGpsStatus('📍 Đang xác định vị trí hiện tại của bạn...');
+      
+      // 🔥 Force clear browser GPS cache trước
+      await new Promise<void>((resolve) => {
+        let watchId: number | null = null;
+        const timeout = setTimeout(() => {
+          if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+          }
+          resolve();
+        }, 100);
+        
+        try {
+          watchId = navigator.geolocation.watchPosition(
+            () => {
+              if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+              }
+              clearTimeout(timeout);
+              resolve();
+            },
+            () => {
+              if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+              }
+              clearTimeout(timeout);
+              resolve();
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 100 }
+          );
+        } catch {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+      
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
@@ -427,6 +462,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           maximumAge: 0 // ✅ FIXED: Không dùng cache - luôn lấy vị trí mới
         });
       });
+
+      // 🔥 Log để verify GPS là mới (không phải cache)
+      const gpsAge = Date.now() - position.timestamp;
+      console.log(`✅ Got GPS position: timestamp=${position.timestamp}, age=${gpsAge}ms, accuracy=${position.coords.accuracy}m`);
+      if (gpsAge > 5000) {
+        console.warn(`⚠️ GPS data might be cached (age: ${gpsAge}ms)`);
+      }
 
       // BƯỚC 3: Validate GPS + Time trước (không cần camera)
       setGpsStatus('⏰ Đang xác thực thời gian và địa điểm điểm danh...');

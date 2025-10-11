@@ -71,9 +71,57 @@ export class GPSService {
     }
 
     /**
-     * Lấy một mẫu GPS đơn lẻ
+     * 🔥 Force clear browser GPS cache bằng cách dùng watchPosition rồi clear ngay
+     * Trick này buộc browser phải refresh GPS thay vì dùng cache
      */
-    private static getSingleSample(options?: PositionOptions): Promise<LocationSample> {
+    private static forceClearGPSCache(): Promise<void> {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                resolve();
+                return;
+            }
+
+            let watchId: number | null = null;
+            const timeout = setTimeout(() => {
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                }
+                resolve();
+            }, 100); // Clear sau 100ms
+
+            try {
+                watchId = navigator.geolocation.watchPosition(
+                    () => {
+                        if (watchId !== null) {
+                            navigator.geolocation.clearWatch(watchId);
+                        }
+                        clearTimeout(timeout);
+                        resolve();
+                    },
+                    () => {
+                        if (watchId !== null) {
+                            navigator.geolocation.clearWatch(watchId);
+                        }
+                        clearTimeout(timeout);
+                        resolve();
+                    },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 100 }
+                );
+            } catch (error) {
+                clearTimeout(timeout);
+                resolve();
+            }
+        });
+    }
+
+    /**
+     * Lấy một mẫu GPS đơn lẻ
+     * ✅ ENHANCED: Force clear cache trước khi lấy để đảm bảo GPS mới
+     */
+    private static async getSingleSample(options?: PositionOptions): Promise<LocationSample> {
+        // 🔥 STEP 1: Force clear browser GPS cache
+        await this.forceClearGPSCache();
+
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
                 reject(new Error('Trình duyệt không hỗ trợ GPS'));
@@ -87,9 +135,18 @@ export class GPSService {
             };
 
             const gpsOptions = options || defaultOptions;
+            
+            // 🔥 STEP 2: Đảm bảo maximumAge = 0
+            const finalOptions = {
+                ...gpsOptions,
+                maximumAge: 0 // Force override
+            };
+
+            console.log('🔥 Getting fresh GPS position (cache cleared)...');
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
+                    console.log(`✅ Got fresh GPS: timestamp=${position.timestamp}, age=${Date.now() - position.timestamp}ms`);
                     resolve({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
@@ -115,7 +172,7 @@ export class GPSService {
                     }
                     reject(new Error(errorMessage));
                 },
-                gpsOptions
+                finalOptions
             );
         });
     }
@@ -123,14 +180,18 @@ export class GPSService {
     /**
      * ✨ NEW: Warm-up GPS với watchPosition
      * Giúp GPS "khởi động" và ổn định trước khi lấy mẫu chính thức
+     * 🔥 ENHANCED: Force clear cache trước warm-up
      * @param duration Thời gian warm-up (ms)
      * @param onProgress Callback để báo tiến độ
      * @returns Promise<LocationSample[]> - Mảng samples thu thập được trong warm-up
      */
-    private static warmupGPS(
+    private static async warmupGPS(
         duration: number,
         onProgress?: (progress: { message: string; samplesCollected: number; avgAccuracy?: number }) => void
     ): Promise<LocationSample[]> {
+        // 🔥 Force clear browser GPS cache trước khi warm-up
+        await this.forceClearGPSCache();
+        
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
                 reject(new Error('Trình duyệt không hỗ trợ GPS'));
@@ -142,18 +203,19 @@ export class GPSService {
             let watchId: number | null = null;
             let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-            console.log(`🔥 Starting GPS warm-up for ${duration}ms...`);
+            console.log(`🔥 Starting GPS warm-up for ${duration}ms (cache cleared)...`);
 
-            // Cấu hình watchPosition với high accuracy
+            // Cấu hình watchPosition với high accuracy và NO CACHE
             const watchOptions: PositionOptions = {
                 enableHighAccuracy: true,
                 timeout: 5000,
-                maximumAge: 0
+                maximumAge: 0 // 🔥 Force no cache
             };
 
             // Watch GPS position
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
+                    const age = Date.now() - position.timestamp;
                     const sample: LocationSample = {
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
@@ -166,7 +228,7 @@ export class GPSService {
                     const elapsed = Date.now() - startTime;
                     const avgAccuracy = samples.reduce((sum, s) => sum + (s.accuracy || 0), 0) / samples.length;
                     
-                    console.log(`🔥 Warm-up sample ${samples.length}: acc=${sample.accuracy?.toFixed(1)}m, elapsed=${elapsed}ms`);
+                    console.log(`🔥 Warm-up sample ${samples.length}: acc=${sample.accuracy?.toFixed(1)}m, age=${age}ms, elapsed=${elapsed}ms`);
                     
                     onProgress?.({
                         message: `Đang khởi động GPS... (${samples.length} mẫu, ${(elapsed/1000).toFixed(1)}s)`,
