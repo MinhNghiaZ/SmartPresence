@@ -5,7 +5,6 @@ import HomeScreen from './screens/HomeScreen/HomeScreen';
 import AdminScreen from './screens/AdminScreen/AdminScreen';
 import CameraDebugScreen from './screens/CameraDebugScreen/CameraDebugScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen/ChangePasswordScreen';
-import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { authService } from './Services/AuthService';
 import './App.css';
 
@@ -149,9 +148,6 @@ function App() {
   // Main render
   return (
     <div className="App">
-      {/* PWA Install Prompt */}
-      <PWAInstallPrompt />
-      
       {currentScreen === 'login' && (
         <LoginScreen 
           onLoginSuccess={handleLoginSuccess} 

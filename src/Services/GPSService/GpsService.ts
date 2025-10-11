@@ -35,46 +35,7 @@ export interface GPSProgressCallback {
 export class GPSService {
     private static readonly API_BASE = '/api';
     
-    // 📱 Kiểm tra xem app đang chạy như PWA hay không
-    private static isPWA(): boolean {
-        // Cách 1: Kiểm tra display-mode
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-        
-        // Cách 2: Kiểm tra iOS PWA
-        const isIOSPWA = (window.navigator as any).standalone === true;
-        
-        // Cách 3: Kiểm tra từ URL params hoặc referrer
-        const isPWAFromUrl = window.location.search.includes('pwa=true');
-        
-        return isStandalone || isIOSPWA || isPWAFromUrl;
-    }
-
-    // 📱 Lấy platform info để optimize GPS
-    private static getPlatformInfo(): {
-        isPWA: boolean;
-        isAndroid: boolean;
-        isIOS: boolean;
-        isMobile: boolean;
-        userAgent: string;
-    } {
-        const ua = navigator.userAgent;
-        const isPWA = this.isPWA();
-        const isAndroid = /Android/i.test(ua);
-        const isIOS = /iPhone|iPad|iPod/i.test(ua);
-        const isMobile = isAndroid || isIOS;
-
-        console.log('📱 Platform Info:', {
-            isPWA,
-            isAndroid,
-            isIOS,
-            isMobile,
-            displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'
-        });
-
-        return { isPWA, isAndroid, isIOS, isMobile, userAgent: ua };
-    }
-    
-    // Cấu hình lấy mẫu GPS - tối ưu cho PWA
+    // Cấu hình lấy mẫu GPS
     private static readonly GPS_CONFIG = {
         SAMPLES_COUNT: 5,           // Lấy 5 mẫu chính thức
         SAMPLE_DELAY: 1000,         // Đợi 1s giữa các mẫu
@@ -82,14 +43,10 @@ export class GPSService {
         MAX_ACCURACY_FOR_RETRY: 100, // Nếu > 100m thì retry
         OUTLIER_THRESHOLD: 0.001,   // Ngưỡng lọc outlier (~111m)
         
-        // ✨ Warm-up configuration - tối ưu cho PWA
+        // ✨ NEW: Warm-up configuration
         ENABLE_WARMUP: true,        // Bật/tắt warm-up phase
         WARMUP_DURATION: 3000,      // Warm-up 3 giây với watchPosition
         WARMUP_MIN_SAMPLES: 3,      // Tối thiểu 3 samples trong warm-up
-        
-        // 🚀 PWA optimization
-        PWA_TIMEOUT: 15000,         // Timeout cao hơn cho PWA (GPS chip cần thời gian)
-        PWA_WARMUP_DURATION: 5000,  // Warm-up lâu hơn cho PWA (GPS chip cần khởi động)
     };
 
     // Removed calculateDistance - backend handles all calculations now
@@ -116,7 +73,6 @@ export class GPSService {
     /**
      * 🔥 Force clear browser GPS cache bằng cách dùng watchPosition rồi clear ngay
      * Trick này buộc browser phải refresh GPS thay vì dùng cache
-     * 🚀 ENHANCED: Tối ưu cho PWA - thời gian clear lâu hơn để GPS chip khởi động
      */
     private static forceClearGPSCache(): Promise<void> {
         return new Promise((resolve) => {
@@ -125,20 +81,13 @@ export class GPSService {
                 return;
             }
 
-            const platformInfo = this.getPlatformInfo();
-            
-            // 🚀 PWA cần thời gian lâu hơn để GPS chip khởi động
-            const clearDuration = platformInfo.isPWA ? 300 : 100;
-            
-            console.log(`🔥 Clearing GPS cache... (${clearDuration}ms, PWA: ${platformInfo.isPWA})`);
-
             let watchId: number | null = null;
             const timeout = setTimeout(() => {
                 if (watchId !== null) {
                     navigator.geolocation.clearWatch(watchId);
                 }
                 resolve();
-            }, clearDuration);
+            }, 100); // Clear sau 100ms
 
             try {
                 watchId = navigator.geolocation.watchPosition(
@@ -168,7 +117,6 @@ export class GPSService {
     /**
      * Lấy một mẫu GPS đơn lẻ
      * ✅ ENHANCED: Force clear cache trước khi lấy để đảm bảo GPS mới
-     * 🚀 PWA OPTIMIZED: Timeout cao hơn cho PWA để GPS chip có thời gian
      */
     private static async getSingleSample(options?: PositionOptions): Promise<LocationSample> {
         // 🔥 STEP 1: Force clear browser GPS cache
@@ -180,32 +128,25 @@ export class GPSService {
                 return;
             }
 
-            const platformInfo = this.getPlatformInfo();
-            
-            // 🚀 PWA cần timeout cao hơn vì GPS chip cần thời gian khởi động
-            const timeout = platformInfo.isPWA ? this.GPS_CONFIG.PWA_TIMEOUT : 10000;
-
             const defaultOptions: PositionOptions = {
                 enableHighAccuracy: true,
-                timeout: timeout,
+                timeout: 10000,
                 maximumAge: 0 // Không dùng cache
             };
 
             const gpsOptions = options || defaultOptions;
             
-            // 🔥 STEP 2: Đảm bảo maximumAge = 0 và timeout phù hợp
+            // 🔥 STEP 2: Đảm bảo maximumAge = 0
             const finalOptions = {
                 ...gpsOptions,
-                maximumAge: 0, // Force override
-                timeout: platformInfo.isPWA ? this.GPS_CONFIG.PWA_TIMEOUT : gpsOptions.timeout
+                maximumAge: 0 // Force override
             };
 
-            console.log(`🔥 Getting GPS position (PWA: ${platformInfo.isPWA}, timeout: ${finalOptions.timeout}ms)...`);
+            console.log('🔥 Getting fresh GPS position (cache cleared)...');
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    const age = Date.now() - position.timestamp;
-                    console.log(`✅ Got GPS: accuracy=${position.coords.accuracy.toFixed(1)}m, age=${age}ms`);
+                    console.log(`✅ Got fresh GPS: timestamp=${position.timestamp}, age=${Date.now() - position.timestamp}ms`);
                     resolve({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
@@ -237,10 +178,9 @@ export class GPSService {
     }
 
     /**
-     * ✨ Warm-up GPS với watchPosition
+     * ✨ NEW: Warm-up GPS với watchPosition
      * Giúp GPS "khởi động" và ổn định trước khi lấy mẫu chính thức
      * 🔥 ENHANCED: Force clear cache trước warm-up
-     * 🚀 PWA OPTIMIZED: Warm-up lâu hơn cho PWA để GPS chip ổn định
      * @param duration Thời gian warm-up (ms)
      * @param onProgress Callback để báo tiến độ
      * @returns Promise<LocationSample[]> - Mảng samples thu thập được trong warm-up
@@ -251,13 +191,6 @@ export class GPSService {
     ): Promise<LocationSample[]> {
         // 🔥 Force clear browser GPS cache trước khi warm-up
         await this.forceClearGPSCache();
-        
-        const platformInfo = this.getPlatformInfo();
-        
-        // 🚀 PWA cần warm-up lâu hơn để GPS chip ổn định
-        const warmupDuration = platformInfo.isPWA ? this.GPS_CONFIG.PWA_WARMUP_DURATION : duration;
-        
-        console.log(`🔥 Starting GPS warm-up... (${warmupDuration}ms, PWA: ${platformInfo.isPWA})`);
         
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
@@ -270,13 +203,12 @@ export class GPSService {
             let watchId: number | null = null;
             let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-            console.log(`🔥 Starting GPS warm-up for ${warmupDuration}ms (PWA: ${platformInfo.isPWA}, cache cleared)...`);
+            console.log(`🔥 Starting GPS warm-up for ${duration}ms (cache cleared)...`);
 
-            // 🚀 Cấu hình watchPosition - timeout cao hơn cho PWA
-            const watchTimeout = platformInfo.isPWA ? 8000 : 5000;
+            // Cấu hình watchPosition với high accuracy và NO CACHE
             const watchOptions: PositionOptions = {
                 enableHighAccuracy: true,
-                timeout: watchTimeout,
+                timeout: 5000,
                 maximumAge: 0 // 🔥 Force no cache
             };
 
@@ -311,24 +243,20 @@ export class GPSService {
                 watchOptions
             );
 
-            // 🔥 Timeout để kết thúc warm-up - dùng warmupDuration đã tính toán
+            // Timeout để kết thúc warm-up
             timeoutId = setTimeout(() => {
                 if (watchId !== null) {
                     navigator.geolocation.clearWatch(watchId);
                 }
                 
-                const avgAccuracy = samples.length > 0
-                    ? samples.reduce((sum, s) => sum + (s.accuracy || 0), 0) / samples.length
-                    : undefined;
-                
-                console.log(`✅ GPS warm-up completed: ${samples.length} samples, avg accuracy: ${avgAccuracy?.toFixed(1)}m`);
+                console.log(`✅ GPS warm-up completed: ${samples.length} samples collected`);
                 
                 if (samples.length === 0) {
                     reject(new Error('Không thu thập được mẫu nào trong warm-up'));
                 } else {
                     resolve(samples);
                 }
-            }, warmupDuration);
+            }, duration);
 
             // Cleanup nếu có lỗi
             const cleanup = () => {
