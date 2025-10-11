@@ -72,6 +72,7 @@ export class GPSService {
 
     /**
      * Lấy một mẫu GPS đơn lẻ
+     * ✨ CẢI TIẾN: Bắt buộc lấy GPS MỚI, không dùng cache
      */
     private static getSingleSample(options?: PositionOptions): Promise<LocationSample> {
         return new Promise((resolve, reject) => {
@@ -80,16 +81,37 @@ export class GPSService {
                 return;
             }
 
+            // ✨ CẤU HÌNH QUAN TRỌNG: Bắt buộc GPS chính xác cao
             const defaultOptions: PositionOptions = {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0 // Không dùng cache
+                enableHighAccuracy: true,        // ✅ Bật GPS chính xác cao (sử dụng GPS chip, không WiFi)
+                timeout: 15000,                  // ✅ Tăng timeout lên 15s cho GPS ổn định
+                maximumAge: 0                    // ✅ KHÔNG dùng cache, PHẢI lấy vị trí MỚI
             };
 
             const gpsOptions = options || defaultOptions;
 
+            // ✨ LOG để debug
+            console.log('📍 Requesting NEW GPS sample with options:', {
+                enableHighAccuracy: gpsOptions.enableHighAccuracy,
+                timeout: gpsOptions.timeout,
+                maximumAge: gpsOptions.maximumAge,
+                timestamp: new Date().toISOString()
+            });
+
             navigator.geolocation.getCurrentPosition(
                 (position) => {
+                    const age = Date.now() - position.timestamp;
+                    console.log('✅ GPS sample received:', {
+                        accuracy: position.coords.accuracy,
+                        age: `${age}ms`,
+                        timestamp: new Date(position.timestamp).toISOString()
+                    });
+                    
+                    // ⚠️ CẢNH BÁO nếu GPS có vẻ cũ (>1s)
+                    if (age > 1000) {
+                        console.warn(`⚠️ GPS data seems old! Age: ${age}ms (should be <1000ms)`);
+                    }
+                    
                     resolve({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
@@ -144,16 +166,17 @@ export class GPSService {
 
             console.log(`🔥 Starting GPS warm-up for ${duration}ms...`);
 
-            // Cấu hình watchPosition với high accuracy
+            // ✨ CẤU HÌNH: Bắt buộc watchPosition lấy GPS MỚI
             const watchOptions: PositionOptions = {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
+                enableHighAccuracy: true,    // ✅ GPS chip chính xác cao
+                timeout: 8000,               // ✅ Timeout cho mỗi update
+                maximumAge: 0                // ✅ BẮT BUỘC lấy GPS MỚI, không cache
             };
 
             // Watch GPS position
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
+                    const age = Date.now() - position.timestamp;
                     const sample: LocationSample = {
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
@@ -166,7 +189,18 @@ export class GPSService {
                     const elapsed = Date.now() - startTime;
                     const avgAccuracy = samples.reduce((sum, s) => sum + (s.accuracy || 0), 0) / samples.length;
                     
-                    console.log(`🔥 Warm-up sample ${samples.length}: acc=${sample.accuracy?.toFixed(1)}m, elapsed=${elapsed}ms`);
+                    console.log(`🔥 Warm-up sample ${samples.length}:`, {
+                        accuracy: `${sample.accuracy?.toFixed(1)}m`,
+                        age: `${age}ms`,
+                        elapsed: `${elapsed}ms`,
+                        lat: sample.latitude.toFixed(6),
+                        lng: sample.longitude.toFixed(6)
+                    });
+                    
+                    // ⚠️ Cảnh báo nếu GPS cũ
+                    if (age > 1000) {
+                        console.warn(`⚠️ Warm-up sample ${samples.length} seems old! Age: ${age}ms`);
+                    }
                     
                     onProgress?.({
                         message: `Đang khởi động GPS... (${samples.length} mẫu, ${(elapsed/1000).toFixed(1)}s)`,
