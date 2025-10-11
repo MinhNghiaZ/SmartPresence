@@ -674,10 +674,13 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       return;
     }
 
-    // ✨ YÊU CẦU 1: XÁC NHẬN face recognition đang KHÔNG chạy khi chưa aligned
-    if (!isFaceAligned) {
+    // ✨ YÊU CẦU 1: CHECK alignment trực tiếp (không dùng state để tránh stale data)
+    const isCurrentlyAligned = await checkFaceAlignment();
+    
+    if (!isCurrentlyAligned) {
       console.log('🚫 FACE RECOGNITION SKIPPED: Face not aligned (need 80% inside oval)');
       console.log('   → Recognition will NOT run until face is properly aligned');
+      console.log('   → Current state: isFaceAligned =', isFaceAligned, '(may be stale)');
       return;
     }
 
@@ -711,7 +714,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       setIsRecognizing(false);
       console.log('🏁 FACE RECOGNITION FINISHED');
     }
-  }, [isModelLoaded, isRecognizing, isFaceAligned, onRecognitionResult, emitError]);
+  }, [isModelLoaded, isRecognizing, isFaceAligned, checkFaceAlignment, onRecognitionResult, emitError]);
 
   // Test camera function for debugging
   const testCamera = async () => {
