@@ -37,11 +37,16 @@ export class GPSService {
     
     // Cấu hình lấy mẫu GPS
     private static readonly GPS_CONFIG = {
-        SAMPLES_COUNT: 5,           // Lấy 5 mẫu
+        SAMPLES_COUNT: 5,           // Lấy 5 mẫu chính thức
         SAMPLE_DELAY: 1000,         // Đợi 1s giữa các mẫu
         MIN_ACCURACY: 50,           // Độ chính xác tối thiểu (meters)
         MAX_ACCURACY_FOR_RETRY: 100, // Nếu > 100m thì retry
-        OUTLIER_THRESHOLD: 0.001    // Ngưỡng lọc outlier (~111m)
+        OUTLIER_THRESHOLD: 0.001,   // Ngưỡng lọc outlier (~111m)
+        
+        // ✨ NEW: Warm-up configuration
+        ENABLE_WARMUP: true,        // Bật/tắt warm-up phase
+        WARMUP_DURATION: 3000,      // Warm-up 3 giây với watchPosition
+        WARMUP_MIN_SAMPLES: 3,      // Tối thiểu 3 samples trong warm-up
     };
 
     // Removed calculateDistance - backend handles all calculations now
@@ -116,6 +121,101 @@ export class GPSService {
     }
 
     /**
+     * ✨ NEW: Warm-up GPS với watchPosition
+     * Giúp GPS "khởi động" và ổn định trước khi lấy mẫu chính thức
+     * @param duration Thời gian warm-up (ms)
+     * @param onProgress Callback để báo tiến độ
+     * @returns Promise<LocationSample[]> - Mảng samples thu thập được trong warm-up
+     */
+    private static warmupGPS(
+        duration: number,
+        onProgress?: (progress: { message: string; samplesCollected: number; avgAccuracy?: number }) => void
+    ): Promise<LocationSample[]> {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Trình duyệt không hỗ trợ GPS'));
+                return;
+            }
+
+            const samples: LocationSample[] = [];
+            const startTime = Date.now();
+            let watchId: number | null = null;
+            let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+            console.log(`🔥 Starting GPS warm-up for ${duration}ms...`);
+
+            // Cấu hình watchPosition với high accuracy
+            const watchOptions: PositionOptions = {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            };
+
+            // Watch GPS position
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const sample: LocationSample = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: position.timestamp
+                    };
+
+                    samples.push(sample);
+                    
+                    const elapsed = Date.now() - startTime;
+                    const avgAccuracy = samples.reduce((sum, s) => sum + (s.accuracy || 0), 0) / samples.length;
+                    
+                    console.log(`🔥 Warm-up sample ${samples.length}: acc=${sample.accuracy?.toFixed(1)}m, elapsed=${elapsed}ms`);
+                    
+                    onProgress?.({
+                        message: `Đang khởi động GPS... (${samples.length} mẫu, ${(elapsed/1000).toFixed(1)}s)`,
+                        samplesCollected: samples.length,
+                        avgAccuracy
+                    });
+                },
+                (error) => {
+                    console.warn('⚠️ Warm-up GPS error:', error.message);
+                    // Không reject, tiếp tục với samples đã có
+                },
+                watchOptions
+            );
+
+            // Timeout để kết thúc warm-up
+            timeoutId = setTimeout(() => {
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                }
+                
+                console.log(`✅ GPS warm-up completed: ${samples.length} samples collected`);
+                
+                if (samples.length === 0) {
+                    reject(new Error('Không thu thập được mẫu nào trong warm-up'));
+                } else {
+                    resolve(samples);
+                }
+            }, duration);
+
+            // Cleanup nếu có lỗi
+            const cleanup = () => {
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                }
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                }
+            };
+
+            // Handle reject với cleanup
+            const originalReject = reject;
+            reject = (error) => {
+                cleanup();
+                originalReject(error);
+            };
+        });
+    }
+
+    /**
      * Lọc bỏ outliers (các điểm GPS lệch quá xa)
      */
     private static filterOutliers(samples: LocationSample[]): LocationSample[] {
@@ -159,6 +259,7 @@ export class GPSService {
 
     /**
      * Lấy vị trí với độ chính xác cao (nhiều mẫu)
+     * ✨ NEW: Có thể bật warm-up để cải thiện độ chính xác
      * @param onProgress - Callback để báo tiến độ
      * @param options - GPS options
      * @returns Promise<Location>
@@ -168,9 +269,59 @@ export class GPSService {
         options?: PositionOptions
     ): Promise<Location> {
         const samples: LocationSample[] = [];
-        const { SAMPLES_COUNT, SAMPLE_DELAY, MAX_ACCURACY_FOR_RETRY } = this.GPS_CONFIG;
+        const { 
+            SAMPLES_COUNT, 
+            SAMPLE_DELAY, 
+            MAX_ACCURACY_FOR_RETRY,
+            ENABLE_WARMUP,
+            WARMUP_DURATION,
+            WARMUP_MIN_SAMPLES
+        } = this.GPS_CONFIG;
 
-        console.log(`🎯 Starting accurate GPS sampling (${SAMPLES_COUNT} samples)...`);
+        console.log(`🎯 Starting accurate GPS sampling (warm-up: ${ENABLE_WARMUP}, samples: ${SAMPLES_COUNT})...`);
+
+        // ✨ Phase 1: GPS Warm-up (nếu bật)
+        let warmupSamples: LocationSample[] = [];
+        if (ENABLE_WARMUP) {
+            try {
+                onProgress?.({
+                    sample: 0,
+                    total: SAMPLES_COUNT,
+                    message: '🔥 Đang khởi động GPS...'
+                });
+
+                warmupSamples = await this.warmupGPS(WARMUP_DURATION, (warmupProgress) => {
+                    onProgress?.({
+                        sample: 0,
+                        total: SAMPLES_COUNT,
+                        accuracy: warmupProgress.avgAccuracy,
+                        message: warmupProgress.message
+                    });
+                });
+
+                console.log(`🔥 Warm-up collected ${warmupSamples.length} samples (avg acc: ${
+                    warmupSamples.length > 0 
+                        ? (warmupSamples.reduce((sum, s) => sum + (s.accuracy || 0), 0) / warmupSamples.length).toFixed(1) 
+                        : 'N/A'
+                }m)`);
+
+                // Nếu warm-up thu thập đủ samples chất lượng cao, có thể sử dụng luôn
+                if (warmupSamples.length >= WARMUP_MIN_SAMPLES) {
+                    const warmupAvgAccuracy = warmupSamples.reduce((sum, s) => sum + (s.accuracy || 0), 0) / warmupSamples.length;
+                    console.log(`✅ Warm-up quality check: ${warmupSamples.length} samples, avg ${warmupAvgAccuracy.toFixed(1)}m`);
+                }
+            } catch (warmupError) {
+                console.warn('⚠️ GPS warm-up failed, proceeding with normal sampling:', warmupError);
+                // Không throw error, tiếp tục với sampling bình thường
+            }
+        }
+
+        // ✨ Phase 2: Accurate Sampling (lấy mẫu chính thức)
+        onProgress?.({
+            sample: 0,
+            total: SAMPLES_COUNT,
+            message: '📍 Bắt đầu lấy mẫu chính xác...'
+        });
 
         for (let i = 0; i < SAMPLES_COUNT; i++) {
             try {
@@ -203,12 +354,17 @@ export class GPSService {
             }
         }
 
-        if (samples.length === 0) {
+        // ✨ Combine warm-up samples với main samples (nếu có)
+        const allSamples = [...warmupSamples, ...samples];
+        
+        if (allSamples.length === 0) {
             throw new Error('Không thể lấy được bất kỳ mẫu GPS nào');
         }
 
-        // Tính trung bình
-        const avgLocation = this.calculateAverageLocation(samples);
+        console.log(`📊 Total samples collected: ${allSamples.length} (${warmupSamples.length} from warm-up + ${samples.length} from main)`);
+
+        // Tính trung bình từ TẤT CẢ samples (warm-up + main)
+        const avgLocation = this.calculateAverageLocation(allSamples);
         
         console.log(`✅ Final averaged location: lat=${avgLocation.latitude.toFixed(6)}, lon=${avgLocation.longitude.toFixed(6)}, avg_acc=${avgLocation.accuracy?.toFixed(1)}m`);
 
