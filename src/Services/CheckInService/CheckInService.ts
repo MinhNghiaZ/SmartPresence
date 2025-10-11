@@ -46,13 +46,13 @@ const getGPSOptions = (): PositionOptions => {
     return {
       enableHighAccuracy: true,
       timeout: 15000, // Longer timeout for mobile
-      maximumAge: 300000 // 5 minutes cache for mobile
+      maximumAge: 0 // ✅ FIXED: Không dùng cache - luôn lấy vị trí mới
     };
   } else {
     return {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 60000 // 1 minute cache for desktop
+      maximumAge: 0 // ✅ FIXED: Không dùng cache - luôn lấy vị trí mới
     };
   }
 };

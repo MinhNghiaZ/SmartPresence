@@ -423,7 +423,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 10000
+          timeout: 10000,
+          maximumAge: 0 // ✅ FIXED: Không dùng cache - luôn lấy vị trí mới
         });
       });
 
