@@ -1,0 +1,447 @@
+/* GPS Guide Modal Overlay */
+.gps-guide-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+  overflow-y: auto;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Content Container */
+.gps-guide-modal-content {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Modal Header */
+.gps-guide-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+.gps-guide-modal-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.gps-guide-modal-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  font-size: 1.75rem;
+  color: white;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  line-height: 1;
+}
+
+.gps-guide-modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* Modal Body */
+.gps-guide-modal-body {
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+/* Section */
+.gps-guide-section {
+  margin-bottom: 2.5rem;
+}
+
+.gps-guide-section:last-child {
+  margin-bottom: 0;
+}
+
+.gps-guide-section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 3px solid #667eea;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Introduction */
+.gps-guide-intro {
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+}
+
+.gps-guide-intro-text {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #374151;
+  margin: 0;
+}
+
+/* Steps Container */
+.gps-guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Individual Step */
+.gps-guide-step {
+  display: flex;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.gps-guide-step:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+  transform: translateY(-2px);
+}
+
+.gps-guide-step-number {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.gps-guide-step-content {
+  flex: 1;
+}
+
+.gps-guide-step-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.gps-guide-step-description {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #4b5563;
+  margin: 0 0 1rem 0;
+}
+
+/* Image Placeholder */
+.gps-guide-image-placeholder {
+  margin-top: 0.75rem;
+}
+
+.placeholder-box {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border: 2px dashed #9ca3af;
+  border-radius: 8px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 120px;
+  transition: all 0.3s ease;
+}
+
+.placeholder-box:hover {
+  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+  border-color: #6b7280;
+}
+
+.placeholder-icon {
+  font-size: 2.5rem;
+}
+
+.placeholder-text {
+  font-size: 0.95rem;
+  color: #6b7280;
+  font-style: italic;
+  text-align: center;
+}
+
+/* Actual Image Styling (for when images are added) */
+.gps-guide-step-image {
+  width: 100%;
+  max-width: 500px;
+  height: auto;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+  display: block;
+  transition: all 0.3s ease;
+}
+
+.gps-guide-step-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  border-color: #667eea;
+  cursor: zoom-in;
+}
+
+.gps-guide-image-caption {
+  text-align: center;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+/* Tips Section */
+.gps-guide-tips {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.gps-guide-tip {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.gps-guide-tip:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.gps-guide-tip-icon {
+  flex-shrink: 0;
+  font-size: 1.75rem;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  border-radius: 50%;
+}
+
+.gps-guide-tip-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem 0;
+}
+
+.gps-guide-tip-content p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Support Section */
+.gps-guide-support {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid #f59e0b;
+}
+
+.gps-guide-support-text {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #78350f;
+  margin: 0 0 1rem 0;
+}
+
+.gps-guide-support-info {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.gps-guide-support-info p {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.gps-guide-support-info p strong {
+  color: #667eea;
+}
+
+/* Modal Footer */
+.gps-guide-modal-footer {
+  padding: 1.5rem 2rem;
+  border-top: 2px solid #e5e7eb;
+  display: flex;
+  justify-content: center;
+  background: #f9fafb;
+  border-radius: 0 0 16px 16px;
+}
+
+.gps-guide-close-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.875rem 2rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.gps-guide-close-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.gps-guide-close-button:active {
+  transform: translateY(0);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .gps-guide-modal-content {
+    max-height: 95vh;
+    border-radius: 12px;
+  }
+
+  .gps-guide-modal-header {
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .gps-guide-modal-title {
+    font-size: 1.35rem;
+  }
+
+  .gps-guide-modal-body {
+    padding: 1.5rem;
+  }
+
+  .gps-guide-section-title {
+    font-size: 1.25rem;
+  }
+
+  .gps-guide-step {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .gps-guide-step-number {
+    align-self: flex-start;
+  }
+
+  .gps-guide-tips {
+    grid-template-columns: 1fr;
+  }
+
+  .gps-guide-modal-footer {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .gps-guide-close-button {
+    width: 100%;
+  }
+}
+
+/* Scrollbar Styling */
+.gps-guide-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gps-guide-modal-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.gps-guide-modal-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+}
+
+.gps-guide-modal-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #653a8e 100%);
+}
+
+/* Print Styles */
+@media print {
+  .gps-guide-modal-overlay {
+    position: static;
+    background: white;
+  }
+
+  .gps-guide-modal-close,
+  .gps-guide-modal-footer {
+    display: none;
+  }
+
+  .gps-guide-modal-content {
+    box-shadow: none;
+    max-height: none;
+  }
+}

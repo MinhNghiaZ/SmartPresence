@@ -6,7 +6,7 @@ import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRe
 import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import FaceRecognition, { type FaceRecognitionRef } from '../../components/CameraScreen/FaceRecognition';
 import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
-
+import { GPSGuideModal } from '../../components/GPSGuide';
 
 import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
@@ -36,6 +36,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   // State
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
+  const [showGPSGuide, setShowGPSGuide] = useState<boolean>(false);
 
   const [showFaceModal, setShowFaceModal] = useState<boolean>(false);
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
@@ -807,6 +808,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                     )}
                   </button>
 
+                  {/* GPS Guide Button */}
+                  <button
+                    className="w-full py-3 px-6 rounded-lg font-medium text-lg transition-all duration-300 bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 hover:shadow-lg transform hover:scale-105"
+                    onClick={() => {
+                      logger.ui.debug('GPS Guide button clicked');
+                      setShowGPSGuide(true);
+                    }}
+                  >
+                    <div className="flex items-center justify-center">
+                      <span className="mr-2">📖</span>
+                      Hướng dẫn sử dụng GPS
+                    </div>
+                  </button>
+
                   {/* Face Registration Status & Button */}
                   <div className="space-y-2">
                     {/* Status Display */}
@@ -998,6 +1013,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         </div>
       )}
 
+
+      {/* GPS Guide Modal */}
+      <GPSGuideModal 
+        isOpen={showGPSGuide}
+        onClose={() => setShowGPSGuide(false)}
+      />
 
     </div>
   );
