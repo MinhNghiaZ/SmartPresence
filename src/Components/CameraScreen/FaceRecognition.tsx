@@ -526,7 +526,46 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
   }, [isFaceAligned]);
 
   /**
+   * Tính phần trăm diện tích khuôn mặt nằm trong oval
+   * @returns Percentage of face area inside oval (0-100%)
+   */
+  const calculateFaceOverlapPercentage = (
+    faceBox: { x: number; y: number; width: number; height: number },
+    ovalCenterX: number,
+    ovalCenterY: number,
+    ovalRadiusX: number,
+    ovalRadiusY: number
+  ): number => {
+    // Sample points trong face bounding box để check overlap
+    const sampleResolution = 10; // 10x10 grid = 100 sample points
+    let pointsInside = 0;
+    let totalPoints = 0;
+
+    const stepX = faceBox.width / sampleResolution;
+    const stepY = faceBox.height / sampleResolution;
+
+    for (let i = 0; i < sampleResolution; i++) {
+      for (let j = 0; j < sampleResolution; j++) {
+        const pointX = faceBox.x + (i + 0.5) * stepX;
+        const pointY = faceBox.y + (j + 0.5) * stepY;
+
+        // Check if point is inside ellipse: (x-cx)²/rx² + (y-cy)²/ry² <= 1
+        const dx = (pointX - ovalCenterX) / ovalRadiusX;
+        const dy = (pointY - ovalCenterY) / ovalRadiusY;
+        
+        if (dx * dx + dy * dy <= 1) {
+          pointsInside++;
+        }
+        totalPoints++;
+      }
+    }
+
+    return (pointsInside / totalPoints) * 100;
+  };
+
+  /**
    * Kiểm tra xem khuôn mặt có nằm trong vùng guide không
+   * ✨ YÊU CẦU: Ít nhất 80% khuôn mặt phải nằm trong oval
    */
   const checkFaceAlignment = useCallback(async () => {
     if (!videoRef.current || !overlayCanvasRef.current || !isModelLoaded) {
@@ -539,6 +578,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       
       if (detections.length === 0) {
         setIsFaceAligned(false);
+        console.log('❌ No face detected');
         return false;
       }
 
@@ -552,13 +592,21 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       // Check if face is within guide area
       const detection = detections[0]; // Check first face only
       const box = detection.detection.box;
-      const faceCenterX = box.x + box.width / 2;
-      const faceCenterY = box.y + box.height / 2;
 
-      // Calculate if face center is within ellipse
-      const dx = (faceCenterX - centerX) / guideRadiusX;
-      const dy = (faceCenterY - centerY) / guideRadiusY;
-      const isInside = (dx * dx + dy * dy) <= 1;
+      // ✨ NEW: Tính phần trăm khuôn mặt trong oval
+      const overlapPercentage = calculateFaceOverlapPercentage(
+        box,
+        centerX,
+        centerY,
+        guideRadiusX,
+        guideRadiusY
+      );
+
+      console.log(`📊 Face overlap: ${overlapPercentage.toFixed(1)}% (minimum required: 80%)`);
+
+      // ✨ Yêu cầu ít nhất 80% khuôn mặt nằm trong oval
+      const MINIMUM_OVERLAP_PERCENTAGE = 80;
+      const isOverlapOk = overlapPercentage >= MINIMUM_OVERLAP_PERCENTAGE;
 
       // Check if face size is appropriate (not too small or too large)
       const faceArea = box.width * box.height;
@@ -566,7 +614,19 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       const faceRatio = faceArea / videoArea;
       const isSizeOk = faceRatio >= 0.08 && faceRatio <= 0.5; // 8% to 50% of video
 
-      const aligned = isInside && isSizeOk;
+      const aligned = isOverlapOk && isSizeOk;
+      
+      if (!aligned) {
+        if (!isOverlapOk) {
+          console.log(`⚠️ Face alignment failed: Only ${overlapPercentage.toFixed(1)}% of face is inside oval (need ${MINIMUM_OVERLAP_PERCENTAGE}%)`);
+        }
+        if (!isSizeOk) {
+          console.log(`⚠️ Face size check failed: Face ratio ${(faceRatio * 100).toFixed(1)}% (acceptable: 8-50%)`);
+        }
+      } else {
+        console.log(`✅ Face aligned! Overlap: ${overlapPercentage.toFixed(1)}%, Size: ${(faceRatio * 100).toFixed(1)}%`);
+      }
+
       setIsFaceAligned(aligned);
       
       return aligned;
@@ -614,11 +674,15 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       return;
     }
 
-    // ✨ NEW: Chỉ nhận diện nếu khuôn mặt đã căn chỉnh
+    // ✨ YÊU CẦU 1: XÁC NHẬN face recognition đang KHÔNG chạy khi chưa aligned
     if (!isFaceAligned) {
-      console.log('⚠️ Face not aligned, skipping recognition');
+      console.log('🚫 FACE RECOGNITION SKIPPED: Face not aligned (need 80% inside oval)');
+      console.log('   → Recognition will NOT run until face is properly aligned');
       return;
     }
+
+    // ✅ Face đã aligned, bắt đầu nhận diện
+    console.log('🎯 FACE RECOGNITION STARTING: Face is aligned!');
 
     try {
       setIsRecognizing(true);
@@ -626,6 +690,8 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       
       const result = await faceRecognizeService.recognizeFace(videoRef.current);
       const results = [result]; // Wrap single result in array for compatibility
+      
+      console.log('✅ FACE RECOGNITION COMPLETED:', results);
       
       // Vẽ kết quả lên overlay canvas
       const overlayCanvas = overlayCanvasRef.current;
@@ -640,11 +706,12 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     } catch (err) {
   const errorMsg = 'Lỗi khi nhận dạng: ' + (err as Error).message;
   emitError(errorMsg);
-  console.error(err);
+  console.error('❌ FACE RECOGNITION ERROR:', err);
     } finally {
       setIsRecognizing(false);
+      console.log('🏁 FACE RECOGNITION FINISHED');
     }
-  }, [isModelLoaded, isRecognizing, onRecognitionResult, onError]);
+  }, [isModelLoaded, isRecognizing, isFaceAligned, onRecognitionResult, emitError]);
 
   // Test camera function for debugging
   const testCamera = async () => {
