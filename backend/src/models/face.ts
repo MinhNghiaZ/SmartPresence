@@ -34,6 +34,7 @@ export interface StudentFaceInfo {
 }
 
 export const FACE_CONSTANTS = {
-    DEFAULT_MATCH_THRESHOLD: 0.6,
+    DEFAULT_MATCH_THRESHOLD: 0.4, // ✅ Giảm threshold để match dễ hơn (distance nhỏ hơn = match)
+    MIN_CONFIDENCE_DISPLAY: 60, // ✨ Confidence hiển thị tối thiểu 60%
     MAX_IMAGE_SIZE: 5 * 1024 * 1024, // 5MB
 } as const;

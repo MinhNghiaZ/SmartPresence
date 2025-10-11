@@ -227,7 +227,21 @@ export class FaceRecognitionService {
             
             // Determine if it's a match
             const isMatch = distance < FACE_CONSTANTS.DEFAULT_MATCH_THRESHOLD;
-            const confidence = Math.max(0, (1 - distance) * 100);
+            
+            // ✨ CẢI TIẾN: Map distance [0, threshold] → confidence [100%, 60%]
+            // Distance càng nhỏ → Confidence càng cao
+            let confidence: number;
+            if (distance <= 0) {
+                confidence = 100; // Perfect match
+            } else if (distance >= FACE_CONSTANTS.DEFAULT_MATCH_THRESHOLD) {
+                // Distance >= threshold: confidence từ 60% trở xuống
+                confidence = Math.max(0, 60 - (distance - FACE_CONSTANTS.DEFAULT_MATCH_THRESHOLD) * 100);
+            } else {
+                // Distance < threshold: map [0, threshold] → [100%, 60%]
+                // Công thức: confidence = 100 - (distance / threshold) * 40
+                confidence = 100 - (distance / FACE_CONSTANTS.DEFAULT_MATCH_THRESHOLD) * 40;
+            }
+            confidence = Math.round(confidence); // Làm tròn
             
             // ✅ Log the recognition attempt - IMPORTANT!
             if (imageData) {
