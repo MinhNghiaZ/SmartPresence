@@ -70,12 +70,52 @@ LIMIT 1
 
 ---
 
-## 🔄 VẤN ĐỀ 3: NO RATE LIMITING (10-15% khi bị abuse) - ĐANG THỰC HIỆN...
+## ✅ VẤN ĐỀ 3: NO RATE LIMITING (10-15% khi bị abuse) - HOÀN THÀNH
 
-### Trạng thái: Chuẩn bị sửa tiếp theo
+### Vấn đề:
+- Không có bảo vệ khỏi brute force attacks
+- Dễ bị DDoS/overload
+- 200 người dùng chung 1 WiFi → Không thể dùng IP-based rate limiting
+
+### Giải pháp đã áp dụng:
+
+#### 1. Tạo User-Based Rate Limiter (`backend/src/middleware/loginRateLimiter.ts`)
+- ✅ **USER-BASED** thay vì IP-based (phù hợp cho shared WiFi)
+- ✅ **10 login attempts/phút/user** (không giới hạn theo IP)
+- ✅ **5 phút block** sau khi vượt quá limit
+- ✅ **In-memory store** (production-ready cho single server)
+- ✅ **Auto cleanup** - xóa records cũ mỗi 10 phút (prevent memory leak)
+- ✅ **Reset on success** - xóa counter sau login thành công
+
+#### 2. Tích hợp vào Auth Flow
+**Files changed:**
+- `backend/src/routes/authRoutes.ts` - Thêm middleware vào login endpoint
+- `backend/src/controllers/authController/authController.ts` - Reset counter khi login success
+- Thêm admin endpoint `/api/auth/admin/rate-limit-stats` để monitoring
+
+#### 3. Hoạt động:
+```typescript
+// 1. User cố gắng login → Check rate limit TRƯỚC khi authenticate
+// 2. Nếu < 10 attempts trong 1 phút → Cho phép
+// 3. Nếu ≥ 10 attempts → Block 5 phút, trả về 429 status
+// 4. Login thành công → Reset counter về 0
+```
+
+### Đặc điểm phù hợp với 200 users cùng WiFi:
+- ✅ Rate limit theo **userId**, KHÔNG theo IP
+- ✅ Mỗi user có counter riêng
+- ✅ 200 users cùng login không ảnh hưởng lẫn nhau
+- ✅ Không cần Redis (đơn giản, ít dependencies)
+
+### Kết quả:
+- **Bảo vệ khỏi brute force**: Max 10 attempts/minute
+- **Block tự động**: 5 phút block sau khi abuse
+- **Scale tốt**: In-memory map xử lý nhanh, auto cleanup
+- **Production ready**: Zero external dependencies
+- **Monitoring**: Admin có thể xem stats real-time
 
 ---
 
-## 🔄 VẤN ĐỀ 4: SMALL CONNECTION POOL (5-10% slowdown) - CHỜ
+## 🔄 VẤN ĐỀ 4: SMALL CONNECTION POOL (5-10% slowdown) - ĐANG THỰC HIỆN...
 
 ### Trạng thái: Chưa bắt đầu

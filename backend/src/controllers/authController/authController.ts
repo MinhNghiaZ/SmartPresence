@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { AuthService } from "../../services/AuthService/authService";
 import { logger } from "../../utils/logger";
+import { resetLoginRateLimit } from "../../middleware/loginRateLimiter";
 
 export class AuthController {
     //Handle login request
@@ -9,6 +10,10 @@ export class AuthController {
         try {
             const result = await AuthService.login(req.body);
             if (result.success) {
+                // Reset rate limit counter on successful login
+                if (req.body.userId) {
+                    resetLoginRateLimit(req.body.userId);
+                }
                 res.json(result);
             } else {
                 res.status(401).json(result);
