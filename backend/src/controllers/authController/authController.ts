@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { AuthService } from "../../services/AuthService/authService";
+import { logger } from "../../utils/logger";
 
 export class AuthController {
     //Handle login request
@@ -8,13 +9,12 @@ export class AuthController {
         try {
             const result = await AuthService.login(req.body);
             if (result.success) {
-                console.log('login success');
                 res.json(result);
             } else {
                 res.status(401).json(result);
             }
         } catch (error) {
-            console.error(error);
+            logger.error('Login controller error', error);
             res.status(500).json({
                 success: false,
                 message: 'error occur when login!'
@@ -94,7 +94,7 @@ export class AuthController {
                 res.status(400).json(result);
             }
         } catch (error) {
-            console.error('Change password error:', error);
+            logger.error('Change password error', error);
             res.status(500).json({
                 success: false,
                 message: 'Lỗi hệ thống khi đổi mật khẩu!'
@@ -108,24 +108,10 @@ export class AuthController {
      */
     static async adminCreateStudent(req: Request, res: Response): Promise<void> {
         try {
-            console.log('🔍 Raw request body:', JSON.stringify(req.body, null, 2));
-            console.log('🔍 Request headers:', req.headers);
-            
             const { studentId, name, email, password, subjectIds } = req.body;
-            
-            console.log('🚀 AuthController.adminCreateStudent called:', {
-                studentId,
-                name,
-                password: password ? `[${password.length} chars]` : 'undefined',
-                subjectIds: subjectIds || [],
-                hasPassword: !!password,
-                bodyType: typeof req.body,
-                bodyKeys: Object.keys(req.body)
-            });
 
             // Detailed validation with specific error messages
             if (!studentId) {
-                console.log('❌ Missing studentId');
                 res.status(400).json({
                     success: false,
                     message: 'Thiếu mã số sinh viên (studentId)!'
@@ -134,7 +120,6 @@ export class AuthController {
             }
 
             if (!name) {
-                console.log('❌ Missing name');
                 res.status(400).json({
                     success: false,
                     message: 'Thiếu tên sinh viên (name)!'
@@ -143,7 +128,6 @@ export class AuthController {
             }
 
             if (!email) {
-                console.log('❌ Missing email');
                 res.status(400).json({
                     success: false,
                     message: 'Thiếu email!'
@@ -152,7 +136,6 @@ export class AuthController {
             }
 
             if (!password) {
-                console.log('❌ Missing password');
                 res.status(400).json({
                     success: false,
                     message: 'Thiếu mật khẩu (password)!'
@@ -162,7 +145,6 @@ export class AuthController {
 
             // Validate data types
             if (typeof studentId !== 'string') {
-                console.log('❌ Invalid studentId type:', typeof studentId);
                 res.status(400).json({
                     success: false,
                     message: 'Mã số sinh viên phải là chuỗi ký tự!'
@@ -171,7 +153,6 @@ export class AuthController {
             }
 
             if (typeof name !== 'string') {
-                console.log('❌ Invalid name type:', typeof name);
                 res.status(400).json({
                     success: false,
                     message: 'Tên sinh viên phải là chuỗi ký tự!'
@@ -180,15 +161,12 @@ export class AuthController {
             }
 
             if (typeof password !== 'string') {
-                console.log('❌ Invalid password type:', typeof password);
                 res.status(400).json({
                     success: false,
                     message: 'Mật khẩu phải là chuỗi ký tự!'
                 });
                 return;
             }
-
-            console.log('✅ Input validation passed, calling service...');
 
             // Call service
             const result = await AuthService.adminCreateStudentAccount(
@@ -199,17 +177,13 @@ export class AuthController {
                 subjectIds || []
             );
             
-            console.log('📤 Service result:', result);
-            
             if (result.success) {
                 res.json(result);
             } else {
-                console.log('❌ Service returned error:', result.message);
                 res.status(400).json(result);
             }
         } catch (error) {
-            console.error('❌ AuthController.adminCreateStudent error:', error);
-            console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+            logger.error('AuthController.adminCreateStudent error', error);
             res.status(500).json({
                 success: false,
                 message: 'Lỗi hệ thống khi tạo tài khoản!'
@@ -223,13 +197,10 @@ export class AuthController {
      */
     static async adminResetPassword(req: Request, res: Response): Promise<void> {
         try {
-            console.log('🔑 AuthController.adminResetPassword called');
-            
             const { studentId, newPassword } = req.body;
             
             // Validate input
             if (!studentId || !newPassword) {
-                console.log('❌ Missing required fields');
                 res.status(400).json({
                     success: false,
                     message: 'Vui lòng cung cấp đầy đủ MSSV và mật khẩu mới!'
@@ -270,20 +241,15 @@ export class AuthController {
                 return;
             }
             
-            console.log('✅ Validation passed, calling service...');
-            
             const result = await AuthService.adminResetStudentPassword(studentId, newPassword);
-            
-            console.log('📤 Service result:', result);
             
             if (result.success) {
                 res.json(result);
             } else {
-                console.log('❌ Service returned error:', result.message);
                 res.status(400).json(result);
             }
         } catch (error) {
-            console.error('❌ AuthController.adminResetPassword error:', error);
+            logger.error('AuthController.adminResetPassword error', error);
             res.status(500).json({
                 success: false,
                 message: 'Lỗi hệ thống khi reset mật khẩu!'

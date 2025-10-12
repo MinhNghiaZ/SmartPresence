@@ -2,11 +2,11 @@ import db from "../../database/connection";
 import { User, LoginRequest, LoginResult } from "../../models/student";
 import { JWTUtils, JWTPayload } from "../../utils/jwt";
 import { PasswordUtils } from "../../utils/passwordUtils";
+import { logger } from "../../utils/logger";
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 export class AuthService {
     static async login(credentials: LoginRequest): Promise<LoginResult> {
-
         try {
             const { userId, password } = credentials;
             if (!userId || !password) {
@@ -21,47 +21,43 @@ export class AuthService {
 
             // find account in student table
             try {
-                console.log('checking student Table');
                 const [studentRow] = await db.execute(
                     'SELECT * FROM studentaccount WHERE studentId = ?',
                     [userId]
-                )
+                );
 
                 if ((studentRow as any[]).length > 0) {
                     user = (studentRow as any[])[0];
                     userType = 'student';
-                    console.log('found in student table');
                 }
             } catch (error) {
-                console.log(error);
+                logger.error('Error checking student table', error);
             }
 
             //find account in admin table
             if (!user) {
                 try {
-                    console.log('checking admin Table');
                     const [AdminRow] = await db.execute(
                         'SELECT * FROM adminaccount WHERE id = ?',
                         [userId]
-                    )
+                    );
 
                     if ((AdminRow as any[]).length > 0) {
                         user = (AdminRow as any[])[0];
                         userType = 'admin';
-                        console.log('found in Admin table');
                     }
                 } catch (error) {
-                    console.log(error);
+                    logger.error('Error checking admin table', error);
                 }
             }
 
             // cant find user
             if (!user) {
-                console.log('user not found');
+                // Don't log user not found - it's expected behavior for wrong credentials
                 return {
                     success: false,
                     message: 'account not exist'
-                }
+                };
             }
 
             //check password
@@ -77,12 +73,13 @@ export class AuthService {
             }
 
             if (!isPasswordValid) {
-                console.log('invalid password');
+                // Don't log invalid password - it's expected behavior for wrong credentials
                 return {
                     success: false,
                     message: 'wrong password'
                 };
             }
+            
             // Generate JWT token
             const tokenPayload: JWTPayload = {
                 userId: user.studentId || user.id,
@@ -104,11 +101,11 @@ export class AuthService {
                 token: token
             };
         } catch (error) {
-            console.error('❌ Auth Service Error:', error);
+            logger.error('Auth Service Error', error);
             return {
                 success: false,
                 message: 'Error occur!'
-            }
+            };
         }
     }
 
@@ -121,7 +118,7 @@ export class AuthService {
                     success: false,
                     message: 'token not exist or expired'
                 };
-            };
+            }
 
             let user = null;
 
@@ -130,13 +127,13 @@ export class AuthService {
                 const [row] = await db.execute(
                     'SELECT * FROM studentaccount WHERE studentId = ?',
                     [decoded.userId]
-                )
+                );
                 user = (row as any[])[0];
             } else {
                 const [row] = await db.execute(
                     'SELECT * FROM adminaccount WHERE id = ?',
                     [decoded.userId]
-                )
+                );
                 user = (row as any[])[0];
             }
 
@@ -145,7 +142,7 @@ export class AuthService {
                     success: false,
                     message: 'user not exist'
                 };
-            };
+            }
 
             //return user
             const { password: _, ...userWithoutPassword } = user;
@@ -159,11 +156,11 @@ export class AuthService {
             };
 
         } catch (error) {
-            console.error(error);
+            logger.error('Token verification error', error);
             return {
                 success: false,
                 message: 'token failed'
-            }
+            };
         }
     }
 
@@ -206,7 +203,7 @@ export class AuthService {
                     tableName = 'studentaccount';
                 }
             } catch (error) {
-                console.error('Error checking student table:', error);
+                logger.error('Error checking student table', error);
             }
 
             // If not found in student table, check admin table
@@ -222,7 +219,7 @@ export class AuthService {
                         tableName = 'adminaccount';
                     }
                 } catch (error) {
-                    console.error('Error checking admin table:', error);
+                    logger.error('Error checking admin table', error);
                 }
             }
 
@@ -261,8 +258,6 @@ export class AuthService {
                 `UPDATE ${tableName} SET password = ? WHERE ${updateField} = ?`,
                 [hashedNewPassword, studentId]
             );
-
-            console.log(`Password updated for ${studentId} in ${tableName}`);
             
             return {
                 success: true,
@@ -270,7 +265,7 @@ export class AuthService {
             };
 
         } catch (error) {
-            console.error('Change password service error:', error);
+            logger.error('Change password service error', error);
             return {
                 success: false,
                 message: 'Lỗi hệ thống khi đổi mật khẩu!'
@@ -288,14 +283,6 @@ export class AuthService {
         password: string,
         subjectIds: string[] = []
     ): Promise<{ success: boolean; message: string }> {
-        console.log(`🚀 AuthService.adminCreateStudentAccount called:`, {
-            studentId,
-            name,
-            email,
-            subjectIds,
-            passwordLength: password?.length
-        });
-
         try {
             // Validate input
             if (!studentId || !name || !password) {
@@ -397,7 +384,6 @@ export class AuthService {
                             [defaultSemesterId, `Học kỳ ${new Date().getFullYear()}`]
                         );
                         currentSemesterId = defaultSemesterId;
-                        console.log(`Created default semester: ${defaultSemesterId}`);
                     }
 
                     for (const subjectId of subjectIds) {
@@ -417,8 +403,6 @@ export class AuthService {
                 const enrollmentMessage = subjectIds.length > 0 
                     ? ` và đã ghi danh vào ${subjectIds.length} môn học`
                     : '';
-
-                console.log(`✅ Created new student account: ${studentId} - ${name}${enrollmentMessage}`);
                 
                 return {
                     success: true,
@@ -432,7 +416,7 @@ export class AuthService {
             }
 
         } catch (error) {
-            console.error('❌ Admin create student account error:', error);
+            logger.error('Admin create student account error', error);
             return {
                 success: false,
                 message: 'Lỗi hệ thống khi tạo tài khoản!'
@@ -448,8 +432,6 @@ export class AuthService {
         newPassword: string
     ): Promise<{ success: boolean; message: string }> {
         try {
-            console.log(`🔑 AuthService.adminResetStudentPassword called for: ${studentId}`);
-            
             const connection = await db.getConnection();
             
             try {
@@ -468,11 +450,9 @@ export class AuthService {
                 }
                 
                 const studentName = students[0].Name;
-                console.log(`✅ Found student: ${studentName}`);
                 
                 // Hash the new password
                 const hashedPassword = await PasswordUtils.hashPassword(newPassword);
-                console.log('✅ Password hashed successfully');
                 
                 // Update password in database
                 const [result] = await connection.query<ResultSetHeader>(
@@ -489,8 +469,6 @@ export class AuthService {
                     };
                 }
                 
-                console.log(`✅ Password reset successfully for ${studentId}`);
-                
                 return {
                     success: true,
                     message: `Đã reset mật khẩu cho sinh viên ${studentName} (${studentId}) thành công!`
@@ -502,7 +480,7 @@ export class AuthService {
             }
             
         } catch (error) {
-            console.error('❌ Admin reset password error:', error);
+            logger.error('Admin reset password error', error);
             return {
                 success: false,
                 message: 'Lỗi hệ thống khi reset mật khẩu!'
