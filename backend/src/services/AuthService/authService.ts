@@ -16,38 +16,39 @@ export class AuthService {
                 };
             }
 
-            // 🚀 OPTIMIZED: Single query with UNION instead of N+1 queries
-            // Reduces database round trips from 2 to 1 (15-20% performance improvement)
             let user = null;
             let userType: 'student' | 'admin' = 'student';
 
+            // find account in student table
             try {
-                const [rows] = await db.execute(`
-                    SELECT studentId as id, name, email, password, 'student' as accountType 
-                    FROM studentaccount 
-                    WHERE studentId = ?
-                    UNION ALL
-                    SELECT id, name, email, password, 'admin' as accountType 
-                    FROM adminaccount 
-                    WHERE id = ?
-                    LIMIT 1
-                `, [userId, userId]);
+                const [studentRow] = await db.execute(
+                    'SELECT * FROM studentaccount WHERE studentId = ?',
+                    [userId]
+                );
 
-                if ((rows as any[]).length > 0) {
-                    const result = (rows as any[])[0];
-                    userType = result.accountType;
-                    
-                    // Restructure to match original format
-                    user = {
-                        studentId: userType === 'student' ? result.id : undefined,
-                        id: result.id,
-                        name: result.name,
-                        email: result.email,
-                        password: result.password
-                    };
+                if ((studentRow as any[]).length > 0) {
+                    user = (studentRow as any[])[0];
+                    userType = 'student';
                 }
             } catch (error) {
-                logger.error('Error checking user accounts', error);
+                logger.error('Error checking student table', error);
+            }
+
+            //find account in admin table
+            if (!user) {
+                try {
+                    const [AdminRow] = await db.execute(
+                        'SELECT * FROM adminaccount WHERE id = ?',
+                        [userId]
+                    );
+
+                    if ((AdminRow as any[]).length > 0) {
+                        user = (AdminRow as any[])[0];
+                        userType = 'admin';
+                    }
+                } catch (error) {
+                    logger.error('Error checking admin table', error);
+                }
             }
 
             // cant find user
