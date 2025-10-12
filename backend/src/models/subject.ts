@@ -1,6 +1,4 @@
-// backend/src/models/subject.ts
 
-// ✅ Database entities - chính xác theo schema
 export interface Subject {
     subjectId: string;
     name: string;
