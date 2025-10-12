@@ -5,6 +5,7 @@
  * - 200 users on same WiFi
  * - Rate limiting by userId instead of IP
  * - 10 login attempts per minute per user
+ * - 30 seconds block after exceeding limit
  * - Prevents brute force attacks
  * - In-memory store (production-ready for single server)
  */
@@ -20,9 +21,9 @@ interface RateLimitRecord {
 
 class LoginRateLimiter {
     private attempts: Map<string, RateLimitRecord>;
-    private readonly maxAttempts: number = 10;
-    private readonly windowMs: number = 60 * 1000; // 1 minute
-    private readonly blockDurationMs: number = 5 * 60 * 1000; // 5 minutes block after exceeding
+    private readonly maxAttempts: number = 10; // Exactly 10 attempts
+    private readonly windowMs: number = 60 * 1000; // 1 minute window
+    private readonly blockDurationMs: number = 30 * 1000; // 30 seconds block (not 5 minutes)
     private cleanupInterval: NodeJS.Timeout;
 
     constructor() {
@@ -88,7 +89,7 @@ class LoginRateLimiter {
 
         // Within window - check limit
         if (record.attempts >= this.maxAttempts) {
-            // Block user for 5 minutes
+            // Block user for 30 seconds
             record.blockedUntil = now + this.blockDurationMs;
             this.attempts.set(userId, record);
             
@@ -97,7 +98,7 @@ class LoginRateLimiter {
             return {
                 allowed: false,
                 retryAfter: Math.ceil(this.blockDurationMs / 1000),
-                message: `Too many login attempts. Account temporarily locked for 5 minutes.`
+                message: `Too many login attempts. Account temporarily locked for 30 seconds.`
             };
         }
 

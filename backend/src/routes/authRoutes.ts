@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { AuthController } from '../controllers/authController/authController';
 import { authenticateToken, requireAdmin, requireStudent } from '../middleware/jwtMiddleware/authmiddleware';
 import { loginRateLimitMiddleware, getRateLimiterStats } from '../middleware/loginRateLimiter';
+import { getPoolStats, checkPoolHealth } from '../utils/dbMonitor';
 
 const router = Router();
 
@@ -55,9 +56,55 @@ router.get('/admin/rate-limit-stats', authenticateToken, requireAdmin, (req, res
         stats: {
             ...stats,
             maxAttemptsPerMinute: 10,
-            blockDurationMinutes: 5
+            blockDurationSeconds: 30
         }
     });
+});
+
+/**
+ * @route GET /api/auth/admin/db-pool-stats
+ * @desc Get database connection pool statistics (for monitoring)
+ * @access Admin only
+ */
+router.get('/admin/db-pool-stats', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const stats = await getPoolStats();
+        res.json({
+            success: true,
+            message: 'Database pool statistics',
+            stats: {
+                ...stats,
+                poolSize: 50,
+                queueLimit: 200
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get pool stats'
+        });
+    }
+});
+
+/**
+ * @route GET /api/auth/admin/db-pool-health
+ * @desc Check database pool health (for monitoring)
+ * @access Admin only
+ */
+router.get('/admin/db-pool-health', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const health = await checkPoolHealth();
+        res.json({
+            success: true,
+            message: health.healthy ? 'Pool is healthy' : 'Pool has warnings',
+            ...health
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to check pool health'
+        });
+    }
 });
 
 // Student routes  
