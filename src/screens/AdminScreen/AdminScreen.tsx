@@ -1085,17 +1085,72 @@ useEffect(() => {
 									try {
 										const today = new Date().toISOString().split('T')[0];
 										
-										// Reload subjects
-										await fetchSubjects();
-										// Reload attendance for today
-										await fetchAttendanceByDate(today);
-										// Reload dashboard sessions for today
-										await fetchDashboardSessions(today);
+										// 1. Reload subjects list
+										const newSubjects = await fetchSubjects();
+										setSubjects(newSubjects);
 										
-										push('Tải lại dữ liệu thành công!', 'success');
+										// 2. Reload attendance records for current date
+										const currentDate = activeDate || today;
+										const newAttendance = await fetchAttendanceByDate(currentDate);
+										setAttendanceRecords(newAttendance);
+										
+										// 3. Reload dashboard sessions for current date
+										const newDashboard = await fetchDashboardSessions(currentDate);
+										setDashboardSessions(newDashboard);
+										
+										// 4. Reload session dates for current subject
+										if (selectedSubject && newSubjects.length > 0) {
+											const subjectObj = newSubjects.find(s => s.code === selectedSubject);
+											if (subjectObj) {
+												const dates = await fetchSessionDates(subjectObj.subjectId);
+												setSessionDates(dates);
+												
+												// 5. Reload subject attendance stats
+												const stats = await fetchSubjectAttendanceStats(subjectObj.subjectId);
+												setSubjectAttendanceStats(stats);
+												
+												// 6. Reload absent students list
+												try {
+													const response = await fetch(`/api/attendance/subject/${subjectObj.subjectId}/students-stats`);
+													const data = await response.json();
+													
+													if (data.success && data.students) {
+														const absentStudents = data.students
+															.filter((student: any) => student.absentEquivalent >= 3)
+															.map((student: any) => ({
+																userId: student.studentId,
+																userName: student.studentName,
+																days: student.absentEquivalent,
+																actualAbsent: student.absentDays,
+																lateDays: student.lateDays
+															}))
+															.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
+														
+														setAbsentStudentsList(absentStudents);
+													}
+												} catch (error) {
+													console.error('Error reloading absent students:', error);
+													setAbsentStudentsList([]);
+												}
+											}
+										}
+										
+										// 7. Regenerate complete attendance records for current date
+										if (selectedSubject && newSubjects.length > 0) {
+											const completeRecords = await generateCompleteAttendanceListWithRealData(
+												newAttendance,
+												newDashboard,
+												newSubjects,
+												selectedSubject,
+												currentDate
+											);
+											setRecords(completeRecords);
+										}
+										
+										push('✅ Đã tải lại toàn bộ dữ liệu: môn học, điểm danh, thống kê và ảnh check-in', 'success');
 									} catch (error) {
 										console.error('Error reloading data:', error);
-										push('Lỗi khi tải lại dữ liệu', 'error');
+										push('❌ Lỗi khi tải lại dữ liệu', 'error');
 									} finally {
 										setIsLoading(false);
 									}
