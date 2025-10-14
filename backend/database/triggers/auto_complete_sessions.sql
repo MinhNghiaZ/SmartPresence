@@ -1,4 +1,4 @@
--- Auto-complete expired ClassSession records
+-- Auto-complete expired classsession records
 -- This event runs every 5 minutes to check for expired ACTIVE sessions
 
 DELIMITER $$
@@ -8,8 +8,8 @@ ON SCHEDULE EVERY 5 MINUTE
 STARTS CURRENT_TIMESTAMP
 DO
 BEGIN
-    UPDATE ClassSession cs
-    INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.timeSlotId
+    UPDATE classsession cs
+    INNER JOIN timeslot ts ON cs.timeSlotId = ts.timeSlotId
     SET cs.session_status = 'COMPLETED',
         cs.ended_at = NOW()
     WHERE cs.session_status = 'ACTIVE'

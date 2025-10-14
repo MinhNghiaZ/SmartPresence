@@ -679,10 +679,10 @@ export class AttendanceController {
      */
     static async adminCreateRecord(req: Request, res: Response) {
         try {
-            const { studentId, subjectId, status, adminId } = req.body;
+            const { studentId, subjectId, status, adminId, sessionDate } = req.body;
             
             console.log('🚀 AttendanceController.adminCreateRecord called:', {
-                studentId, subjectId, status, adminId
+                studentId, subjectId, status, adminId, sessionDate
             });
             
             // Validation
@@ -705,7 +705,8 @@ export class AttendanceController {
                 studentId,
                 subjectId,
                 status as 'PRESENT' | 'LATE',
-                adminId
+                adminId,
+                sessionDate // Optional: defaults to today if not provided
             );
             
             return res.json(result);

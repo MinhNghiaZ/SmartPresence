@@ -753,3 +753,120 @@ button:focus, select:focus, input:focus { outline:2px solid #3b82f6; outline-off
   width: 100%;
   max-width: none;
 }
+
+/* Status Radio Buttons Styling - Simple color-based design */
+.col-present, .col-late, .col-absent {
+  text-align: center;
+  vertical-align: middle;
+  width: 50px;
+  padding: 0.5rem 0.25rem !important;
+}
+
+.status-radio-label {
+  display: inline-flex;
+  cursor: pointer;
+  position: relative;
+  justify-content: center;
+  align-items: center;
+}
+
+.status-radio-label input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  margin: 0;
+}
+
+.status-radio-label input[type="radio"]:hover {
+  border-color: #9ca3af;
+  transform: scale(1.15);
+}
+
+.status-radio-label input[type="radio"]:checked {
+  border-width: 6px;
+}
+
+/* Present - Green */
+.col-present {
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.status-radio-label input[type="radio"].radio-present:checked {
+  border-color: #10b981;
+  background: #10b981;
+}
+
+.status-radio-label input[type="radio"].radio-present:hover {
+  border-color: #10b981;
+}
+
+/* Late - Orange/Yellow */
+.col-late {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.status-radio-label input[type="radio"].radio-late:checked {
+  border-color: #f59e0b;
+  background: #f59e0b;
+}
+
+.status-radio-label input[type="radio"].radio-late:hover {
+  border-color: #f59e0b;
+}
+
+/* Absent - Red */
+.col-absent {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.status-radio-label input[type="radio"].radio-absent:checked {
+  border-color: #ef4444;
+  background: #ef4444;
+}
+
+.status-radio-label input[type="radio"].radio-absent:hover {
+  border-color: #ef4444;
+}
+
+.status-radio-label input[type="radio"]:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .col-present, .col-late, .col-absent {
+    width: 45px;
+    padding: 0.4rem 0.2rem !important;
+  }
+  
+  .status-radio-label input[type="radio"] {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .col-present, .col-late, .col-absent {
+    width: 40px;
+    padding: 0.3rem 0.15rem !important;
+  }
+  
+  .status-radio-label input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    border-width: 1.5px;
+  }
+  
+  .status-radio-label input[type="radio"]:checked {
+    border-width: 5px;
+  }
+}

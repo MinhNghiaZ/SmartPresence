@@ -859,10 +859,14 @@ export class AttendanceService {
         studentId: string,
         subjectId: string, 
         status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED',
-        adminId: string
+        adminId: string,
+        sessionDate?: string // Optional: YYYY-MM-DD format, defaults to today
     ): Promise<{ success: boolean; message: string; attendanceId?: string }> {
         try {
-            console.log(`🔍 AttendanceService.createAttendanceRecord: ${studentId} in ${subjectId} → ${status} by admin ${adminId}`);
+            console.log(`🔍 AttendanceService.createAttendanceRecord: ${studentId} in ${subjectId} → ${status} by admin ${adminId} for date: ${sessionDate || 'today'}`);
+            
+            // Use provided date or default to today
+            const targetDate = sessionDate || new Date().toISOString().split('T')[0];
             
             // Check if already exists - commented out for admin override capability
             // const [existingRows] = await db.execute(`
@@ -878,15 +882,18 @@ export class AttendanceService {
             const timestamp = Date.now();
             const attendanceId = `ATT_${timestamp}_${studentId}_ADMIN`;
             
-            // Get current active session for the subject
+            // Get current active or completed session for the subject on the specific date
+            // Admin can edit attendance for both active and completed sessions
             const [sessionRows] = await db.execute(`
                 SELECT sessionId FROM classsession 
-                WHERE subjectId = ? AND session_status = 'ACTIVE' AND DATE(session_date) = CURDATE()
+                WHERE subjectId = ? 
+                AND session_status IN ('ACTIVE', 'COMPLETED') 
+                AND DATE(session_date) = ?
                 LIMIT 1
-            `, [subjectId]);
+            `, [subjectId, targetDate]);
             
             if ((sessionRows as any[]).length === 0) {
-                return { success: false, message: 'No active session found for this subject today' };
+                return { success: false, message: `No active or completed session found for this subject on ${targetDate}` };
             }
             
             const sessionId = (sessionRows as any[])[0].sessionId;

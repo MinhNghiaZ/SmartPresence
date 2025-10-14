@@ -462,7 +462,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		const adminCreateAttendanceRecord = async (
 			studentId: string,
 			subjectId: string,
-			status: 'PRESENT' | 'LATE'
+			status: 'PRESENT' | 'LATE',
+			sessionDate?: string // Optional: YYYY-MM-DD format
 		): Promise<{ success: boolean; message: string; attendanceId?: string }> => {
 			try {
 				const adminId = currentUser?.id || '';
@@ -473,7 +474,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 						'Content-Type': 'application/json',
 						'Authorization': `Bearer ${token}`
 					},
-					body: JSON.stringify({ studentId, subjectId, status, adminId })
+					body: JSON.stringify({ studentId, subjectId, status, adminId, sessionDate })
 				});
 				return await response.json();
 			} catch (error) {
@@ -933,16 +934,7 @@ useEffect(() => {
 				return absentStudentsList.filter(student => student.days >= 3);
 			}, [absentStudentsList]);
 
-			// Handlers for editing attendance
-			const startEdit = (rec: DemoRecord) => {
-				setEditingRecordId(rec.id);
-				setEditingStatus(rec.status);
-			};
-
-			const cancelEdit = () => {
-				setEditingRecordId(null);
-			};
-
+			// Handler for saving attendance edits
 			const saveEdit = async () => {
 				if(!editingRecordId) return;
 				
@@ -973,10 +965,12 @@ useEffect(() => {
 								return;
 							}
 							
+							// Pass activeDate as sessionDate to support editing past/future dates
 							const result = await adminCreateAttendanceRecord(
 								currentRecord.StudentId,
 								subjectObj.subjectId, // Use actual subjectId from database
-								apiStatus as 'PRESENT' | 'LATE'
+								apiStatus as 'PRESENT' | 'LATE',
+								activeDate // Pass the current viewing date (YYYY-MM-DD)
 							);
 							
 							if (result.success && result.attendanceId) {
@@ -1272,6 +1266,7 @@ useEffect(() => {
 				                                    </span>
 				                                </h3>
 										</div>
+										
 										<div className="data-table custom-scrollbar" role="table" aria-label={`Bảng điểm danh môn ${selectedSubject}`}>
 											<table>
 												<thead>
@@ -1282,46 +1277,85 @@ useEffect(() => {
 														<th>Giờ</th>
 														<th>Trạng thái</th>
 														<th className="col-confidence">Confidence</th>
-														<th className="col-checkin">Check-in</th>
-														<th>Sửa</th>
+														<th className="col-present">✅</th>
+														<th className="col-late">⏰</th>
+														<th className="col-absent">❌</th>
 													</tr>
 												</thead>
 												<tbody>
 													{dayRecords.map((r, idx) => {
-														const isEditing = r.id === editingRecordId;
 														return (
-														<tr key={r.id} tabIndex={0} className={isEditing ? 'editing-row' : ''}>
+														<tr key={r.id} tabIndex={0}>
 															<td>{idx + 1}</td>
 															<td>{r.userName}</td>
 															<td>{r.userId}</td>
 															<td>{r.time}</td>
 															<td>
-																{isEditing ? (
-																	<select
-																		aria-label="Chỉnh trạng thái"
-																		value={editingStatus}
-																		onChange={e => setEditingStatus(e.target.value as DemoRecord['status'])}
-																		className="edit-status-select"
-																	>
-																		<option value="Present">Present</option>
-																		<option value="Late">Late</option>
-																		<option value="Absent">Absent</option>
-																	</select>
-																) : (
-																	<span className={`status-badge ${r.status.toLowerCase()}`}>{r.status}</span>
-																)}
+																<span className={`status-badge ${r.status.toLowerCase()}`}>{r.status}</span>
 															</td>
 															<td className="col-confidence">{r.confidence}</td>
-															<td className="col-checkin"><span className={`status-badge ${r.checkInStatus === 'success' ? 'success present' : 'failed'}`}>{r.checkInStatus}</span></td>
-															<td>
-																{isEditing ? (
-																	<div className="row-actions" role="group" aria-label="Lưu hoặc hủy">
-																		<button type="button" className="row-action-btn save" onClick={saveEdit} aria-label="Lưu">💾</button>
-																		<button type="button" className="row-action-btn cancel" onClick={cancelEdit} aria-label="Hủy">✖</button>
-																	</div>
-																) : (
-																	<button type="button" className="row-action-btn edit" onClick={() => startEdit(r)} aria-label={`Chỉnh sửa điểm danh cho ${r.userName}`}>✏️</button>
-																)}
+															<td className="col-present">
+																<label className="status-radio-label" title="Present">
+																	<input
+																		type="radio"
+																		name={`status-${r.id}`}
+																		value="Present"
+																		checked={r.status === 'Present'}
+																		onChange={async (e) => {
+																			if (!e.target.checked) return;
+																			setEditingRecordId(r.id);
+																			setEditingStatus('Present');
+																			// Auto-save on change
+																			setTimeout(async () => {
+																				await saveEdit();
+																			}, 0);
+																		}}
+																		className="radio-present"
+																		aria-label="Present"
+																	/>
+																</label>
+															</td>
+															<td className="col-late">
+																<label className="status-radio-label" title="Late">
+																	<input
+																		type="radio"
+																		name={`status-${r.id}`}
+																		value="Late"
+																		checked={r.status === 'Late'}
+																		onChange={async (e) => {
+																			if (!e.target.checked) return;
+																			setEditingRecordId(r.id);
+																			setEditingStatus('Late');
+																			// Auto-save on change
+																			setTimeout(async () => {
+																				await saveEdit();
+																			}, 0);
+																		}}
+																		className="radio-late"
+																		aria-label="Late"
+																	/>
+																</label>
+															</td>
+															<td className="col-absent">
+																<label className="status-radio-label" title="Absent">
+																	<input
+																		type="radio"
+																		name={`status-${r.id}`}
+																		value="Absent"
+																		checked={r.status === 'Absent'}
+																		onChange={async (e) => {
+																			if (!e.target.checked) return;
+																			setEditingRecordId(r.id);
+																			setEditingStatus('Absent');
+																			// Auto-save on change
+																			setTimeout(async () => {
+																				await saveEdit();
+																			}, 0);
+																		}}
+																		className="radio-absent"
+																		aria-label="Absent"
+																	/>
+																</label>
 															</td>
 														</tr>
 														);
