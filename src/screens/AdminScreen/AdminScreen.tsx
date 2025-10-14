@@ -667,9 +667,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		
 		// Temporary fallback - tạm thời giữ records cũ trong khi chuyển đổi
 		const [records, setRecords] = useState<DemoRecord[]>(() => generateRecords());
-		// Editing state
-		const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
-		const [editingStatus, setEditingStatus] = useState<DemoRecord['status']>('Present');
             const [selectedSubject, setSelectedSubject] = useState<string>(''); // Sẽ được set khi load data
             const [currentDayIndex, setCurrentDayIndex] = useState<number>(0); // 0 = most recent day
             const [activeView, setActiveView] = useState<'attendance' | 'history'>('attendance'); // New state for view switching
@@ -895,13 +892,6 @@ useEffect(() => {
 				return subjectRecords.filter(r => r.date === activeDate);
 			}, [subjectRecords, activeDate]);
 
-			// Reset editing if date/subject changes or record no longer visible
-			useEffect(() => {
-				if(editingRecordId && !dayRecords.some(r => r.id === editingRecordId)) {
-					setEditingRecordId(null);
-				}
-			}, [editingRecordId, dayRecords, selectedSubject, activeDate]);
-
 			// Use the new subject attendance stats from API instead of calculating from subjectRecords
 			const subjectStats = useMemo(() => {
 				return {
@@ -932,80 +922,76 @@ useEffect(() => {
 			// Students absent on 3 or more days for selected subject (using API data)
 			const absentMoreThan2Days = useMemo(() => {
 				return absentStudentsList.filter(student => student.days >= 3);
-			}, [absentStudentsList]);
+		}, [absentStudentsList]);
 
-			// Handler for saving attendance edits
-			const saveEdit = async () => {
-				if(!editingRecordId) return;
-				
-				try {
-					const currentRecord = records.find(r => r.id === editingRecordId);
-					if (!currentRecord) return;
+		// Handler for saving attendance edits
+		const saveEdit = async (recordId: string, newStatus: DemoRecord['status']) => {
+			if(!recordId) return;
+			
+			try {
+				const currentRecord = records.find(r => r.id === recordId);
+				if (!currentRecord) return;
 
-					// Convert status format from UI to API format
-					const apiStatus = editingStatus.toUpperCase() as 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED';
+				// Convert status format from UI to API format
+				const apiStatus = newStatus.toUpperCase() as 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED';
 
-					// Kiểm tra xem có AttendanceId không (record có tồn tại trong database)
-					if (currentRecord.AttendanceId) {
-						// Update existing record
-						const result = await adminUpdateAttendanceStatus(currentRecord.AttendanceId, apiStatus);
-						if (result.success) {
-							push('Đã cập nhật trạng thái điểm danh', 'success', 3000);
+				// Kiểm tra xem có AttendanceId không (record có tồn tại trong database)
+				if (currentRecord.AttendanceId) {
+					// Update existing record
+					const result = await adminUpdateAttendanceStatus(currentRecord.AttendanceId, apiStatus);
+					if (result.success) {
+						push('Đã cập nhật trạng thái điểm danh', 'success', 3000);
+					} else {
+						push(`Lỗi: ${result.message}`, 'error', 3000);
+						return;
+					}
+				} else {
+					// Create new attendance record (student was Absent, now Present/Late)
+					if (newStatus !== 'Absent' && currentRecord.StudentId) {
+						// Get subjectId from subjects array using selectedSubject (code)
+						const subjectObj = subjects.find(s => s.code === selectedSubject);
+						if (!subjectObj) {
+							push('Lỗi: Không tìm thấy thông tin môn học', 'error', 3000);
+							return;
+						}
+						
+						// Pass activeDate as sessionDate to support editing past/future dates
+						const result = await adminCreateAttendanceRecord(
+							currentRecord.StudentId,
+							subjectObj.subjectId, // Use actual subjectId from database
+							apiStatus as 'PRESENT' | 'LATE',
+							activeDate // Pass the current viewing date (YYYY-MM-DD)
+						);
+						
+						if (result.success && result.attendanceId) {
+							// Update local state với AttendanceId mới
+							setRecords(prev => prev.map(r => r.id === recordId ? {
+								...r,
+								AttendanceId: result.attendanceId,
+								status: newStatus,
+								checkInStatus: 'success'
+							} : r));
+							
+							push('Đã tạo bản ghi điểm danh mới', 'success', 3000);
 						} else {
 							push(`Lỗi: ${result.message}`, 'error', 3000);
 							return;
 						}
-					} else {
-						// Create new attendance record (student was Absent, now Present/Late)
-						if (editingStatus !== 'Absent' && currentRecord.StudentId) {
-							// Get subjectId from subjects array using selectedSubject (code)
-							const subjectObj = subjects.find(s => s.code === selectedSubject);
-							if (!subjectObj) {
-								push('Lỗi: Không tìm thấy thông tin môn học', 'error', 3000);
-								return;
-							}
-							
-							// Pass activeDate as sessionDate to support editing past/future dates
-							const result = await adminCreateAttendanceRecord(
-								currentRecord.StudentId,
-								subjectObj.subjectId, // Use actual subjectId from database
-								apiStatus as 'PRESENT' | 'LATE',
-								activeDate // Pass the current viewing date (YYYY-MM-DD)
-							);
-							
-							if (result.success && result.attendanceId) {
-								// Update local state với AttendanceId mới
-								setRecords(prev => prev.map(r => r.id === editingRecordId ? {
-									...r,
-									AttendanceId: result.attendanceId,
-									status: editingStatus,
-									checkInStatus: 'success'
-								} : r));
-								
-								push('Đã tạo bản ghi điểm danh mới', 'success', 3000);
-							} else {
-								push(`Lỗi: ${result.message}`, 'error', 3000);
-								return;
-							}
-						}
 					}
-					
-					// Update local state for existing records
-					setRecords(prev => prev.map(r => r.id === editingRecordId ? {
-						...r,
-						status: editingStatus,
-						checkInStatus: editingStatus === 'Absent' ? 'failed' : 'success'
-					} : r));
-					
-				} catch (error) {
-					console.error('Error updating attendance:', error);
-					push('Lỗi khi cập nhật điểm danh', 'error', 3000);
-				} finally {
-					setEditingRecordId(null);
 				}
-			};
-
-			// Scroll to top handler for sidebar logo
+				
+				// Update local state for existing records
+				setRecords(prev => prev.map(r => r.id === recordId ? {
+					...r,
+					status: newStatus,
+					checkInStatus: newStatus === 'Absent' ? 'failed' : 'success'
+				} : r));
+				
+			} catch (error) {
+				console.error('Error updating attendance:', error);
+				push('Lỗi khi cập nhật điểm danh', 'error', 3000);
+			}
+		};			// Scroll to top handler for sidebar logo
 			const scrollToTop = () => {
 				window.scrollTo({ top: 0, behavior: 'smooth' });
 			};
@@ -1303,12 +1289,7 @@ useEffect(() => {
 																		checked={r.status === 'Present'}
 																		onChange={async (e) => {
 																			if (!e.target.checked) return;
-																			setEditingRecordId(r.id);
-																			setEditingStatus('Present');
-																			// Auto-save on change
-																			setTimeout(async () => {
-																				await saveEdit();
-																			}, 0);
+																			await saveEdit(r.id, 'Present');
 																		}}
 																		className="radio-present"
 																		aria-label="Present"
@@ -1324,12 +1305,7 @@ useEffect(() => {
 																		checked={r.status === 'Late'}
 																		onChange={async (e) => {
 																			if (!e.target.checked) return;
-																			setEditingRecordId(r.id);
-																			setEditingStatus('Late');
-																			// Auto-save on change
-																			setTimeout(async () => {
-																				await saveEdit();
-																			}, 0);
+																			await saveEdit(r.id, 'Late');
 																		}}
 																		className="radio-late"
 																		aria-label="Late"
@@ -1345,12 +1321,7 @@ useEffect(() => {
 																		checked={r.status === 'Absent'}
 																		onChange={async (e) => {
 																			if (!e.target.checked) return;
-																			setEditingRecordId(r.id);
-																			setEditingStatus('Absent');
-																			// Auto-save on change
-																			setTimeout(async () => {
-																				await saveEdit();
-																			}, 0);
+																			await saveEdit(r.id, 'Absent');
 																		}}
 																		className="radio-absent"
 																		aria-label="Absent"
