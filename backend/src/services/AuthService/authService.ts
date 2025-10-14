@@ -437,7 +437,7 @@ export class AuthService {
             try {
                 // Check if student exists
                 const [students] = await connection.query<RowDataPacket[]>(
-                    'SELECT StudentId, Name FROM studentaccount WHERE StudentId = ?',
+                    'SELECT studentId, name FROM studentaccount WHERE studentId = ?',
                     [studentId]
                 );
                 
@@ -449,14 +449,14 @@ export class AuthService {
                     };
                 }
                 
-                const studentName = students[0].Name;
+                const studentName = students[0].name;
                 
                 // Hash the new password
                 const hashedPassword = await PasswordUtils.hashPassword(newPassword);
                 
                 // Update password in database
                 const [result] = await connection.query<ResultSetHeader>(
-                    'UPDATE studentaccount SET Password = ? WHERE StudentId = ?',
+                    'UPDATE studentaccount SET password = ? WHERE studentId = ?',
                     [hashedPassword, studentId]
                 );
                 

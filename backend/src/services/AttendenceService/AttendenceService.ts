@@ -838,7 +838,7 @@ export class AttendanceService {
             
             // Update status
             await db.execute(`
-                UPDATE Attendance 
+                UPDATE attendance 
                 SET status = ? 
                 WHERE AttendanceId = ?
             `, [newStatus, attendanceId]);
@@ -906,7 +906,7 @@ export class AttendanceService {
 
             // Insert new attendance
             await db.execute(`
-                INSERT INTO Attendance (AttendanceId, studentId, subjectId, sessionId, enrollmentId, status) 
+                INSERT INTO attendance (AttendanceId, studentId, subjectId, sessionId, enrollmentId, status) 
                 VALUES (?, ?, ?, ?, ?, ?)
             `, [attendanceId, studentId, subjectId, sessionId, enrollmentId, status]);
             
