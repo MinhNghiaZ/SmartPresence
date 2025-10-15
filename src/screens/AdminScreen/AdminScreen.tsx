@@ -1,11 +1,14 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, lazy, Suspense } from 'react';
 import { useNotifications } from '../../context/NotificationContext';
 import './AdminScreen.css';
 import { authService } from '../../Services/AuthService';
-import AdminHistory from '../../components/AdminHistory/AdminHistory';
-import StudentsList from '../../components/StudentsList/StudentsList';
-import CreateAccountModal from '../../components/CreateAccountModal/CreateAccountModal';
-import ResetPasswordModal from '../../components/ResetPasswordModal/ResetPasswordModal';
+
+// Lazy load các component nặng chỉ khi cần thiết
+const AdminHistory = lazy(() => import('../../components/AdminHistory/AdminHistory'));
+const StudentsList = lazy(() => import('../../components/StudentsList/StudentsList'));
+const CreateAccountModal = lazy(() => import('../../components/CreateAccountModal/CreateAccountModal'));
+const ResetPasswordModal = lazy(() => import('../../components/ResetPasswordModal/ResetPasswordModal'));
+
 // import { logger } from '../../utils/logger'; // Unused for now
 
 // Interface cho dữ liệu thực từ database
@@ -168,18 +171,8 @@ const fetchSubjectAttendanceStats = async (subjectId: string) => {
 	}
 };
 
-
-
-const fetchRealConfidence = async (attendanceId: string): Promise<number | null> => {
-	try {
-		const response = await fetch(`/api/attendance/${attendanceId}/confidence`);
-		const data = await response.json();
-		return data.success ? data.confidence : null;
-	} catch (error) {
-		console.error('Error fetching confidence:', error);
-		return null;
-	}
-};
+// ⚠️ fetchRealConfidence function REMOVED - confidence is now included in API response (joined in backend)
+// This eliminates 50+ individual API calls on page load!
 
 // Function để convert AttendanceRecord thành DemoRecord format cho UI
 // const convertAttendanceToDemo = (
@@ -300,14 +293,10 @@ const generateCompleteAttendanceListWithRealData = async (
 				'ABSENT': 'Absent'
 			};
 			
-			// ✅ Fetch real confidence from captured_images table
-			let realConfidence = '0.00%';
-			try {
-				const confidence = await fetchRealConfidence(attendanceRecord.AttendanceId);
-				realConfidence = confidence !== null ? `${confidence.toFixed(2)}%` : '0.00%';
-			} catch (error) {
-				console.error('Error loading confidence:', error);
-			}
+			// ✅ Use confidence từ API response (đã JOIN trong backend) - KHÔNG CẦN fetch riêng lẻ nữa
+			const realConfidence = attendanceRecord.confidence !== undefined && attendanceRecord.confidence !== null 
+				? `${Number(attendanceRecord.confidence).toFixed(2)}%` 
+				: '0.00%';
 			
 			completeList.push({
 				id: attendanceRecord.AttendanceId,
@@ -1164,7 +1153,13 @@ useEffect(() => {
 							{activeView === 'history' ? (
 								/* Full width for AdminHistory */
 								<div className="admin-full-width">
-									<AdminHistory />
+									<Suspense fallback={
+										<div style={{textAlign: 'center', padding: '2rem'}}>
+											<p>⏳ Đang tải lịch sử ảnh...</p>
+										</div>
+									}>
+										<AdminHistory />
+									</Suspense>
 								</div>
 							) : (
 								/* Normal grid layout for Attendance Dashboard */
@@ -1398,28 +1393,40 @@ useEffect(() => {
 			</div>
 
 			{/* Students List Modal */}
-			<StudentsList
-				isOpen={showStudentsList}
-				onClose={() => setShowStudentsList(false)}
-				selectedSubject={selectedSubject}
-				subjects={subjects}
-				onSubjectChange={setSelectedSubject}
-			/>
+			{showStudentsList && (
+				<Suspense fallback={<div className="loading-overlay">⏳ Đang tải...</div>}>
+					<StudentsList
+						isOpen={showStudentsList}
+						onClose={() => setShowStudentsList(false)}
+						selectedSubject={selectedSubject}
+						subjects={subjects}
+						onSubjectChange={setSelectedSubject}
+					/>
+				</Suspense>
+			)}
 
 			{/* Create Account Modal */}
-			<CreateAccountModal
-				isOpen={showCreateAccountModal}
-				onClose={() => setShowCreateAccountModal(false)}
-				onCreateAccount={adminCreateStudentAccount}
-				subjects={subjects}
-			/>
+			{showCreateAccountModal && (
+				<Suspense fallback={<div className="loading-overlay">⏳ Đang tải...</div>}>
+					<CreateAccountModal
+						isOpen={showCreateAccountModal}
+						onClose={() => setShowCreateAccountModal(false)}
+						onCreateAccount={adminCreateStudentAccount}
+						subjects={subjects}
+					/>
+				</Suspense>
+			)}
 
 			{/* Reset Password Modal */}
-			<ResetPasswordModal
-				isOpen={showResetPasswordModal}
-				onClose={() => setShowResetPasswordModal(false)}
-				onResetPassword={adminResetStudentPassword}
-			/>
+			{showResetPasswordModal && (
+				<Suspense fallback={<div className="loading-overlay">⏳ Đang tải...</div>}>
+					<ResetPasswordModal
+						isOpen={showResetPasswordModal}
+						onClose={() => setShowResetPasswordModal(false)}
+						onResetPassword={adminResetStudentPassword}
+					/>
+				</Suspense>
+			)}
 		</div>
 	);
 };

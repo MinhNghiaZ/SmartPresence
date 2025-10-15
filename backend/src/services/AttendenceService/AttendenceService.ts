@@ -967,6 +967,7 @@ export class AttendanceService {
         try {
             console.log(`🔍 AttendanceService.getAttendanceRecordsByDate for: ${date}`);
             
+            // ✅ JOIN với captured_images để lấy confidence luôn - giảm từ 50+ requests xuống còn 1 request
             const [rows] = await db.execute(`
                 SELECT 
                     a.AttendanceId,
@@ -975,15 +976,17 @@ export class AttendanceService {
                     a.status,
                     a.checked_in_at,
                     a.imageId,
-                    CASE WHEN a.imageId IS NOT NULL THEN true ELSE false END as hasImage
+                    CASE WHEN a.imageId IS NOT NULL THEN 1 ELSE 0 END as hasImage,
+                    COALESCE(ci.confidence, 0) as confidence
                 FROM attendance a 
+                LEFT JOIN captured_images ci ON a.AttendanceId = ci.attendanceId
                 WHERE DATE(a.checked_in_at) = ?
                 ORDER BY a.checked_in_at DESC
             `, [date]);
             
             const records = rows as AttendanceRecord[];
             
-            console.log(`✅ Found ${records.length} attendance records for ${date}`);
+            console.log(`✅ Found ${records.length} attendance records for ${date} (with confidence)`);
             
             return {
                 success: true,
