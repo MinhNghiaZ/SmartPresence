@@ -485,18 +485,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		): Promise<{ success: boolean; message: string }> => {
 			try {
 				const token = authService.getToken();
-				console.log('🚀 Frontend: Creating student account...');
-				console.log('📤 Request data:', {
-					studentId,
-					name,
-					email,
-					password: password ? `[${password.length} chars]` : 'undefined',
-					subjectIds,
-					token: token ? 'Present' : 'Missing'
-				});
-				
 				const requestBody = { studentId, name, email, password, subjectIds };
-				console.log('📤 Request body:', JSON.stringify(requestBody, null, 2));
 				
 				const response = await fetch('/api/auth/admin/create-student', {
 					method: 'POST',
@@ -507,15 +496,10 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 					body: JSON.stringify(requestBody)
 				});
 				
-				console.log('📥 Response status:', response.status);
-				console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
-				
 				const result = await response.json();
-				console.log('📥 Response data:', result);
-				
 				return result;
 			} catch (error) {
-				console.error('❌ Frontend error creating student account:', error);
+				console.error('Error creating student account:', error);
 				return { success: false, message: 'Network error' };
 			}
 		};
@@ -527,12 +511,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		): Promise<{ success: boolean; message: string }> => {
 			try {
 				const token = authService.getToken();
-				console.log('🔑 Frontend: Resetting student password...');
-				console.log('📤 Request data:', {
-					studentId,
-					newPassword: newPassword ? `[${newPassword.length} chars]` : 'undefined',
-					token: token ? 'Present' : 'Missing'
-				});
 				
 				const response = await fetch('/api/auth/admin/reset-password', {
 					method: 'POST',
@@ -543,13 +521,10 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 					body: JSON.stringify({ studentId, newPassword })
 				});
 				
-				console.log('📥 Response status:', response.status);
 				const result = await response.json();
-				console.log('📥 Response data:', result);
-				
 				return result;
 			} catch (error) {
-				console.error('❌ Frontend error resetting password:', error);
+				console.error('Error resetting password:', error);
 				return { success: false, message: 'Network error' };
 			}
 		};
@@ -1039,31 +1014,27 @@ useEffect(() => {
 												const dates = await fetchSessionDates(subjectObj.subjectId);
 												setSessionDates(dates);
 												
-												// 5. Reload subject attendance stats
+												// 5. Reload subject attendance stats (includes students data)
 												const stats = await fetchSubjectAttendanceStats(subjectObj.subjectId);
 												setSubjectAttendanceStats(stats);
 												
-												// 6. Reload absent students list
+												// 6. Extract absent students from stats (NO duplicate API call!)
 												try {
-													const response = await fetch(`/api/attendance/subject/${subjectObj.subjectId}/students-stats`);
-													const data = await response.json();
+													const students = stats.students || [];
+													const absentStudents = students
+														.filter((student: any) => student.absentEquivalent >= 3)
+														.map((student: any) => ({
+															userId: student.studentId,
+															userName: student.studentName,
+															days: student.absentEquivalent,
+															actualAbsent: student.absentDays,
+															lateDays: student.lateDays
+														}))
+														.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
 													
-													if (data.success && data.students) {
-														const absentStudents = data.students
-															.filter((student: any) => student.absentEquivalent >= 3)
-															.map((student: any) => ({
-																userId: student.studentId,
-																userName: student.studentName,
-																days: student.absentEquivalent,
-																actualAbsent: student.absentDays,
-																lateDays: student.lateDays
-															}))
-															.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
-														
-														setAbsentStudentsList(absentStudents);
-													}
+													setAbsentStudentsList(absentStudents);
 												} catch (error) {
-													console.error('Error reloading absent students:', error);
+													console.error('Error processing absent students:', error);
 													setAbsentStudentsList([]);
 												}
 											}
