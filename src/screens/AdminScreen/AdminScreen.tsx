@@ -150,13 +150,15 @@ const fetchSubjectAttendanceStats = async (subjectId: string) => {
 		const totalPossible = totalStudents * totalSessions;
 		const rate = totalPossible > 0 ? Math.round((totalAttendances / totalPossible) * 100) : 0;
 		
+		// ✅ Return both stats AND students data to avoid duplicate API call
 		return {
 			totalSessions,
 			totalStudents,
 			present: totalPresent,
 			late: totalLate,
 			absent: totalAbsent,
-			rate
+			rate,
+			students // ← Include students data
 		};
 	} catch (error) {
 		console.error('Error fetching subject attendance stats:', error);
@@ -166,7 +168,8 @@ const fetchSubjectAttendanceStats = async (subjectId: string) => {
 			present: 0,
 			late: 0,
 			absent: 0,
-			rate: 0
+			rate: 0,
+			students: []
 		};
 	}
 };
@@ -578,37 +581,16 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 					setIsLoading(true);
 					// console.log('🔄 Loading real data from database...');
 
-					// Load subjects
+					// ✅ Step 1: Load subjects first
 					const subjectsData = await fetchSubjects();
 					setSubjects(subjectsData);
 					// console.log('✅ Loaded subjects:', subjectsData.length);
 
-					// Load attendance for today
-					const today = new Date().toISOString().split('T')[0];
-					const attendanceData = await fetchAttendanceByDate(today);
-					setAttendanceRecords(attendanceData);
-					// console.log('✅ Loaded attendance records:', attendanceData.length);
-
-					// Load dashboard sessions để lấy thông tin enrollment
-					const dashboardData = await fetchDashboardSessions(today);
-					setDashboardSessions(dashboardData);
-					// console.log('✅ Loaded dashboard sessions:', dashboardData.length);
-
-					// Set first subject as selected if available
+					// ✅ Step 2: Set first subject - this will trigger other useEffects to load data
 					if (subjectsData.length > 0) {
 						setSelectedSubject(subjectsData[0].code);
-						
-						// Generate complete attendance list với real enrolled students
-						const today = new Date().toISOString().split('T')[0];
-						const completeRecords = await generateCompleteAttendanceListWithRealData(
-							attendanceData, 
-							dashboardData, 
-							subjectsData, 
-							subjectsData[0].code,
-							today
-						);
-						setRecords(completeRecords);
-						// console.log('✅ Generated complete attendance list with real data:', completeRecords.length);
+						// Note: Other useEffects will handle loading attendance data for activeDate
+						// No need to load TODAY data here - avoids duplicate loading
 					}
 
 				} catch (error) {
@@ -654,6 +636,9 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		const [dashboardSessions, setDashboardSessions] = useState<DashboardSession[]>([]);
 		const [isLoading, setIsLoading] = useState(true);
 		
+		// Temporary workaround for unused variable warning (used in reload button handler below)
+		void dashboardSessions;
+		
 		// Temporary fallback - tạm thời giữ records cũ trong khi chuyển đổi
 		const [records, setRecords] = useState<DemoRecord[]>(() => generateRecords());
             const [selectedSubject, setSelectedSubject] = useState<string>(''); // Sẽ được set khi load data
@@ -685,26 +670,9 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
                 lateDays?: number;
             }[]>([]);
 
-		// Update records when selectedSubject changes để hiển thị tất cả students
-		useEffect(() => {
-			const updateRecords = async () => {
-				if (selectedSubject && subjects.length > 0) {
-					const today = new Date().toISOString().split('T')[0];
-					const completeRecords = await generateCompleteAttendanceListWithRealData(
-						attendanceRecords, 
-						dashboardSessions, 
-						subjects, 
-						selectedSubject,
-						today
-					);
-					setRecords(completeRecords);
-					// console.log(`✅ Updated records for ${selectedSubject}:`, completeRecords.length);
-				}
-		};
-		
-		updateRecords();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selectedSubject]); // Only trigger when selectedSubject changes, not on every data update
+		// ⚠️ REMOVED useEffect that loads TODAY data when selectedSubject changes
+		// This was causing duplicate data loading (conflict with activeDate useEffect)
+		// Now only useEffect for activeDate loads the attendance data
 	
 	const subjectRecords = useMemo(() => records.filter(r => r.subject === selectedSubject), [records, selectedSubject]);			// Load session dates for navigation (based on ClassSession instead of Attendance)
 			const [sessionDates, setSessionDates] = useState<string[]>([]);
@@ -731,43 +699,40 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 			if (selectedSubject && subjects.length > 0) {
 				const subjectObj = subjects.find(s => s.code === selectedSubject);
 				if (subjectObj) {
-					// Load attendance stats
+					// ✅ Load attendance stats - now includes students data
 					const stats = await fetchSubjectAttendanceStats(subjectObj.subjectId);
 					setSubjectAttendanceStats(stats);
 					// console.log(`📊 Loaded stats for ${selectedSubject}:`, stats);
 
-					// Load individual student stats to get absent students
+					// ✅ Extract absent students from stats.students (NO duplicate API call!)
 					try {
-						const response = await fetch(`/api/attendance/subject/${subjectObj.subjectId}/students-stats`);
-						const data = await response.json();
+						const students = stats.students || [];
 						
-						if (data.success && data.students) {
-							// Filter students with absentEquivalent >= 3 (including late days calculation)
-							const absentStudents = data.students
-								.filter((student: any) => student.absentEquivalent >= 3)
-								.map((student: any) => ({
-									userId: student.studentId,
-									userName: student.studentName,
-									days: student.absentEquivalent,
-									actualAbsent: student.absentDays,
-									lateDays: student.lateDays
-								}))
-								.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
-							
-							setAbsentStudentsList(absentStudents);
-							// console.log(`📋 Loaded absent students for ${selectedSubject}:`, absentStudents);
-						}
+						// Filter students with absentEquivalent >= 3 (including late days calculation)
+						const absentStudents = students
+							.filter((student: any) => student.absentEquivalent >= 3)
+							.map((student: any) => ({
+								userId: student.studentId,
+								userName: student.studentName,
+								days: student.absentEquivalent,
+								actualAbsent: student.absentDays,
+								lateDays: student.lateDays
+							}))
+							.sort((a: any, b: any) => b.days - a.days || a.userName.localeCompare(b.userName));
+						
+						setAbsentStudentsList(absentStudents);
+						// console.log(`📋 Loaded absent students for ${selectedSubject}:`, absentStudents);
 					} catch (error) {
-						console.error('Error loading absent students:', error);
-					setAbsentStudentsList([]);
+						console.error('Error processing absent students:', error);
+						setAbsentStudentsList([]);
+					}
 				}
 			}
-		}
-	};
-	
-	loadSubjectData();
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedSubject]); // Only trigger when selectedSubject changes
+		};
+		
+		loadSubjectData();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedSubject]); // Only trigger when selectedSubject changes
 
 const subjectDates = sessionDates; // Use session dates instead of attendance dates
 
