@@ -10,7 +10,17 @@ export interface JWTPayload {
 }
 
 export class JWTUtils {
-    private static readonly SECRET = process.env.JWT_SECRET || 'default_secret_key';
+    // ⚠️ NO FALLBACK - JWT_SECRET must be set in environment variables
+    private static readonly SECRET = (() => {
+        if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'YOUR_SECURE_JWT_SECRET_HERE_REPLACE_THIS_VALUE') {
+            throw new Error(
+                '🔴 CRITICAL: JWT_SECRET is not set or using default value!\n' +
+                'Generate a secure secret with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"'
+            );
+        }
+        return process.env.JWT_SECRET;
+    })();
+    
     private static readonly EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
     //generate JWT token
