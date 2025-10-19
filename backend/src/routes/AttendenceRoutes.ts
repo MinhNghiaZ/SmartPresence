@@ -116,20 +116,20 @@ router.get('/records/:date', AttendanceController.getAttendanceRecordsByDate);
  */
 router.get('/dashboard/:date', authenticateToken, requireAdmin, AttendanceController.getDailyDashboard);
 
-// ===============================================
-// DEBUG ROUTES
-// ===============================================
+// ============================================================
+// DEBUG & DIAGNOSTIC ROUTES | ROUTES GỠ LỖI VÀ CHẨN ĐOÁN
+// ============================================================
 
 /**
  * @route GET /api/attendance/debug/schema
- * @desc Check database schema for debugging
+ * @desc Check database schema for debugging | Kiểm tra database schema để debug
  * @access Debug
  */
 router.get('/debug/schema', AttendanceController.debugSchema);
 
 /**
  * @route GET /api/attendance/debug/images
- * @desc Check captured_images table data
+ * @desc Check captured_images table data | Kiểm tra dữ liệu bảng captured_images
  * @access Debug
  */
 router.get('/debug/images', AttendanceController.debugImages);

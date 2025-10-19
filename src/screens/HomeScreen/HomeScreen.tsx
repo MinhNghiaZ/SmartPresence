@@ -20,7 +20,8 @@ interface HomeScreenProps {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const notify = useNotifications();
-  // State
+  
+  // State Management | Quản lý trạng thái
   const [isCheckingIn, setIsCheckingIn] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>('');
   const [showGPSGuide, setShowGPSGuide] = useState<boolean>(false);
@@ -35,19 +36,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const [availableSubjects, setAvailableSubjects] = useState<SubjectInfo[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState<boolean>(true);
   
-  // Refs
+  // References | Tham chiếu
   const faceRecognitionRef = useRef<FaceRecognitionRef | null>(null);
   const errorTimeoutRef = useRef<number | null>(null);
   
-  // Get current student from AuthService
   const currentUser = authService.getCurrentUser();
 
-  // Debug state changes - only in development
-  useEffect(() => {
-    logger.ui.debug('State changed', { showFaceModal, isRegisterMode, gpsStatus, isCheckingIn });
-  }, [showFaceModal, isRegisterMode, gpsStatus, isCheckingIn]);
-
-  // Check face registration status when component loads
+  // Check face registration status on component mount | Kiểm tra trạng thái đăng ký khuôn mặt khi component load
   useEffect(() => {
     const checkFaceRegistrationStatus = async () => {
       if (!currentUser) return;
@@ -66,23 +61,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     checkFaceRegistrationStatus();
   }, [currentUser?.id]);
 
-  // If no user is logged in, redirect to login (this should be handled by app routing)
+  // Redirect to login if no user is logged in | Chuyển hướng đến login nếu chưa đăng nhập
   useEffect(() => {
     if (!currentUser) {
       logger.auth.warn('No user logged in, should redirect to login');
-      // In a real app, this would trigger a redirect to login
       if (onLogout) {
         onLogout();
       }
     }
   }, [currentUser, onLogout]);
 
-  // Get user's first registered face image
   const getUserRegisteredFaceImage = (): string => {
     if (!currentUser) return '';
     
     try {
-      // Note: User avatar functionality now requires backend API call
       logger.api.info('Avatar functionality moved to backend. Consider implementing API call.');
       return '';
     } catch (error) {
@@ -91,7 +83,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     }
   };
 
-  // Load user avatar on component mount
+  // Load user avatar and listen for face capture events | Tải avatar và lắng nghe sự kiện chụp ảnh
   useEffect(() => {
     const loadUserAvatar = () => {
       const faceImage = getUserRegisteredFaceImage();
@@ -100,7 +92,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
     loadUserAvatar();
 
-    // Listen for new face captures
     const handleNewFaceCapture = () => {
       loadUserAvatar();
     };
@@ -112,9 +103,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     };
   }, [currentUser?.id]);
 
-  // Utils removed - isLateCheckIn logic now handled by backend
-
-  // Load student subjects from backend
+  // Load student subjects from backend | Tải danh sách môn học của sinh viên
   useEffect(() => {
     const loadStudentSubjects = async () => {
       if (!currentUser) return;
@@ -122,8 +111,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       try {
         setIsLoadingSubjects(true);
         logger.api.debug('Loading student subjects', { userId: currentUser.id });
-        
-        // Retry logic for token availability
+
         let retries = 3;
         let subjects;
         
@@ -137,7 +125,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           
           try {
             subjects = await subjectService.getStudentSubjectsFormatted(currentUser.id);
-            break; // Success, exit retry loop
+            break;
           } catch (error) {
             logger.api.warn(`Error loading subjects, retrying... (${retries} retries left)`, error);
             retries--;
@@ -168,18 +156,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     };
 
     loadStudentSubjects();
-  }, [currentUser]); // Removed 'notify' from dependencies as it's memoized
+  }, [currentUser]);
 
   const [selectedSubject, setSelectedSubject] = useState<SubjectInfo | null>(null);
 
-  // Set default selected subject when available subjects are loaded
+  // Auto-select first subject when subjects are loaded | Tự động chọn môn học đầu tiên khi load xong
   useEffect(() => {
     if (availableSubjects.length > 0 && !selectedSubject) {
       setSelectedSubject(availableSubjects[0]);
     }
   }, [availableSubjects, selectedSubject]);
 
-  // Load attendance history from backend
+  // Load attendance history from backend | Tải lịch sử điểm danh từ backend
   useEffect(() => {
     const loadAttendanceHistory = async () => {
       if (!currentUser) return;
@@ -187,16 +175,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       try {
         logger.attendance.debug('Loading attendance history', { userId: currentUser.id });
         
-        // ✅ USE SERVICE METHOD
         const historyData = await attendanceService.getSimpleHistory(currentUser.id);
         
         if (historyData.success && historyData.records.length > 0) {
-          // Transform simple records to HomeScreen format
           const transformedRecords: HomeAttendanceRecord[] = historyData.records.map((record: any) => ({
             id: record.AttendanceId,
-            subject: record.subjectId, // Will show subject ID for now
+            subject: record.subjectId,
             timestamp: new Date(record.checked_in_at).toLocaleString('vi-VN'),
-            location: '', // Simple history doesn't include location
+            location: '',
             status: record.status as 'Present' | 'Late' | 'Absent'
           }));
             
@@ -206,14 +192,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         
       } catch (error) {
         logger.attendance.error('Error loading attendance history', error);
-        // Don't show error to user, just use local storage fallback
       }
     };
 
     loadAttendanceHistory();
   }, [currentUser]);
 
-  // Cleanup timeouts khi component unmount
+  // Cleanup on component unmount | Dọn dẹp khi component unmount
   useEffect(() => {
     return () => {
       if (errorTimeoutRef.current) {

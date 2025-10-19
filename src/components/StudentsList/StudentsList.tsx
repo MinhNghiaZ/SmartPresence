@@ -40,16 +40,15 @@ const StudentsList: React.FC<StudentsListProps> = ({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showScrollHint, setShowScrollHint] = useState(false);
 
-  // Update local subject khi selectedSubject thay đổi từ bên ngoài
+  // Sync local subject state with parent | Đồng bộ trạng thái môn học với component cha
   useEffect(() => {
     setCurrentSubject(selectedSubject);
   }, [selectedSubject]);
 
-  // Lock body scroll when modal is open (for mobile)
+  // Lock body scroll when modal is open | Khóa cuộn trang khi modal mở
   useEffect(() => {
     if (isOpen) {
       document.body.classList.add('modal-open');
-      // Prevent scroll on iOS
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
@@ -68,7 +67,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
     };
   }, [isOpen]);
 
-  // Show scroll hint on mobile when table is loaded
+  // Show scroll hint on mobile | Hiển thị gợi ý cuộn trên mobile
   useEffect(() => {
     if (isOpen && studentsStats.length > 0 && window.innerWidth <= 768) {
       setShowScrollHint(true);
@@ -79,7 +78,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
     }
   }, [isOpen, studentsStats]);
 
-  // Function để xóa face embedding của sinh viên
+  // Delete face embedding for a student | Xóa thông tin khuôn mặt của sinh viên
   const deleteFaceEmbedding = async (studentId: string) => {
     if (!window.confirm(`Bạn có chắc muốn xóa thông tin khuôn mặt của sinh viên ${studentId}?`)) {
       return;
@@ -88,9 +87,8 @@ const StudentsList: React.FC<StudentsListProps> = ({
     try {
       setDeletingFaceId(studentId);
 
-      // Get admin info from localStorage
       const adminInfo = localStorage.getItem('user');
-      let adminId = 'admin'; // default fallback
+      let adminId = 'admin';
 
       if (adminInfo) {
         try {
@@ -116,13 +114,12 @@ const StudentsList: React.FC<StudentsListProps> = ({
     }
   };
 
-  // Function để fetch attendance stats cho một môn học
+  // Fetch attendance statistics for a subject | Lấy thống kê điểm danh cho một môn học
   const fetchSubjectAttendanceStats = async (subjectCode: string) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Tìm subjectId từ subjectCode
       const subject = subjects.find(s => s.code === subjectCode);
       if (!subject) {
         throw new Error(`Không tìm thấy môn học: ${subjectCode}`);
@@ -144,7 +141,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
     }
   };
 
-  // Load dữ liệu khi modal mở hoặc chuyển môn học
+  // Load data when modal opens or subject changes | Tải dữ liệu khi modal mở hoặc đổi môn học
   useEffect(() => {
     if (isOpen && currentSubject && subjects.length > 0) {
       fetchSubjectAttendanceStats(currentSubject);

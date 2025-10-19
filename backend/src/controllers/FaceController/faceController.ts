@@ -177,8 +177,8 @@ export class FaceController {
                 });
             }
 
-            // TODO: Add admin authentication check here
-            // For now, just validate adminId format
+            // Admin authentication is handled at route level via jwtMiddleware
+            // Validate adminId format | Kiểm tra định dạng adminId
             if (typeof adminId !== 'string' || adminId.length < 3) {
                 return res.status(400).json({
                     success: false,
@@ -211,12 +211,11 @@ export class FaceController {
 
     /**
      * GET /api/face/stats
-     * Admin-only: Get face registration statistics
+     * Admin-only: Get face registration statistics | Chỉ admin: Lấy thống kê đăng ký khuôn mặt
+     * Admin authentication is handled at route level via jwtMiddleware
      */
     static async getFaceStats(req: Request, res: Response) {
         try {
-            // TODO: Add admin authentication check here
-            
             const totalRegistered = await FaceRecognitionService.getRegisteredFaceCount();
             
             res.json({

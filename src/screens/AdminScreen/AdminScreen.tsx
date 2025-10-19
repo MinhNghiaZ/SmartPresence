@@ -12,7 +12,7 @@ const StudentsList = lazy(() => import('../../components/StudentsList/StudentsLi
 const CreateAccountModal = lazy(() => import('../../components/CreateAccountModal/CreateAccountModal'));
 const ResetPasswordModal = lazy(() => import('../../components/ResetPasswordModal/ResetPasswordModal'));
 
-// Function để fetch subjects từ database
+// Fetch all subjects from database | Lấy tất cả môn học từ database
 const fetchSubjects = async (): Promise<Subject[]> => {
 	try {
 		return await SubjectServiceClass.getAllSubjects();
@@ -22,7 +22,7 @@ const fetchSubjects = async (): Promise<Subject[]> => {
 	}
 };
 
-// Function để fetch attendance records theo ngày
+// Fetch attendance records by date | Lấy danh sách điểm danh theo ngày
 const fetchAttendanceByDate = async (date: string): Promise<AttendanceRecord[]> => {
 	try {
 		const result = await attendanceService.getAttendanceByDate(date);
@@ -33,7 +33,7 @@ const fetchAttendanceByDate = async (date: string): Promise<AttendanceRecord[]> 
 	}
 };
 
-// Interface cho dashboard session info
+// Dashboard session information | Thông tin phiên học cho dashboard
 interface DashboardSession {
 	sessionId: string;
 	subjectId: string;
@@ -46,7 +46,7 @@ interface DashboardSession {
 	end_time: string;
 }
 
-// Function để fetch dashboard sessions
+// Fetch dashboard sessions by date | Lấy thông tin các phiên học theo ngày
 const fetchDashboardSessions = async (date: string): Promise<DashboardSession[]> => {
 	try {
 		const result = await attendanceService.getDailyDashboard(date);
@@ -57,14 +57,14 @@ const fetchDashboardSessions = async (date: string): Promise<DashboardSession[]>
 	}
 };
 
-// Interface cho enrolled student từ API
+// Enrolled student data from API | Dữ liệu sinh viên đã đăng ký từ API
 interface EnrolledStudent {
 	studentId: string;
 	studentName: string;
 	email: string;
 }
 
-// Function để lấy session dates cho navigation
+// Fetch session dates for navigation | Lấy danh sách ngày có phiên học để điều hướng
 const fetchSessionDates = async (subjectId: string): Promise<string[]> => {
 	try {
 		return await attendanceService.getSessionDates(subjectId);
@@ -74,7 +74,7 @@ const fetchSessionDates = async (subjectId: string): Promise<string[]> => {
 	}
 };
 
-// Function để fetch danh sách sinh viên enrolled trong subject
+// Fetch enrolled students in a subject | Lấy danh sách sinh viên đã đăng ký môn học
 const fetchEnrolledStudents = async (subjectId: string): Promise<EnrolledStudent[]> => {
 	try {
 		return await SubjectServiceClass.getEnrolledStudents(subjectId);
@@ -84,12 +84,12 @@ const fetchEnrolledStudents = async (subjectId: string): Promise<EnrolledStudent
 	}
 };
 
-// Function để fetch thống kê attendance cho toàn bộ môn học
+// Fetch attendance statistics for entire subject | Lấy thống kê điểm danh cho toàn bộ môn học
 const fetchSubjectAttendanceStats = async (subjectId: string) => {
 	try {
 		const data = await attendanceService.getSubjectAttendanceStats(subjectId);
 
-		// Tính tổng từ data của tất cả sinh viên
+		// Calculate totals from all student data | Tính tổng từ dữ liệu của tất cả sinh viên
 		const students = data.students || [];
 		const totalSessions = data.totalSessions || 0;
 		const totalStudents = students.length;
@@ -132,48 +132,8 @@ const fetchSubjectAttendanceStats = async (subjectId: string) => {
 	}
 };
 
-// ⚠️ fetchRealConfidence function REMOVED - confidence is now included in API response (joined in backend)
-// This eliminates 50+ individual API calls on page load!
-
-// Function để convert AttendanceRecord thành DemoRecord format cho UI
-// const convertAttendanceToDemo = (
-// 	attendanceRecords: AttendanceRecord[], 
-// 	subjects: Subject[]
-// ): DemoRecord[] => {
-// 	return attendanceRecords.map(record => {
-// 		// Tìm subject name từ subjectId
-// 		const subject = subjects.find(s => s.subjectId === record.subjectId);
-// 		const subjectDisplay = subject ? subject.code : record.subjectId;
-
-// 		// Convert status từ database format sang UI format
-// 		const statusMap: { [key: string]: DemoRecord['status'] } = {
-// 			'PRESENT': 'Present',
-// 			'LATE': 'Late', 
-// 			'ABSENT': 'Absent'
-// 		};
-
-// 		// Extract time từ timestamp
-// 		const checkInDate = new Date(record.checked_in_at);
-// 		const timeStr = checkInDate.toLocaleTimeString('en-GB', { 
-// 			hour: '2-digit', 
-// 			minute: '2-digit' 
-// 		});
-
-// 		return {
-// 			id: record.AttendanceId,
-// 			userId: record.studentId,
-// 			userName: record.studentName,
-// 			subject: subjectDisplay,
-// 			time: timeStr,
-// 			date: checkInDate.toISOString().split('T')[0], // YYYY-MM-DD
-// 			status: statusMap[record.status] || 'Absent',
-// 			confidence: record.confidence ? `${record.confidence}%` : '95.00%',
-// 			checkInStatus: record.hasImage ? 'success' : 'failed'
-// 		};
-// 	});
-// };
-
-// Function để tạo complete attendance list với real enrolled students
+// Generate complete attendance list with real enrolled students data
+// Tạo danh sách điểm danh đầy đủ với dữ liệu sinh viên thực tế
 const generateCompleteAttendanceListWithRealData = async (
 	attendanceRecords: AttendanceRecord[],
 	_dashboardSessions: DashboardSession[],
@@ -379,8 +339,6 @@ function generateRecords(): DemoRecord[] {
 	return records;
 }
 
-// NOTE: We keep records in component state now so admin can edit attendance.
-
 const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 	const currentUser = authService.getCurrentUser();
 	const { push } = useNotifications();
@@ -476,11 +434,10 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				setSubjects(subjectsData);
 				// console.log('✅ Loaded subjects:', subjectsData.length);
 
-				// ✅ Step 2: Set first subject - this will trigger other useEffects to load data
+				// Set first subject - other useEffects will handle loading data
+				// Chọn môn học đầu tiên - các useEffect khác sẽ xử lý load dữ liệu
 				if (subjectsData.length > 0) {
 					setSelectedSubject(subjectsData[0].code);
-					// Note: Other useEffects will handle loading attendance data for activeDate
-					// No need to load TODAY data here - avoids duplicate loading
 				}
 
 			} catch (error) {
@@ -674,12 +631,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		return `Ngày ${day}/${month}/${year}`;
 	};
 
-	// NOTE: sessionDates is sorted DESC (newest to oldest) from backend
-	// Index 0 = newest date, Index max = oldest date
-	// Button < : increase index → go to older date
-	// Button > : decrease index → go to newer date
+	// sessionDates is sorted DESC (newest to oldest) from backend
+	// sessionDates được sắp xếp giảm dần (mới nhất → cũ nhất) từ backend
+	// Index 0 = newest date | ngày mới nhất, Index max = oldest date | ngày cũ nhất
+	// Button < : increase index → older date | tăng index → ngày cũ hơn
+	// Button > : decrease index → newer date | giảm index → ngày mới hơn
 
-	// Load attendance data when activeDate changes
+	// Load attendance data when activeDate changes | Tải dữ liệu điểm danh khi ngày thay đổi
 	useEffect(() => {
 		const loadAttendanceForDate = async () => {
 			if (!activeDate || !selectedSubject || !subjects.length) {
@@ -752,9 +710,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		return { total, present, late, absent, rate, uniqueStudents };
 	}, [subjectRecords, activeDate]);
 
-	// Note: Removed weekStats as it's no longer needed
-
-	// Students absent on 3 or more days for selected subject (using API data)
+	// Students absent on 3 or more days for selected subject | Sinh viên vắng 3 ngày trở lên
 	const absentMoreThan2Days = useMemo(() => {
 		return absentStudentsList.filter(student => student.days >= 3);
 	}, [absentStudentsList]);

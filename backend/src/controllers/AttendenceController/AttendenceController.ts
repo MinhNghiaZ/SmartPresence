@@ -234,9 +234,8 @@ export class AttendanceController {
                 });
             }
             
-            // TODO: Add admin authorization check here
-            
-            // ✅ Cancel attendance (implement in service)
+            // Admin authorization is handled at route level via jwtMiddleware
+            // Cancel attendance record | Hủy bản ghi điểm danh
             const result = await AttendanceService.cancelAttendance(attendanceId, reason);
             
             return res.json(result);
