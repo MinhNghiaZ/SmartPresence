@@ -777,23 +777,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 	useEffect(() => {
 		const loadAttendanceForDate = async () => {
 			if (!activeDate || !selectedSubject || !subjects.length) {
-				// console.log('⏭️ Skipping load - missing requirements:', { activeDate, selectedSubject, subjectsLength: subjects.length });
 				return;
 			}
 
 			try {
 				setIsLoading(true);
-				// console.log(`🔄 Loading attendance data for date: ${activeDate}`);
 
 				// Fetch attendance data for the specific date
-				// console.log('📊 Fetching attendance records...');
 				const attendanceData = await fetchAttendanceByDate(activeDate);
-				// console.log(`✅ Loaded ${attendanceData.length} attendance records for ${activeDate}`);
 
 				// Fetch dashboard data for the specific date
-				// console.log('📈 Fetching dashboard sessions...');
 				const dashboardData = await fetchDashboardSessions(activeDate);
-				// console.log(`✅ Loaded ${dashboardData.length} dashboard sessions for ${activeDate}`);
 
 				// Find selected subject object
 				const subjectObj = subjects.find(s => s.code === selectedSubject);
@@ -802,21 +796,18 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 					return;
 				}
 
-				// console.log('🧮 Generating complete attendance list...');
 				// Generate complete attendance list for this date
 				const completeRecords = await generateCompleteAttendanceListWithRealData(
 					attendanceData,
 					dashboardData,
 					subjects,
 					selectedSubject,
-					activeDate // Pass the active date
+					activeDate
 				);
 				setRecords(completeRecords);
-				// console.log(`✅ Generated ${completeRecords.length} complete records for ${activeDate}`);
 
 			} catch (error) {
 				console.error(`❌ Error loading attendance for ${activeDate}:`, error);
-				console.error('Error details:', error);
 				push(`❌ Không thể tải dữ liệu cho ngày ${activeDate}: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
 			} finally {
 				setIsLoading(false);
@@ -879,6 +870,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 				const result = await adminUpdateAttendanceStatus(currentRecord.AttendanceId, apiStatus);
 				if (result.success) {
 					push('Đã cập nhật trạng thái điểm danh', 'success', 3000);
+					
+					// Update local state for existing records
+					setRecords(prev => prev.map(r => r.id === recordId ? {
+						...r,
+						status: newStatus,
+						checkInStatus: newStatus === 'Absent' ? 'failed' : 'success'
+					} : r));
 				} else {
 					push(`Lỗi: ${result.message}`, 'error', 3000);
 					return;
@@ -902,28 +900,23 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 					);
 
 					if (result.success && result.attendanceId) {
-						// Update local state với AttendanceId mới
+						push('Đã tạo bản ghi điểm danh mới', 'success', 3000);
+						
+						// ✅ CẬP NHẬT cả id và AttendanceId để sync với database
+						const newAttendanceId = result.attendanceId;
 						setRecords(prev => prev.map(r => r.id === recordId ? {
 							...r,
-							AttendanceId: result.attendanceId,
+							id: newAttendanceId, // ✅ Update id to match database
+							AttendanceId: newAttendanceId, // ✅ Add AttendanceId
 							status: newStatus,
 							checkInStatus: 'success'
 						} : r));
-
-						push('Đã tạo bản ghi điểm danh mới', 'success', 3000);
 					} else {
 						push(`Lỗi: ${result.message}`, 'error', 3000);
 						return;
 					}
 				}
 			}
-
-			// Update local state for existing records
-			setRecords(prev => prev.map(r => r.id === recordId ? {
-				...r,
-				status: newStatus,
-				checkInStatus: newStatus === 'Absent' ? 'failed' : 'success'
-			} : r));
 
 		} catch (error) {
 			console.error('Error updating attendance:', error);

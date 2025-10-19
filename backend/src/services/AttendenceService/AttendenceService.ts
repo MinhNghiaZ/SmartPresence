@@ -868,20 +868,6 @@ export class AttendanceService {
             // Use provided date or default to today
             const targetDate = sessionDate || new Date().toISOString().split('T')[0];
             
-            // Check if already exists - commented out for admin override capability
-            // const [existingRows] = await db.execute(`
-            //     SELECT AttendanceId FROM attendance 
-            //     WHERE studentId = ? AND subjectId = ? AND DATE(checked_in_at) = CURDATE()
-            // `, [studentId, subjectId]);
-            
-            // if ((existingRows as any[]).length > 0) {
-            //     return { success: false, message: 'Attendance record already exists for today' };
-            // }
-            
-            // Generate attendance ID
-            const timestamp = Date.now();
-            const attendanceId = `ATT_${timestamp}_${studentId}_ADMIN`;
-            
             // Get current active or completed session for the subject on the specific date
             // Admin can edit attendance for both active and completed sessions
             const [sessionRows] = await db.execute(`
@@ -911,11 +897,47 @@ export class AttendanceService {
             
             const enrollmentId = (enrollmentRows as any[])[0].enrollmentId;
 
-            // Insert new attendance
+            // ✅ Check if attendance record already exists for this student, subject, and date
+            const [existingRows] = await db.execute(`
+                SELECT AttendanceId FROM attendance 
+                WHERE studentId = ? 
+                AND subjectId = ? 
+                AND sessionId = ?
+                LIMIT 1
+            `, [studentId, subjectId, sessionId]);
+            
+            if ((existingRows as any[]).length > 0) {
+                // Record already exists - UPDATE instead of INSERT
+                const existingAttendanceId = (existingRows as any[])[0].AttendanceId;
+                console.log(`🔄 Updating existing attendance record: ${existingAttendanceId}`);
+                
+                await db.execute(`
+                    UPDATE attendance 
+                    SET status = ? 
+                    WHERE AttendanceId = ?
+                `, [status, existingAttendanceId]);
+                
+                console.log(`✅ Updated existing attendance record: ${existingAttendanceId} → ${status}`);
+                return { 
+                    success: true, 
+                    message: 'Attendance record updated successfully',
+                    attendanceId: existingAttendanceId
+                };
+            }
+            
+            // Generate attendance ID for new record
+            const timestamp = Date.now();
+            const attendanceId = `ATT_${timestamp}_${studentId}_ADMIN`;
+            
+            // ✅ Create checked_in_at timestamp based on target date (not current time)
+            // This ensures the record appears when querying by date
+            const checkedInAt = `${targetDate} ${new Date().toTimeString().split(' ')[0]}`;
+
+            // Insert new attendance with checked_in_at set to target date
             await db.execute(`
-                INSERT INTO attendance (AttendanceId, studentId, subjectId, sessionId, enrollmentId, status) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            `, [attendanceId, studentId, subjectId, sessionId, enrollmentId, status]);
+                INSERT INTO attendance (AttendanceId, studentId, subjectId, sessionId, enrollmentId, status, checked_in_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [attendanceId, studentId, subjectId, sessionId, enrollmentId, status, checkedInAt]);
             
             console.log(`✅ Created new attendance record: ${attendanceId}`);
             return { 
