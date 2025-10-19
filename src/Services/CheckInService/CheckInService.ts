@@ -1,5 +1,5 @@
 import { GPSService } from '../GPSService/GpsService';
-import type { Location } from '../GPSService/GpsService';
+import type { Location, SubjectInfo } from '../../models';
 
 export interface CheckInResult {
   success: boolean;
@@ -21,16 +21,6 @@ export interface CheckInResult {
 export interface CheckInProgress {
   status: string;
   step: 'location' | 'verification' | 'processing' | 'complete' | 'error';
-}
-
-export interface SubjectInfo {
-  name: string;
-  code: string;
-  subjectId: string; // ✅ ADD: Required for backend GPS validation
-  time: string;
-  room: string;
-  instructor: string;
-  schedule?: string;
 }
 
 // Mobile detection utility

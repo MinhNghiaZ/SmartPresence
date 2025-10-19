@@ -9,43 +9,18 @@
  */
 
 import { GPSService } from '../GPSService/GpsService';
-import type { Location, LocationValidationResult } from '../GPSService/GpsService';
 import { faceRecognizeService } from '../FaceRecognizeService/FaceRecognizeService';
-import type { FaceRecognitionResult } from '../FaceRecognizeService/FaceRecognizeService';
 import { attendanceService } from '../AttendanceService/AttendanceService';
-import type { AttendanceCheckInRequest } from '../AttendanceService/AttendanceService';
 import { authService } from '../AuthService/AuthService';
-
-// Unified check-in request interface
-export interface CheckInRequest {
-    subjectId: string;
-    subjectCode?: string; // For display purposes
-    latitude: number;
-    longitude: number;
-    videoElement: HTMLVideoElement; // For face recognition
-    faceResult?: FaceRecognitionResult; // Optional: If face recognition already done
-}
-
-// Unified check-in result interface
-export interface CheckInResult {
-    success: boolean;
-    message: string;
-    steps: {
-        timeValidation: CheckInStepResult;
-        locationValidation: CheckInStepResult;
-        faceRecognition: CheckInStepResult;
-        attendanceRecord: CheckInStepResult;
-    };
-    attendanceId?: string;
-    timestamp?: string;
-    status?: string; // ✅ Add attendance status (PRESENT, LATE, etc.)
-}
-
-export interface CheckInStepResult {
-    success: boolean;
-    message: string;
-    data?: any;
-}
+import type {
+    Location,
+    LocationValidationResult,
+    FaceRecognitionResult,
+    AttendanceCheckInRequest,
+    CheckInRequest,
+    CheckInResult,
+    CheckInStepResult
+} from '../../models';
 
 export class UnifiedCheckInService {
     /**

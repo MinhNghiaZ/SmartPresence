@@ -1,30 +1,7 @@
 // Utility functions for capturing and managing face images
 
 import { logger } from './logger';
-
-export interface CapturedImage {
-  imageId: string;
-  studentId: string | null;
-  studentName?: string;
-  imageData: string; // base64 image data
-  confidence: number;
-  status: string;
-  subjectId?: string;
-  subjectName?: string;
-  capturedAt: string;
-  ipAddress?: string;
-}
-
-// Legacy interface for backward compatibility
-export interface LegacyCapturedImage {
-  id: string;
-  userId: string;
-  userName: string;
-  imageData: string;
-  timestamp: string;
-  confidence: number;
-  checkInStatus: 'success' | 'failed';
-}
+import type { CapturedImage, LegacyCapturedImage } from '../models';
 
 /**
  * Capture image from video element - now just captures but doesn't save (backend handles saving)
@@ -152,3 +129,6 @@ export const downloadLegacyCapturedImage = (image: LegacyCapturedImage): void =>
     logger.api.error('Error downloading image', error);
   }
 };
+
+// Re-export types for convenience
+export type { CapturedImage, LegacyCapturedImage } from '../models';

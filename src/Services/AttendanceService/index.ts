@@ -1,13 +1,16 @@
 // src/Services/AttendanceService/index.ts
 
+// Re-export types from models for backward compatibility
+export type {
+    AttendanceCheckInRequest,
+    AttendanceCheckInResponse,
+    AttendanceRecord,
+    AttendanceHistoryResponse,
+    AttendanceStats,
+    AttendanceStatsResponse,
+    HomeAttendanceRecord
+} from '../../models';
 export { 
     attendanceService as default,
-    attendanceService,
-    type AttendanceCheckInRequest,
-    type AttendanceCheckInResponse,
-    type AttendanceRecord,
-    type AttendanceHistoryResponse,
-    type AttendanceStats,
-    type AttendanceStatsResponse,
-    type HomeAttendanceRecord
+    attendanceService
 } from './AttendanceService';

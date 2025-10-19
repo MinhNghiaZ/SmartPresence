@@ -1,14 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
-
-export type NotificationType = 'info' | 'success' | 'error' | 'warning';
-
-export interface NotificationItem {
-  id: string;
-  message: string;
-  type: NotificationType;
-  createdAt: number;
-  ttl: number; // milliseconds
-}
+import type { NotificationType, NotificationItem } from '../models';
 
 interface NotificationContextValue {
   push: (message: string, type?: NotificationType, ttl?: number) => string;
@@ -100,3 +91,6 @@ export const NotificationProvider: React.FC<ProviderProps> = ({ children }) => {
     </NotificationContext.Provider>
   );
 };
+
+// Re-export types for convenience
+export type { NotificationType, NotificationItem } from '../models';
