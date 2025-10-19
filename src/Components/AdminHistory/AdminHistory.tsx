@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './AdminHistory.css';
-
+import { authService } from '../../Services/AuthService';
+import SubjectServiceClass from '../../Services/SubjectService';
 interface AttendanceImageRecord {
   imageId: string;
   studentId: string | null;
@@ -34,14 +35,21 @@ const AdminHistory: React.FC<AdminHistoryProps> = ({ onClose }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('ALL'); // 'ALL' or subjectId
   const API_BASE = '/api/storage';
   const containerRef = useRef<HTMLDivElement>(null);
-
+  
   // Function to load records from API
   const loadRecords = async () => {
     try {
       setLoading(true);
       setError('');
-      
-      const response = await fetch(`${API_BASE}/captured-images?limit=100`);
+
+      const token = authService.getToken();
+      const response = await fetch(`${API_BASE}/captured-images?limit=100`,{
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -67,15 +75,8 @@ const AdminHistory: React.FC<AdminHistoryProps> = ({ onClose }) => {
   // Function to load subjects from API
   const loadSubjects = async () => {
     try {
-      const response = await fetch('/api/subjects');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data.success) {
-        setSubjects(data.subjects);
-        console.log(`✅ Loaded ${data.subjects.length} subjects`);
-      }
+      const data = await SubjectServiceClass.getAllSubjects();
+      setSubjects(data);
     } catch (error) {
       console.error('Error loading subjects:', error);
     }

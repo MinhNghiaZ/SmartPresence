@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './StudentsList.css';
+import { authService } from '../../Services/AuthService';
 
 interface StudentStats {
   studentId: string;
@@ -26,10 +27,10 @@ interface StudentsListProps {
   onSubjectChange: (subjectCode: string) => void;
 }
 
-const StudentsList: React.FC<StudentsListProps> = ({ 
-  isOpen, 
-  onClose, 
-  selectedSubject, 
+const StudentsList: React.FC<StudentsListProps> = ({
+  isOpen,
+  onClose,
+  selectedSubject,
   subjects = [],
   onSubjectChange
 }) => {
@@ -90,11 +91,11 @@ const StudentsList: React.FC<StudentsListProps> = ({
 
     try {
       setDeletingFaceId(studentId);
-      
+
       // Get admin info from localStorage
       const adminInfo = localStorage.getItem('user');
       let adminId = 'admin'; // default fallback
-      
+
       if (adminInfo) {
         try {
           const parsedAdmin = JSON.parse(adminInfo);
@@ -103,7 +104,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
           console.warn('Could not parse admin info, using default adminId');
         }
       }
-      
+
       const response = await fetch(`/api/face/delete-embedding/${studentId}`, {
         method: 'DELETE',
         headers: {
@@ -114,9 +115,9 @@ const StudentsList: React.FC<StudentsListProps> = ({
           adminId: adminId
         })
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         alert('✅ Đã xóa thông tin khuôn mặt thành công!');
       } else {
@@ -135,20 +136,27 @@ const StudentsList: React.FC<StudentsListProps> = ({
     try {
       setLoading(true);
       setError(null);
-      
+
       // Tìm subjectId từ subjectCode
       const subject = subjects.find(s => s.code === subjectCode);
       if (!subject) {
         throw new Error(`Không tìm thấy môn học: ${subjectCode}`);
       }
-      
-      const response = await fetch(`/api/attendance/subject/${subject.subjectId}/students-stats`);
+
+      const token = authService.getToken();
+      const response = await fetch(`/api/attendance/subject/${subject.subjectId}/students-stats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.message || 'Không thể tải dữ liệu');
       }
-      
+
       setStudentsStats(data.students || []);
     } catch (error) {
       console.error('Error fetching subject attendance stats:', error);
@@ -170,9 +178,9 @@ const StudentsList: React.FC<StudentsListProps> = ({
   // Lọc sinh viên theo tìm kiếm
   const filteredStudents = useMemo(() => {
     if (!searchTerm.trim()) return studentsStats;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    return studentsStats.filter(student => 
+    return studentsStats.filter(student =>
       student.studentName.toLowerCase().includes(searchLower) ||
       student.studentId.toLowerCase().includes(searchLower)
     );
@@ -188,15 +196,15 @@ const StudentsList: React.FC<StudentsListProps> = ({
   // Sort students
   const sortedStudents = useMemo(() => {
     const sorted = [...filteredStudents];
-    
+
     sorted.sort((a, b) => {
       let compareResult = 0;
-      
+
       if (sortBy === 'name') {
         // Sort by given name (TÊN - last word), then full name, then MSSV
         const givenNameA = extractGivenName(a.studentName);
         const givenNameB = extractGivenName(b.studentName);
-        
+
         compareResult = givenNameA.localeCompare(givenNameB, 'vi', { sensitivity: 'base' });
         if (compareResult === 0) {
           compareResult = a.studentName.localeCompare(b.studentName, 'vi', { sensitivity: 'base' });
@@ -209,10 +217,10 @@ const StudentsList: React.FC<StudentsListProps> = ({
       } else if (sortBy === 'rate') {
         compareResult = a.attendanceRate - b.attendanceRate;
       }
-      
+
       return sortOrder === 'asc' ? compareResult : -compareResult;
     });
-    
+
     return sorted;
   }, [filteredStudents, sortBy, sortOrder]);
 
@@ -255,12 +263,12 @@ const StudentsList: React.FC<StudentsListProps> = ({
             {loading && <p className="students-loading-text">🔄 Đang tải dữ liệu...</p>}
             {error && <p className="students-error-text">❌ {error}</p>}
           </div>
-          
+
           {/* Subject Selector */}
           <div className="subject-selector">
             <label className="subject-label">Chọn môn:</label>
-            <select 
-              value={currentSubject} 
+            <select
+              value={currentSubject}
               onChange={(e) => handleSubjectChange(e.target.value)}
               className="subject-select"
             >
@@ -271,7 +279,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
               ))}
             </select>
           </div>
-          
+
           <button className="close-btn" onClick={onClose}>
             ✕
           </button>
@@ -298,13 +306,13 @@ const StudentsList: React.FC<StudentsListProps> = ({
             <thead>
               <tr>
                 <th className="text-center">#</th>
-                <th 
+                <th
                   className="sortable text-center"
                   onClick={() => handleSort('id')}
                 >
                   MSSV {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
-                <th 
+                <th
                   className="sortable text-center"
                   onClick={() => handleSort('name')}
                 >
@@ -314,7 +322,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
                 <th className="text-center">Có mặt</th>
                 <th className="text-center">Trễ</th>
                 <th className="text-center">Vắng</th>
-                <th 
+                <th
                   className="sortable text-center"
                   onClick={() => handleSort('rate')}
                 >
@@ -356,7 +364,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
                       {student.attendanceRate}%
                     </td>
                     <td className="text-center">
-                      <button 
+                      <button
                         onClick={() => deleteFaceEmbedding(student.studentId)}
                         disabled={deletingFaceId === student.studentId}
                         className={`delete-face-btn ${deletingFaceId === student.studentId ? 'deleting' : ''}`}
@@ -381,7 +389,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
             <div className="stat-item">
               <span className="stat-label">Tỷ lệ điểm danh trung bình:</span>
               <span className="stat-value">
-                {studentsStats.length > 0 
+                {studentsStats.length > 0
                   ? Math.round(studentsStats.reduce((sum, s) => sum + s.attendanceRate, 0) / studentsStats.length)
                   : 0
                 }%

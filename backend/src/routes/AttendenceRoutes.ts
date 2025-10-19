@@ -2,15 +2,16 @@
 
 import { Router } from 'express';
 import { AttendanceController } from '../controllers/AttendenceController/AttendenceController';
+import { authenticateToken, requireAdmin, requireAuth, requireOwnershipOrAdmin } from '../middleware/jwtMiddleware/authmiddleware';
 
 const router = Router();
 
 /**
  * @route POST /api/attendance/check-in
  * @desc Process student check-in with GPS and face recognition
- * @access Public
+ * @access Authenticated users only
  */
-router.post('/check-in', AttendanceController.checkIn);
+router.post('/check-in', authenticateToken, requireAuth, AttendanceController.checkIn);
 
 /**
  * @route GET /api/attendance/history/:studentId
@@ -18,31 +19,31 @@ router.post('/check-in', AttendanceController.checkIn);
  * @query subjectId (optional) - filter by subject
  * @query page (optional) - page number (default: 1)
  * @query limit (optional) - items per page (default: 20, max: 100)
- * @access Public
+ * @access Student (own data) or Admin
  */
-router.get('/history/:studentId', AttendanceController.getAttendanceHistory);
+router.get('/history/:studentId', authenticateToken, requireOwnershipOrAdmin, AttendanceController.getAttendanceHistory);
 
 /**
  * @route GET /api/attendance/stats/:studentId
  * @desc Get attendance statistics for student
  * @query subjectId (optional) - filter by subject
- * @access Public
+ * @access Student (own data) or Admin
  */
-router.get('/stats/:studentId', AttendanceController.getAttendanceStats);
+router.get('/stats/:studentId', authenticateToken, requireOwnershipOrAdmin, AttendanceController.getAttendanceStats);
 
 /**
  * @route GET /api/attendance/today/:studentId
  * @desc Get today's attendance for student (all subjects)
- * @access Public
+ * @access Student (own data) or Admin
  */
-router.get('/today/:studentId', AttendanceController.getTodayAttendance);
+router.get('/today/:studentId', authenticateToken, requireOwnershipOrAdmin, AttendanceController.getTodayAttendance);
 
 /**
  * @route GET /api/attendance/subject/:subjectId/session-status
  * @desc Check if there's an active session for subject
- * @access Public
+ * @access Authenticated users only
  */
-router.get('/subject/:subjectId/session-status', AttendanceController.getSessionStatus);
+router.get('/subject/:subjectId/session-status', authenticateToken, requireAuth, AttendanceController.getSessionStatus);
 
 /**
  * @route DELETE /api/attendance/:attendanceId
@@ -50,7 +51,7 @@ router.get('/subject/:subjectId/session-status', AttendanceController.getSession
  * @body reason (optional) - reason for cancellation
  * @access Admin
  */
-router.delete('/:attendanceId', AttendanceController.cancelAttendance);
+router.delete('/:attendanceId', authenticateToken, requireAdmin, AttendanceController.cancelAttendance);
 
 // ===============================================
 // CLASS SESSION ROUTES
@@ -59,16 +60,16 @@ router.delete('/:attendanceId', AttendanceController.cancelAttendance);
 /**
  * @route GET /api/attendance/session/current/:subjectId
  * @desc Get current active session for a subject
- * @access Public
+ * @access Authenticated users only
  */
-router.get('/session/current/:subjectId', AttendanceController.getCurrentSession);
+router.get('/session/current/:subjectId', authenticateToken, requireAuth, AttendanceController.getCurrentSession);
 
 /**
  * @route GET /api/attendance/session/:sessionId/absent
  * @desc Get absent students for specific session
  * @access Admin
  */
-router.get('/session/:sessionId/absent', AttendanceController.getAbsentStudents);
+router.get('/session/:sessionId/absent', authenticateToken, requireAdmin, AttendanceController.getAbsentStudents);
 
 /**
  * @route POST /api/attendance/session/generate
@@ -76,28 +77,28 @@ router.get('/session/:sessionId/absent', AttendanceController.getAbsentStudents)
  * @body date (optional) - YYYY-MM-DD format, default today
  * @access Admin
  */
-router.post('/session/generate', AttendanceController.generateSessions);
+router.post('/session/generate', authenticateToken, requireAdmin, AttendanceController.generateSessions);
 
 /**
  * @route POST /api/attendance/sessions/generate-today
  * @desc Generate class sessions for today specifically
- * @access Public (for debugging)
+ * @access Admin only
  */
-router.post('/sessions/generate-today', AttendanceController.generateTodaySessions);
+router.post('/sessions/generate-today', authenticateToken, requireAdmin, AttendanceController.generateTodaySessions);
 
 /**
  * @route GET /api/attendance/sessions/current
  * @desc Get current sessions for today
- * @access Public
+ * @access Authenticated users only
  */
-router.get('/sessions/current', AttendanceController.getCurrentSessions);
+router.get('/sessions/current', authenticateToken, requireAuth, AttendanceController.getCurrentSessions);
 
 /**
  * @route GET /api/attendance/records/today
  * @desc Get all attendance records for today with image info
- * @access Public
+ * @access Admin only
  */
-router.get('/records/today', AttendanceController.getTodayAttendanceRecords);
+router.get('/records/today', authenticateToken, requireAdmin, AttendanceController.getTodayAttendanceRecords);
 
 /**
  * @route GET /api/attendance/records/:date
@@ -113,7 +114,7 @@ router.get('/records/:date', AttendanceController.getAttendanceRecordsByDate);
  * @param date - YYYY-MM-DD format
  * @access Admin
  */
-router.get('/dashboard/:date', AttendanceController.getDailyDashboard);
+router.get('/dashboard/:date', authenticateToken, requireAdmin, AttendanceController.getDailyDashboard);
 
 // ===============================================
 // DEBUG ROUTES
@@ -184,7 +185,7 @@ router.get('/session-dates/:subjectId', AttendanceController.getSessionDates);
  * @desc Get attendance statistics for all students in a subject
  * @access Public
  */
-router.get('/subject/:subjectId/students-stats', AttendanceController.getSubjectAttendanceStats);
+router.get('/subject/:subjectId/students-stats', authenticateToken, requireAdmin, AttendanceController.getSubjectAttendanceStats);
 
 /**
  * @route GET /api/attendance/history-with-images

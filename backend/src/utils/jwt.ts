@@ -4,6 +4,9 @@ export interface JWTPayload {
     userId: string;
     userType: 'student' | 'admin';
     name: string;
+    // Thêm các field để tăng cường bảo mật
+    iat?: number; // issued at time
+    authHash?: string; // hash để verify tính toàn vẹn của payload
 }
 
 export class JWTUtils {

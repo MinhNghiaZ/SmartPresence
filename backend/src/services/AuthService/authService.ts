@@ -80,11 +80,17 @@ export class AuthService {
                 };
             }
             
-            // Generate JWT token
+            // Generate JWT token với thêm thông tin xác thực
             const tokenPayload: JWTPayload = {
                 userId: user.studentId || user.id,
-                userType: userType,
+                userType: userType, // Server quyết định userType, client không thể thay đổi
                 name: user.name,
+                // Thêm timestamp để tránh replay attack
+                iat: Math.floor(Date.now() / 1000),
+                // Thêm hash của một số thông tin cố định để verify
+                authHash: require('crypto').createHash('sha256')
+                    .update(`${user.studentId || user.id}_${userType}_${user.name}`)
+                    .digest('hex')
             };
 
             const token = JWTUtils.generateToken(tokenPayload);
@@ -144,6 +150,62 @@ export class AuthService {
                 };
             }
 
+            // Kiểm tra tính toàn vẹn của token payload
+            if (decoded.authHash) {
+                const expectedHash = require('crypto').createHash('sha256')
+                    .update(`${decoded.userId}_${decoded.userType}_${decoded.name}`)
+                    .digest('hex');
+                    
+                if (decoded.authHash !== expectedHash) {
+                    logger.warn('Token payload integrity check failed', {
+                        userId: decoded.userId,
+                        userType: decoded.userType
+                    });
+                    return {
+                        success: false,
+                        message: 'token integrity failed'
+                    };
+                }
+            }
+
+            // Đảm bảo userType trong token khớp với database
+            // Tái xác thực userType từ database thay vì tin tưởng JWT
+            let actualUserType: 'student' | 'admin' = 'student';
+            
+            if (decoded.userType === 'admin') {
+                // Double check admin status from database
+                const [adminCheck] = await db.execute(
+                    'SELECT id FROM adminaccount WHERE id = ?',
+                    [decoded.userId]
+                );
+                if ((adminCheck as any[]).length === 0) {
+                    logger.warn('Admin token but user not found in admin table', {
+                        userId: decoded.userId
+                    });
+                    return {
+                        success: false,
+                        message: 'invalid admin token'
+                    };
+                }
+                actualUserType = 'admin';
+            } else {
+                // Double check student status from database
+                const [studentCheck] = await db.execute(
+                    'SELECT studentId FROM studentaccount WHERE studentId = ?',
+                    [decoded.userId]
+                );
+                if ((studentCheck as any[]).length === 0) {
+                    logger.warn('Student token but user not found in student table', {
+                        userId: decoded.userId
+                    });
+                    return {
+                        success: false,
+                        message: 'invalid student token'
+                    };
+                }
+                actualUserType = 'student';
+            }
+
             //return user
             const { password: _, ...userWithoutPassword } = user;
             return {
@@ -151,7 +213,7 @@ export class AuthService {
                 message: 'token allow!',
                 user: {
                     ...userWithoutPassword,
-                    userType: decoded.userType
+                    userType: actualUserType // Sử dụng userType đã verify từ database
                 }
             };
 

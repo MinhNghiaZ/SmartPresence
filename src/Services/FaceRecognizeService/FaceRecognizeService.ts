@@ -1,5 +1,5 @@
 import * as faceapi from 'face-api.js';
-
+import { authService } from '../AuthService/AuthService';
 // Backend API interfaces
 export interface FaceRegistrationRequest {
   studentId: string;
@@ -64,7 +64,7 @@ export class FaceRecognizeService {
       }
 
       console.log('🔄 Đang tải Face Recognition models...');
-      
+
       // Tải các model cần thiết
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(this.MODEL_URL),
@@ -93,7 +93,7 @@ export class FaceRecognizeService {
   private imageToBase64(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): string {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
-    
+
     if (imageElement instanceof HTMLVideoElement) {
       canvas.width = imageElement.videoWidth;
       canvas.height = imageElement.videoHeight;
@@ -101,7 +101,7 @@ export class FaceRecognizeService {
       canvas.width = imageElement.width;
       canvas.height = imageElement.height;
     }
-    
+
     ctx.drawImage(imageElement, 0, 0);
     return canvas.toDataURL('image/jpeg', 0.8);
   }
@@ -137,9 +137,9 @@ export class FaceRecognizeService {
   ): Promise<boolean> {
     try {
       console.log(`🔍 Registering face for student: ${studentId} (${studentName})`);
-      
+
       const detections = await this.detectFace(imageElement);
-      
+
       if (detections.length === 0) {
         throw new Error('Không tìm thấy khuôn mặt nào trong ảnh');
       }
@@ -150,7 +150,7 @@ export class FaceRecognizeService {
 
       // Convert Float32Array to regular array for JSON
       const descriptor = Array.from(detections[0].descriptor);
-      
+
       // Get image data as base64
       const imageData = this.imageToBase64(imageElement);
 
@@ -177,7 +177,7 @@ export class FaceRecognizeService {
         console.error(`❌ Face registration failed: ${result.message}`);
         throw new Error(result.message || 'Face registration failed');
       }
-      
+
     } catch (error) {
       console.error('❌ Error registering face:', error);
       throw error;
@@ -194,9 +194,9 @@ export class FaceRecognizeService {
   ): Promise<FaceRecognitionResult> {
     try {
       console.log('🔍 Starting face recognition...');
-      
+
       const detections = await this.detectFace(imageElement);
-      
+
       if (detections.length === 0) {
         return {
           isMatch: false,
@@ -206,7 +206,7 @@ export class FaceRecognizeService {
 
       // Convert Float32Array to regular array for JSON
       const descriptor = Array.from(detections[0].descriptor);
-      
+
       // Get image data as base64
       const imageData = this.imageToBase64(imageElement);
 
@@ -242,7 +242,7 @@ export class FaceRecognizeService {
 
       if (result.success) {
         console.log(`✅ Face recognition completed: ${result.message}`);
-        
+
         // Convert backend response to legacy format for compatibility
         return {
           isMatch: result.isMatch,
@@ -263,7 +263,7 @@ export class FaceRecognizeService {
           confidence: 0
         };
       }
-      
+
     } catch (error) {
       console.error('❌ Error recognizing face:', error);
       return {
@@ -278,9 +278,18 @@ export class FaceRecognizeService {
    */
   async isUserRegistered(studentId: string): Promise<boolean> {
     try {
-      const response = await fetch(`${this.API_BASE}/check/${studentId}`);
+      const token = authService.getToken();
+
+      const response = await fetch(`${this.API_BASE}/check/${studentId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
       const result = await response.json();
-      
+
       return result.success && result.registered;
     } catch (error) {
       console.error('❌ Error checking registration:', error);
@@ -295,7 +304,7 @@ export class FaceRecognizeService {
     try {
       const response = await fetch(`${this.API_BASE}/check/${studentId}`);
       const result = await response.json();
-      
+
       if (result.success) {
         return {
           studentId: result.studentId,
@@ -324,7 +333,7 @@ export class FaceRecognizeService {
   }
 
   // Legacy methods for backward compatibility - deprecated
-  
+
   /**
    * @deprecated Use getStudentFaceInfo instead
    */
@@ -381,7 +390,7 @@ export class FaceRecognizeService {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     detections.forEach(detection => {
       const box = detection.detection.box;
       ctx.strokeStyle = '#00ff00';
@@ -401,24 +410,24 @@ export class FaceRecognizeService {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     results.forEach(result => {
       if (result.box) {
         const box = result.box;
-        
+
         // Vẽ khung
         ctx.strokeStyle = result.isMatch ? '#00ff00' : '#ff0000';
         ctx.lineWidth = 2;
         ctx.strokeRect(box.x, box.y, box.width, box.height);
-        
+
         // Vẽ text
         ctx.fillStyle = result.isMatch ? '#00ff00' : '#ff0000';
         ctx.font = '16px Arial';
-        
-        const label = result.isMatch && result.person 
+
+        const label = result.isMatch && result.person
           ? `${result.person.name} (${result.confidence}%)`
           : `Unknown (${result.confidence}%)`;
-          
+
         ctx.fillText(label, box.x, box.y - 10);
       }
     });
@@ -431,12 +440,12 @@ export class FaceRecognizeService {
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
+
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     }
-    
+
     return canvas;
   }
 
@@ -446,7 +455,7 @@ export class FaceRecognizeService {
   resizeImage(imageElement: HTMLImageElement | HTMLCanvasElement, maxWidth: number = 640, maxHeight: number = 480): HTMLCanvasElement {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    
+
     if (!ctx) {
       throw new Error('Không thể tạo canvas context');
     }
@@ -454,14 +463,14 @@ export class FaceRecognizeService {
     // Tính toán kích thước mới giữ nguyên tỷ lệ
     const originalWidth = imageElement instanceof HTMLImageElement ? imageElement.naturalWidth : imageElement.width;
     const originalHeight = imageElement instanceof HTMLImageElement ? imageElement.naturalHeight : imageElement.height;
-    
+
     const ratio = Math.min(maxWidth / originalWidth, maxHeight / originalHeight);
-    
+
     canvas.width = originalWidth * ratio;
     canvas.height = originalHeight * ratio;
-    
+
     ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
-    
+
     return canvas;
   }
 }

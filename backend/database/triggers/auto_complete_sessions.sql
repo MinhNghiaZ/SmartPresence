@@ -16,7 +16,16 @@ BEGIN
       AND cs.session_date = CURDATE()
       AND CURTIME() > ts.end_time
       AND cs.ended_at IS NULL;
-      
+
+    UPDATE classsession cs
+    INNER JOIN timeslot ts ON cs.timeSlotId = ts.timeSlotId
+    SET cs.session_status = 'CANCELLED',
+        cs.ended_at = NOW()
+    WHERE cs.session_status = 'SCHEDULED'
+      AND cs.session_date = CURDATE()
+      AND CURTIME() > ts.end_time
+      AND cs.ended_at IS NULL;
+     
     -- Log the update
     IF ROW_COUNT() > 0 THEN
         INSERT INTO system_logs (log_level, message, created_at) 

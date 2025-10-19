@@ -126,6 +126,7 @@
   height: 480px;
   object-fit: cover;
   display: block;
+  transform: scaleX(-1); /* Flip horizontally to mirror the video */
 }
 
 .overlay-canvas {
@@ -136,6 +137,7 @@
   height: 100%;
   pointer-events: none;
   z-index: 2;
+  transform: scaleX(-1); /* Flip horizontally to match mirrored video */
 }
 
 .capture-canvas {

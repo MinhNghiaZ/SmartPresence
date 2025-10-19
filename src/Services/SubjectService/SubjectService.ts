@@ -97,7 +97,7 @@ class SubjectServiceClass {
 
             const token = authService.getToken();
             console.log('🔑 Token:', token ? `${token.substring(0, 20)}...` : 'null');
-            
+
             if (!token) {
                 throw new Error('No authentication token available');
             }
@@ -140,10 +140,10 @@ class SubjectServiceClass {
             console.log('🔍 SubjectService.getStudentSubjectsFormatted called for:', studentId);
 
             const rawSubjects = await this.getStudentSubjects(studentId);
-            
+
             // Transform backend data to HomeScreen format WITH today's session times
             const formattedSubjects = await this.transformToSubjectInfoWithTodayTimes(rawSubjects);
-            
+
             console.log('✅ Formatted subjects for HomeScreen with today times:', formattedSubjects);
             return formattedSubjects;
 
@@ -192,7 +192,7 @@ class SubjectServiceClass {
 
             // Transform with today's session times
             return this.transformToSubjectInfoWithSessions(rawSubjects, todaySessions);
-            
+
         } catch (error) {
             console.error('❌ Error loading today sessions, fallback to TimeSlot times:', error);
             // Fallback to original method if session loading fails
@@ -206,7 +206,7 @@ class SubjectServiceClass {
     private transformToSubjectInfoWithSessions(rawSubjects: SubjectWithSchedule[], todaySessions: any[]): SubjectInfo[] {
         // Group subjects by subjectId to handle multiple time slots
         const subjectMap = new Map<string, SubjectWithSchedule[]>();
-        
+
         rawSubjects.forEach(subject => {
             if (!subjectMap.has(subject.subjectId)) {
                 subjectMap.set(subject.subjectId, []);
@@ -217,11 +217,11 @@ class SubjectServiceClass {
         // Transform each subject group to SubjectInfo
         return Array.from(subjectMap.entries()).map(([subjectId, timeSlots]) => {
             const firstSlot = timeSlots[0];
-            
+
             // ✅ TRY TO GET TODAY'S SESSION TIME FIRST
             const todaySession = todaySessions.find(session => session.subjectId === subjectId);
             let formattedTime: string;
-            
+
             if (todaySession) {
                 // Use today's session time (may be different from TimeSlot)
                 formattedTime = this.formatTimeRange(todaySession.start_time, todaySession.end_time);
@@ -231,20 +231,20 @@ class SubjectServiceClass {
                 formattedTime = this.formatTimeRange(firstSlot.start_time, firstSlot.end_time);
                 console.log(`🕒 Using TimeSlot time for ${firstSlot.subjectName}: ${formattedTime} (no session today)`);
             }
-            
+
             // Format schedule (combine all days)
             const days = timeSlots.map(slot => this.formatDayName(slot.day_of_week));
             const uniqueDays = [...new Set(days)].sort();
             const schedule = uniqueDays.join(', ');
-            
+
             // Format room - Get room for TODAY specifically
             const today = new Date();
             const currentDayName = today.toLocaleDateString('en-US', { weekday: 'short' }); // Sat, Sun, Mon, etc.
-            
+
             // Find timeslot for today
             const todaySlot = timeSlots.find(slot => slot.day_of_week === currentDayName);
             const room = todaySlot ? (todaySlot.roomId || 'TBA') : (firstSlot.roomId || 'TBA');
-            
+
             console.log(`📅 Room for ${firstSlot.subjectName} today (${currentDayName}): ${room}`);
 
             return {
@@ -265,7 +265,7 @@ class SubjectServiceClass {
     private transformToSubjectInfo(rawSubjects: SubjectWithSchedule[]): SubjectInfo[] {
         // Group subjects by subjectId to handle multiple time slots
         const subjectMap = new Map<string, SubjectWithSchedule[]>();
-        
+
         rawSubjects.forEach(subject => {
             if (!subjectMap.has(subject.subjectId)) {
                 subjectMap.set(subject.subjectId, []);
@@ -276,23 +276,23 @@ class SubjectServiceClass {
         // Transform each subject group to SubjectInfo
         return Array.from(subjectMap.entries()).map(([, timeSlots]) => {
             const firstSlot = timeSlots[0];
-            
+
             // Format time (convert HH:MM:SS to HH:MM AM/PM)
             const formattedTime = this.formatTimeRange(firstSlot.start_time, firstSlot.end_time);
-            
+
             // Format schedule (combine all days)
             const days = timeSlots.map(slot => this.formatDayName(slot.day_of_week));
             const uniqueDays = [...new Set(days)].sort();
             const schedule = uniqueDays.join(', ');
-            
+
             // Format room - Get room for TODAY specifically
             const today = new Date();
             const currentDayName = today.toLocaleDateString('en-US', { weekday: 'short' }); // Sat, Sun, Mon, etc.
-            
+
             // Find timeslot for today
             const todaySlot = timeSlots.find(slot => slot.day_of_week === currentDayName);
             const room = todaySlot ? (todaySlot.roomId || 'TBA') : (firstSlot.roomId || 'TBA');
-            
+
             console.log(`📅 Room for ${firstSlot.subjectName} today (${currentDayName}): ${room}`);
 
             return {
@@ -330,7 +330,7 @@ class SubjectServiceClass {
     private formatDayName(day: string): string {
         const dayMap: Record<string, string> = {
             'Mon': 'Thứ 2',
-            'Tue': 'Thứ 3', 
+            'Tue': 'Thứ 3',
             'Wed': 'Thứ 4',
             'Thu': 'Thứ 5',
             'Fri': 'Thứ 6',
@@ -427,6 +427,36 @@ class SubjectServiceClass {
         } catch (error) {
             console.error('❌ Error fetching room info:', error);
             return null;
+        }
+    }
+
+    /**
+ * Get all enrolled students for a subject (Admin use)
+ */
+    async getEnrolledStudents(subjectId: string): Promise<any[]> {
+        try {
+            console.log('🔍 SubjectService.getEnrolledStudents called for:', subjectId);
+
+            const token = authService.getToken();
+            const response = await fetch(`${this.baseURL}/subjects/${subjectId}/enrolled-students`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('✅ Enrolled students fetched:', data);
+
+            return data.success ? data.students || [] : [];
+        } catch (error) {
+            console.error('❌ Error fetching enrolled students:', error);
+            return [];
         }
     }
 }

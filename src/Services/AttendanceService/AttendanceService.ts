@@ -47,6 +47,7 @@ export interface AttendanceRecord {
     status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
     confidence?: number;
     imageId?: string;
+    hasImage: number;
 }
 
 export interface AttendanceHistoryResponse {
@@ -149,7 +150,7 @@ class AttendanceServiceClass {
 
         } catch (error) {
             console.error('❌ Error during check-in:', error);
-            
+
             return {
                 success: false,
                 status: 'FAILED',
@@ -180,7 +181,7 @@ class AttendanceServiceClass {
 
             const token = authService.getToken();
             const response = await fetch(
-                `${this.baseURL}/attendance/history/${studentId}?${params.toString()}`, 
+                `${this.baseURL}/attendance/history/${studentId}?${params.toString()}`,
                 {
                     method: 'GET',
                     headers: {
@@ -201,7 +202,7 @@ class AttendanceServiceClass {
 
         } catch (error) {
             console.error('❌ Error fetching attendance history:', error);
-            
+
             return {
                 success: false,
                 studentId: studentId,
@@ -226,7 +227,7 @@ class AttendanceServiceClass {
 
             const token = authService.getToken();
             const response = await fetch(
-                `${this.baseURL}/attendance/stats/${studentId}?${params.toString()}`, 
+                `${this.baseURL}/attendance/stats/${studentId}?${params.toString()}`,
                 {
                     method: 'GET',
                     headers: {
@@ -247,7 +248,7 @@ class AttendanceServiceClass {
 
         } catch (error) {
             console.error('❌ Error fetching attendance stats:', error);
-            
+
             return {
                 success: false,
                 studentId: studentId,
@@ -533,6 +534,38 @@ class AttendanceServiceClass {
                 success: false,
                 date: date,
                 sessions: []
+            };
+        }
+    }
+    async getAttendanceByDate(date: string): Promise<{
+        success: boolean;
+        records: AttendanceRecord[];
+    }> {
+        try {
+    
+            const token = authService.getToken();
+            const response = await fetch(`${this.baseURL}/attendance/records/${date}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`, 
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log(`✅ Attendance records fetched for ${date}:`, data.records?.length || 0);
+
+            return data;
+
+        } catch (error) {
+            console.error(`❌ Error fetching attendance for ${date}:`, error);
+            return {
+                success: false,
+                records: [],
             };
         }
     }

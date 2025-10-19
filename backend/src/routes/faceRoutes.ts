@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { FaceController } from '../controllers/FaceController/faceController';
-import { authenticateToken, requireAdmin } from '../middleware/jwtMiddleware/authmiddleware';
+import { authenticateToken, requireAdmin, requireAuth, requireOwnershipOrAdmin } from '../middleware/jwtMiddleware/authmiddleware';
 
 const router = Router();
 
@@ -8,14 +8,14 @@ const router = Router();
  * Face Recognition API Routes
  */
 
-// Register student face
-router.post('/register', FaceController.registerFace);
+// Register student face - requires authentication
+router.post('/register', authenticateToken, requireAuth, FaceController.registerFace);
 
-// Recognize face
-router.post('/recognize', FaceController.recognizeFace);
+// Recognize face - requires authentication
+router.post('/recognize', authenticateToken, requireAuth, FaceController.recognizeFace);
 
-// Check if student has registered face
-router.get('/check/:studentId', FaceController.checkRegistration);
+// Check if student has registered face - requires ownership or admin
+router.get('/check/:studentId', authenticateToken, requireOwnershipOrAdmin, FaceController.checkRegistration);
 
 // Admin: Reset student face registration 
 router.delete('/:studentId', authenticateToken, requireAdmin, FaceController.adminResetFace);
@@ -26,7 +26,7 @@ router.delete('/delete-embedding/:studentId', authenticateToken, requireAdmin, F
 // Admin: Get face registration statistics
 router.get('/stats', authenticateToken, requireAdmin, FaceController.getFaceStats);
 
-// Utility: Validate descriptor format
-router.post('/validate', FaceController.validateDescriptor);
+// Utility: Validate descriptor format - requires authentication
+router.post('/validate', authenticateToken, requireAuth, FaceController.validateDescriptor);
 
 export default router;
