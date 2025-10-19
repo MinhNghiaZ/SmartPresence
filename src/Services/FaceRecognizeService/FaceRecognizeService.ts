@@ -1,12 +1,12 @@
 import * as faceapi from 'face-api.js';
 import { authService } from '../AuthService/AuthService';
 import type {
-    FaceRegistrationRequest,
-    FaceRecognitionRequest,
-    FaceRecognitionResponse,
-    StudentFaceInfo,
-    FaceDescriptor,
-    FaceRecognitionResult
+  FaceRegistrationRequest,
+  FaceRecognitionRequest,
+  FaceRecognitionResponse,
+  StudentFaceInfo,
+  FaceDescriptor,
+  FaceRecognitionResult
 } from '../../models';
 
 export class FaceRecognizeService {
@@ -121,10 +121,12 @@ export class FaceRecognizeService {
         imageData
       };
 
+      const token = authService.getToken();
       const response = await fetch(`${this.API_BASE}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(request)
       });
@@ -191,10 +193,12 @@ export class FaceRecognizeService {
         studentId // ✅ TRUYỀN STUDENT ID
       };
 
+      const token = authService.getToken();
       const response = await fetch(`${this.API_BASE}/recognize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(request)
       });
@@ -263,7 +267,14 @@ export class FaceRecognizeService {
    */
   async getStudentFaceInfo(studentId: string): Promise<StudentFaceInfo> {
     try {
-      const response = await fetch(`${this.API_BASE}/check/${studentId}`);
+      const token = authService.getToken()
+      const response = await fetch(`${this.API_BASE}/check/${studentId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const result = await response.json();
 
       if (result.success) {

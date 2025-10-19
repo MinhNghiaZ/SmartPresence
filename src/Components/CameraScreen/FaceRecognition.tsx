@@ -3,7 +3,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import { CameraPolyfill } from '../../Services/CameraPolyfill';
 import CameraRequirements from '../CameraRequirements'; // Fixed case
-import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
+import type { FaceRecognitionResult } from '../../models';;
 import './FaceRecognition.css';
 
 interface FaceRecognitionProps {

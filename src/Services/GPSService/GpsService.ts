@@ -5,6 +5,7 @@ import type {
     AllowedArea, 
     GPSProgressCallback 
 } from '../../models';
+import { authService } from '../AuthService';
 
 export class GPSService {
     private static readonly API_BASE = '/api';
@@ -430,11 +431,12 @@ export class GPSService {
     static async validateLocation(userLocation: Location, subjectId: string): Promise<LocationValidationResult> {
         try {
             console.log('🔍 Validating location with backend...', { userLocation, subjectId });
-            
+            const token = authService.getToken();
             const response = await fetch(`${this.API_BASE}/gps/validate-location`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     latitude: userLocation.latitude,
