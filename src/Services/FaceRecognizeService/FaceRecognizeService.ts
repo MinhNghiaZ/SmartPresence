@@ -434,6 +434,33 @@ export class FaceRecognizeService {
 
     return canvas;
   }
+
+  /**
+   * Delete face embedding for a student (Admin only)
+   */
+  async deleteFaceEmbedding(
+    studentId: string,
+    adminId: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${this.API_BASE}/delete-embedding/${studentId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ adminId })
+        }
+      );
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting face embedding:', error);
+      return { success: false, message: 'Network error' };
+    }
+  }
 }
 
 // Export singleton instance

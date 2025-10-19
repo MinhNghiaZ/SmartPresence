@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './StudentsList.css';
-import { authService } from '../../Services/AuthService';
+import { attendanceService } from '../../Services/AttendanceService';
+import { faceRecognizeService } from '../../Services/FaceRecognizeService';
+import type { Subject } from '../../models';
 
 interface StudentStats {
   studentId: string;
@@ -11,12 +13,6 @@ interface StudentStats {
   lateDays: number;
   absentDays: number;
   attendanceRate: number;
-}
-
-interface Subject {
-  subjectId: string;
-  name: string;
-  code: string;
 }
 
 interface StudentsListProps {
@@ -105,18 +101,7 @@ const StudentsList: React.FC<StudentsListProps> = ({
         }
       }
 
-      const response = await fetch(`/api/face/delete-embedding/${studentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          adminId: adminId
-        })
-      });
-
-      const data = await response.json();
+      const data = await faceRecognizeService.deleteFaceEmbedding(studentId, adminId);
 
       if (data.success) {
         alert('✅ Đã xóa thông tin khuôn mặt thành công!');
@@ -143,21 +128,13 @@ const StudentsList: React.FC<StudentsListProps> = ({
         throw new Error(`Không tìm thấy môn học: ${subjectCode}`);
       }
 
-      const token = authService.getToken();
-      const response = await fetch(`/api/attendance/subject/${subject.subjectId}/students-stats`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
+      const data = await attendanceService.getSubjectAttendanceStats(subject.subjectId);
 
       if (!data.success) {
-        throw new Error(data.message || 'Không thể tải dữ liệu');
+        throw new Error('Không thể tải dữ liệu');
       }
 
-      setStudentsStats(data.students || []);
+      setStudentsStats(data.students as any || []);
     } catch (error) {
       console.error('Error fetching subject attendance stats:', error);
       setError(error instanceof Error ? error.message : 'Có lỗi xảy ra');

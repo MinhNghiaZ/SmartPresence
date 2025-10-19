@@ -489,6 +489,167 @@ class AttendanceServiceClass {
             };
         }
     }
+
+    /**
+     * Get session dates for a subject
+     */
+    async getSessionDates(subjectId: string): Promise<string[]> {
+        try {
+            const token = authService.getToken();
+            const response = await fetch(
+                `${this.baseURL}/attendance/session-dates/${subjectId}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            const data = await response.json();
+            if (data.success) {
+                return data.dates.map((date: string) => 
+                    new Date(date).toISOString().split('T')[0]
+                );
+            }
+            return [];
+        } catch (error) {
+            console.error('Error fetching session dates:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get attendance statistics for entire subject (all students)
+     */
+    async getSubjectAttendanceStats(subjectId: string): Promise<{
+        success: boolean;
+        totalSessions: number;
+        students: Array<{
+            studentId: string;
+            studentName: string;
+            presentSessions: number;
+            lateSessions: number;
+            absentSessions: number;
+            attendanceRate: number;
+        }>;
+    }> {
+        try {
+            const token = authService.getToken();
+            const response = await fetch(
+                `${this.baseURL}/attendance/subject/${subjectId}/students-stats`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to fetch subject attendance stats');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('Error fetching subject attendance stats:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get simple attendance history (lightweight version)
+     */
+    async getSimpleHistory(studentId: string): Promise<{
+        success: boolean;
+        records: Array<{
+            AttendanceId: string;
+            subjectId: string;
+            checked_in_at: Date;
+            status: string;
+        }>;
+    }> {
+        try {
+            const response = await fetch(
+                `${this.baseURL}/attendance/simple-history/${studentId}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching simple history:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Admin methods namespace
+     */
+    admin = {
+        /**
+         * Update attendance status (Admin only)
+         */
+        updateStatus: async (
+            attendanceId: string,
+            newStatus: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED',
+            adminId: string
+        ): Promise<{ success: boolean; message: string }> => {
+            try {
+                const token = authService.getToken();
+                const response = await fetch(
+                    `${this.baseURL}/attendance/admin/update-status`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ attendanceId, newStatus, adminId })
+                    }
+                );
+                return await response.json();
+            } catch (error) {
+                console.error('Error updating attendance status:', error);
+                return { success: false, message: 'Network error' };
+            }
+        },
+
+        /**
+         * Create attendance record manually (Admin only)
+         */
+        createRecord: async (
+            studentId: string,
+            subjectId: string,
+            status: 'PRESENT' | 'LATE',
+            adminId: string,
+            sessionDate?: string
+        ): Promise<{ success: boolean; message: string; attendanceId?: string }> => {
+            try {
+                const token = authService.getToken();
+                const response = await fetch(
+                    `${this.baseURL}/attendance/admin/create-record`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ studentId, subjectId, status, adminId, sessionDate })
+                    }
+                );
+                return await response.json();
+            } catch (error) {
+                console.error('Error creating attendance record:', error);
+                return { success: false, message: 'Network error' };
+            }
+        }
+    };
 }
 
 // ======================================

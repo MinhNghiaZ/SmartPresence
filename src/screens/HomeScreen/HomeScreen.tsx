@@ -1,9 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './HomeScreen_modern.css';
-// import { CheckInService } from '../../Services/CheckInService'; // Removed for production
-import type { SubjectInfo } from '../../Services/CheckInService';
+import type { SubjectInfo, FaceRecognitionResult, CheckInRequest, CheckInResult, HomeAttendanceRecord } from '../../models';
 import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
-import type { FaceRecognitionResult } from '../../Services/FaceRecognizeService/FaceRecognizeService.ts';
 import FaceRecognition, { type FaceRecognitionRef } from '../../components/CameraScreen/FaceRecognition';
 import SimpleAvatarDropdown from '../../components/SimpleAvatarDropdown';
 import { GPSGuideModal } from '../../components/GPSGuide';
@@ -11,21 +9,10 @@ import { GPSGuideModal } from '../../components/GPSGuide';
 import { authService } from '../../Services/AuthService/AuthService';
 import { useNotifications } from '../../context/NotificationContext';
 import { subjectService } from '../../Services/SubjectService/SubjectService';
+import { attendanceService } from '../../Services/AttendanceService';
 import { UnifiedCheckInService } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
-// import { unifiedCheckInService } from '../../Services/UnifiedCheckInService/UnifiedCheckInService'; // For future use
 import { logger } from '../../utils/logger';
-import type { CheckInRequest, CheckInResult } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
 import { GPSService } from '../../Services/GPSService/GpsService';
-
-// Interfaces
-
-interface AttendanceRecord {
-  id: string;
-  subject: string;
-  timestamp: string;
-  location?: string; // ✅ Make location optional
-  status: 'Present' | 'Late' | 'Absent';
-}
 
 interface HomeScreenProps {
   onLogout?: () => void;
@@ -43,7 +30,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const [faceRegistrationStatus, setFaceRegistrationStatus] = useState<'unknown' | 'registered' | 'not_registered'>('unknown');
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [attendanceHistory, setAttendanceHistory] = useState<HomeAttendanceRecord[]>([]);
   const [userAvatar, setUserAvatar] = useState<string>('');
   const [availableSubjects, setAvailableSubjects] = useState<SubjectInfo[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState<boolean>(true);
@@ -200,28 +187,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       try {
         logger.attendance.debug('Loading attendance history', { userId: currentUser.id });
         
-        // ✅ USE SIMPLE HISTORY API TEMPORARILY
-        const response = await fetch(`/api/attendance/simple-history/${currentUser.id}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        // ✅ USE SERVICE METHOD
+        const historyData = await attendanceService.getSimpleHistory(currentUser.id);
         
-        if (response.ok) {
-          const historyData = await response.json();
-          if (historyData.success && historyData.records.length > 0) {
-            // Transform simple records to HomeScreen format
-            const transformedRecords: AttendanceRecord[] = historyData.records.map((record: any) => ({
-              id: record.AttendanceId,
-              subject: record.subjectId, // Will show subject ID for now
-              timestamp: new Date(record.checked_in_at).toLocaleString('vi-VN'),
-              status: record.status as 'Present' | 'Late' | 'Absent'
-            }));
+        if (historyData.success && historyData.records.length > 0) {
+          // Transform simple records to HomeScreen format
+          const transformedRecords: HomeAttendanceRecord[] = historyData.records.map((record: any) => ({
+            id: record.AttendanceId,
+            subject: record.subjectId, // Will show subject ID for now
+            timestamp: new Date(record.checked_in_at).toLocaleString('vi-VN'),
+            location: '', // Simple history doesn't include location
+            status: record.status as 'Present' | 'Late' | 'Absent'
+          }));
             
-            setAttendanceHistory(transformedRecords);
-            logger.attendance.info('Loaded attendance history', { count: transformedRecords.length });
-          }
+          setAttendanceHistory(transformedRecords);
+          logger.attendance.info('Loaded attendance history', { count: transformedRecords.length });
         }
         
       } catch (error) {
@@ -605,10 +585,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         setGpsStatus('🎉 Check-in thành công!');
         
         // Add to attendance history for immediate UI update
-        const newRecord: AttendanceRecord = {
+        const newRecord: HomeAttendanceRecord = {
           id: result.attendanceId || Date.now().toString(),
           subject: `${selectedSubject.name} (${selectedSubject.code})`,
           timestamp: new Date(result.timestamp || Date.now()).toLocaleString('vi-VN'),
+          location: '', // Location not shown in history
           status: result.status === 'PRESENT' ? 'Present' : 
                  result.status === 'LATE' ? 'Late' : 
                  result.status === 'ABSENT' ? 'Absent' : 'Present' // ✅ Map backend status to UI format

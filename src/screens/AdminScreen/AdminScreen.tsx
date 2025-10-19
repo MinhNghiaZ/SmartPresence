@@ -4,46 +4,13 @@ import './AdminScreen.css';
 import { authService } from '../../Services/AuthService';
 import SubjectServiceClass from '../../Services/SubjectService';
 import attendanceService from '../../Services/AttendanceService';
+import type { AttendanceRecord, Subject } from '../../models';
+
 // Lazy load các component nặng chỉ khi cần thiết
 const AdminHistory = lazy(() => import('../../components/AdminHistory/AdminHistory'));
 const StudentsList = lazy(() => import('../../components/StudentsList/StudentsList'));
 const CreateAccountModal = lazy(() => import('../../components/CreateAccountModal/CreateAccountModal'));
 const ResetPasswordModal = lazy(() => import('../../components/ResetPasswordModal/ResetPasswordModal'));
-
-// import { logger } from '../../utils/logger'; // Unused for now
-
-// Interface cho dữ liệu thực từ database
-// interface StudentAccount {
-// 	userId: string;
-// 	name: string;
-// 	email: string;
-// }
-
-interface AttendanceRecord {
-	AttendanceId: string;
-	studentId: string;
-	studentName: string;
-	subjectId: string;
-	subjectName: string;
-	subjectCode: string;
-	sessionId: string;
-	session_date: string;
-	day_of_week: string;
-	start_time: string;
-	end_time: string;
-	roomId?: string;
-	checked_in_at: Date;
-	status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
-	confidence?: number;
-	imageId?: string;
-	hasImage: number;
-}
-
-interface Subject {
-	subjectId: string;
-	name: string;
-	code: string;
-}
 
 // Function để fetch subjects từ database
 const fetchSubjects = async (): Promise<Subject[]> => {
@@ -100,13 +67,7 @@ interface EnrolledStudent {
 // Function để lấy session dates cho navigation
 const fetchSessionDates = async (subjectId: string): Promise<string[]> => {
 	try {
-		const response = await fetch(`/api/attendance/session-dates/${subjectId}`);
-		const data = await response.json();
-		if (data.success) {
-			// Convert ISO dates to YYYY-MM-DD format
-			return data.dates.map((date: string) => new Date(date).toISOString().split('T')[0]);
-		}
-		return [];
+		return await attendanceService.getSessionDates(subjectId);
 	} catch (error) {
 		console.error('Error fetching session dates:', error);
 		return [];
@@ -126,19 +87,7 @@ const fetchEnrolledStudents = async (subjectId: string): Promise<EnrolledStudent
 // Function để fetch thống kê attendance cho toàn bộ môn học
 const fetchSubjectAttendanceStats = async (subjectId: string) => {
 	try {
-		const token = authService.getToken();
-		const response = await fetch(`/api/attendance/subject/${subjectId}/students-stats`, {
-			method: 'GET',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${token}`
-			},
-		});
-		const data = await response.json();
-
-		if (!data.success) {
-			throw new Error(data.message || 'Failed to fetch subject attendance stats');
-		}
+		const data = await attendanceService.getSubjectAttendanceStats(subjectId);
 
 		// Tính tổng từ data của tất cả sinh viên
 		const students = data.students || [];
@@ -444,16 +393,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 	): Promise<{ success: boolean; message: string }> => {
 		try {
 			const adminId = currentUser?.id || '';
-			const token = authService.getToken();
-			const response = await fetch('/api/attendance/admin/update-status', {
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${token}`
-				},
-				body: JSON.stringify({ attendanceId, newStatus, adminId })
-			});
-			return await response.json();
+			return await attendanceService.admin.updateStatus(attendanceId, newStatus, adminId);
 		} catch (error) {
 			console.error('Error updating attendance status:', error);
 			return { success: false, message: 'Network error' };
@@ -468,16 +408,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 	): Promise<{ success: boolean; message: string; attendanceId?: string }> => {
 		try {
 			const adminId = currentUser?.id || '';
-			const token = authService.getToken();
-			const response = await fetch('/api/attendance/admin/create-record', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${token}`
-				},
-				body: JSON.stringify({ studentId, subjectId, status, adminId, sessionDate })
-			});
-			return await response.json();
+			return await attendanceService.admin.createRecord(studentId, subjectId, status, adminId, sessionDate);
 		} catch (error) {
 			console.error('Error creating attendance record:', error);
 			return { success: false, message: 'Network error' };
@@ -493,20 +424,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		subjectIds: string[]
 	): Promise<{ success: boolean; message: string }> => {
 		try {
-			const token = authService.getToken();
-			const requestBody = { studentId, name, email, password, subjectIds };
-
-			const response = await fetch('/api/auth/admin/create-student', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${token}`
-				},
-				body: JSON.stringify(requestBody)
-			});
-
-			const result = await response.json();
-			return result;
+			return await authService.adminCreateStudent(studentId, name, email, password, subjectIds);
 		} catch (error) {
 			console.error('Error creating student account:', error);
 			return { success: false, message: 'Network error' };
@@ -519,19 +437,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToHome }) => {
 		newPassword: string
 	): Promise<{ success: boolean; message: string }> => {
 		try {
-			const token = authService.getToken();
-
-			const response = await fetch('/api/auth/admin/reset-password', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${token}`
-				},
-				body: JSON.stringify({ studentId, newPassword })
-			});
-
-			const result = await response.json();
-			return result;
+			return await authService.adminResetPassword(studentId, newPassword);
 		} catch (error) {
 			console.error('Error resetting password:', error);
 			return { success: false, message: 'Network error' };

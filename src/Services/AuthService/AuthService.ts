@@ -298,6 +298,64 @@ export class AuthService {
         }
     }
 
+    /**
+     * Admin: Create new student account
+     */
+    static async adminCreateStudent(
+        studentId: string,
+        name: string,
+        email: string,
+        password: string,
+        subjectIds: string[]
+    ): Promise<{ success: boolean; message: string }> {
+        try {
+            const token = this.getToken();
+            const requestBody = { studentId, name, email, password, subjectIds };
+
+            const response = await fetch(`${this.API_BASE}/auth/admin/create-student`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error('Error creating student account:', error);
+            return { success: false, message: 'Network error' };
+        }
+    }
+
+    /**
+     * Admin: Reset student password
+     */
+    static async adminResetPassword(
+        studentId: string,
+        newPassword: string
+    ): Promise<{ success: boolean; message: string }> {
+        try {
+            const token = this.getToken();
+
+            const response = await fetch(`${this.API_BASE}/auth/admin/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ studentId, newPassword })
+            });
+
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error('Error resetting password:', error);
+            return { success: false, message: 'Network error' };
+        }
+    }
+
 
 }
 
