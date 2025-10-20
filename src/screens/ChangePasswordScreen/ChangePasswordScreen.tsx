@@ -39,23 +39,35 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ onBack, onS
     
     // Validation
     if (!studentId || !currentPassword || !newPassword || !confirmPassword) {
-      notify.push('⚠️ Vui lòng điền đầy đủ thông tin vào tất cả các trường bắt buộc!', 'warning');
+      notify.warning('Vui lòng điền đầy đủ thông tin vào tất cả các trường bắt buộc!', {
+        title: 'Thiếu thông tin',
+        ttl: 4000
+      });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      notify.push('❌ Mật khẩu mới và mật khẩu xác nhận không trùng khớp. Vui lòng kiểm tra lại!', 'error');
+      notify.error('Mật khẩu mới và mật khẩu xác nhận không trùng khớp. Vui lòng kiểm tra lại!', {
+        title: 'Mật khẩu không khớp',
+        ttl: 5000
+      });
       return;
     }
 
     if (currentPassword === newPassword) {
-      notify.push('⚠️ Mật khẩu mới phải khác với mật khẩu hiện tại để đảm bảo bảo mật!', 'warning');
+      notify.warning('Mật khẩu mới phải khác với mật khẩu hiện tại để đảm bảo bảo mật!', {
+        title: 'Mật khẩu không hợp lệ',
+        ttl: 5000
+      });
       return;
     }
 
     const passwordErrors = validatePassword(newPassword);
     if (passwordErrors.length > 0) {
-      notify.push(passwordErrors.join(', '), 'error');
+      notify.error(passwordErrors.join(', '), {
+        title: 'Mật khẩu không đủ mạnh',
+        ttl: 6000
+      });
       return;
     }
 
@@ -66,7 +78,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ onBack, onS
       const result = await authService.changePassword(studentId, currentPassword, newPassword);
       
       if (result.success) {
-        notify.push('Đổi mật khẩu thành công!', 'success');
+        notify.auth.passwordChanged();
         // Clear form
         setStudentId('');
         setCurrentPassword('');
@@ -77,10 +89,22 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ onBack, onS
           onSuccess ? onSuccess() : onBack();
         }, 1500);
       } else {
-        notify.push(result.message || 'Đổi mật khẩu thất bại!', 'error');
+        // Check specific error types
+        const errorMsg = result.message?.toLowerCase() || '';
+        if (errorMsg.includes('sai') || errorMsg.includes('không đúng') || errorMsg.includes('incorrect')) {
+          notify.error('Mật khẩu hiện tại không đúng. Vui lòng kiểm tra lại!', {
+            title: 'Sai mật khẩu',
+            ttl: 5000
+          });
+        } else {
+          notify.error(result.message || 'Đổi mật khẩu thất bại!', {
+            title: 'Lỗi đổi mật khẩu',
+            ttl: 5000
+          });
+        }
       }
     } catch (error) {
-      notify.push('Lỗi kết nối. Vui lòng thử lại!', 'error');
+      notify.network.connectionError();
     } finally {
       setIsLoading(false);
     }

@@ -43,7 +43,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
     
     // Validation
     if (!studentId || !password) {
-      notify.push('⚠️ Vui lòng nhập đầy đủ mã số sinh viên và mật khẩu để đăng nhập!', 'warning');
+      notify.warning('Vui lòng nhập đầy đủ mã số sinh viên và mật khẩu để đăng nhập!', {
+        title: 'Thiếu thông tin',
+        ttl: 4000
+      });
       return;
     }
 
@@ -54,12 +57,20 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToC
       
       if (result.success) {
         onLoginSuccess();
-        notify.push(result.message, 'success');
+        // Get user name from result if available, otherwise use studentId
+        const userName = (result as any).user?.name || studentId;
+        notify.auth.loginSuccess(userName);
       } else {
-        notify.push(result.message, 'error');
+        // Check if it's invalid credentials
+        const errorMsg = result.message?.toLowerCase() || '';
+        if (errorMsg.includes('không đúng') || errorMsg.includes('sai') || errorMsg.includes('invalid')) {
+          notify.auth.invalidCredentials();
+        } else {
+          notify.auth.loginFailed();
+        }
       }
     } catch (error) {
-      notify.push('❌ Kết nối mạng không ổn định. Vui lòng kiểm tra đường truyền và thử lại!', 'error');
+      notify.network.connectionError();
     } finally {
       setIsLoading(false);
     }

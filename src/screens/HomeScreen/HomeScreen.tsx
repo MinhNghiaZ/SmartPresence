@@ -151,12 +151,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         setAvailableSubjects(subjects);
         
         if (subjects.length === 0) {
-          notify.push('⚠️ Hiện tại chưa có môn học nào được phân công. Vui lòng liên hệ phòng đào tạo để được hỗ trợ.', 'warning');
+          notify.warning('Hiện tại chưa có môn học nào được phân công. Vui lòng liên hệ phòng đào tạo để được hỗ trợ.', {
+            title: 'Chưa có môn học',
+            ttl: 6000
+          });
         }
         
       } catch (error) {
         logger.api.error('Error loading student subjects', error);
-        notify.push('❌ Không thể tải danh sách môn học. Vui lòng kiểm tra kết nối mạng và thử lại sau.', 'error');
+        notify.network.connectionError();
         setAvailableSubjects([]);
       } finally {
         setIsLoadingSubjects(false);
@@ -262,7 +265,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
             setIsCheckingIn(false);
             
             // Show success notification
-            notify.push(`🎉 Đăng ký khuôn mặt thành công cho ${currentUser.name}! Bây giờ bạn có thể sử dụng tính năng điểm danh tự động.`, 'success');
+            notify.success(
+              `Đăng ký khuôn mặt thành công! Bây giờ bạn có thể sử dụng tính năng điểm danh tự động.`,
+              { title: `🎉 Chào ${currentUser.name}`, ttl: 5000 }
+            );
           });
         }, 1200); // Giảm thời gian delay một chút
         
@@ -385,7 +391,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       // Use requestAnimationFrame để smooth state updates
       requestAnimationFrame(() => {
         resetStates();
-        notify.push(`❌ ${error instanceof Error ? error.message : 'Không thể khởi tạo camera. Vui lòng kiểm tra quyền truy cập camera và thử lại.'}`, 'error');
+        // Determine specific camera error type
+        const errorMsg = error instanceof Error ? error.message.toLowerCase() : '';
+        if (errorMsg.includes('permission') || errorMsg.includes('denied') || errorMsg.includes('quyền')) {
+          notify.camera.permissionDenied();
+        } else if (errorMsg.includes('not found') || errorMsg.includes('không tìm thấy')) {
+          notify.camera.notFound();
+        } else if (errorMsg.includes('in use') || errorMsg.includes('đang được sử dụng')) {
+          notify.camera.inUse();
+        } else {
+          notify.camera.error(error instanceof Error ? error.message : undefined);
+        }
       });
     }
   };
@@ -573,7 +589,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       logger.face.error('Pre-validation error', error);
       setGpsStatus('');
       setIsCheckingIn(false);
-      notify.push(`❌ ${error instanceof Error ? error.message : 'Quá trình kiểm tra thất bại. Vui lòng thử lại sau.'}`, 'error');
+      
+      // Parse error to provide specific feedback
+      const errorMsg = error instanceof Error ? error.message : '';
+      if (errorMsg.includes('GPS') || errorMsg.includes('vị trí') || errorMsg.includes('location')) {
+        // GPS/location error - let the specific error message through
+        notify.error(errorMsg, { title: 'Lỗi kiểm tra vị trí', ttl: 6000 });
+      } else if (errorMsg.includes('thời gian') || errorMsg.includes('time') || errorMsg.includes('chưa tới giờ')) {
+        notify.warning(errorMsg, { title: 'Chưa tới giờ học', ttl: 6000 });
+      } else {
+        notify.error(errorMsg || 'Quá trình kiểm tra thất bại. Vui lòng thử lại sau.', { 
+          title: 'Lỗi kiểm tra', 
+          ttl: 5000 
+        });
+      }
     }
   };
 
@@ -586,7 +615,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     // Lấy data đã validate từ bước trước
     const pendingData = (window as any).pendingCheckInData;
     if (!pendingData) {
-      notify.push('❌ Không tìm thấy dữ liệu xác thực. Vui lòng thực hiện lại quá trình kiểm tra.', 'error');
+      notify.error('Không tìm thấy dữ liệu xác thực. Vui lòng thực hiện lại quá trình kiểm tra.', {
+        title: 'Lỗi dữ liệu',
+        ttl: 5000
+      });
       return;
     }
 
@@ -647,26 +679,40 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         };
         
         setAttendanceHistory(prev => [newRecord, ...prev]);
-        notify.push('✅ ' + result.message, 'success');
+        
+        // Use specialized attendance success notification
+        const status = result.status === 'PRESENT' ? 'Present' : 'Late';
+        notify.attendance.success(selectedSubject.name, status);
         
       } else {
-        // Handle failure
-        let errorMessage = '❌ Check-in thất bại:\n';
-        
+        // Handle failure - determine specific error type
         if (!result.steps.faceRecognition.success) {
-          errorMessage += `• ${result.steps.faceRecognition.message}\n`;
-        }
-        if (!result.steps.attendanceRecord.success) {
-          errorMessage += `• ${result.steps.attendanceRecord.message}\n`;
+          const faceMsg = result.steps.faceRecognition.message || '';
+          if (faceMsg.includes('chưa đăng ký') || faceMsg.includes('not registered')) {
+            notify.attendance.faceNotRegistered();
+          } else {
+            notify.attendance.faceNotRecognized();
+          }
+        } else if (!result.steps.attendanceRecord.success) {
+          const attendMsg = result.steps.attendanceRecord.message || '';
+          if (attendMsg.includes('đã điểm danh') || attendMsg.includes('already')) {
+            notify.attendance.alreadyCheckedIn();
+          } else {
+            notify.error(attendMsg, { title: 'Lỗi lưu điểm danh', ttl: 5000 });
+          }
         }
         
-        throw new Error(errorMessage.trim());
+        throw new Error('Check-in failed');
       }
 
     } catch (error) {
       logger.attendance.error('Face recognition + attendance save error', error);
       setGpsStatus('');
-      notify.push(`❌ ${error instanceof Error ? error.message : 'Quá trình điểm danh thất bại. Vui lòng kiểm tra kết nối mạng và thử lại.'}`, 'error');
+      
+      // Only show error if not already shown above
+      if (error instanceof Error && error.message !== 'Check-in failed') {
+        notify.error(error.message, { title: 'Lỗi điểm danh', ttl: 5000 });
+      }
     } finally {
       setIsCheckingIn(false);
       setTimeout(() => setGpsStatus(''), 3000);
@@ -1049,7 +1095,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                   }}
                   onError={(error) => {
                     logger.face.error('Face recognition error', error);
-                    notify.push('❌ Lỗi nhận dạng khuôn mặt: ' + error, 'error');
+                    
+                    // Use specialized camera error notification
+                    const errorMsg = error.toLowerCase();
+                    if (errorMsg.includes('permission') || errorMsg.includes('denied') || errorMsg.includes('quyền')) {
+                      notify.camera.permissionDenied();
+                    } else if (errorMsg.includes('not found') || errorMsg.includes('không tìm thấy')) {
+                      notify.camera.notFound();
+                    } else if (errorMsg.includes('in use') || errorMsg.includes('đang được sử dụng')) {
+                      notify.camera.inUse();
+                    } else {
+                      notify.camera.error(error);
+                    }
+                    
                     // Không đóng modal khi có lỗi để người dùng có thể thử lại
                     setGpsStatus('❌ Lỗi camera: ' + error);
                     setIsProcessing(false);

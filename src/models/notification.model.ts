@@ -8,4 +8,25 @@ export interface NotificationItem {
     type: NotificationType;
     createdAt: number;
     ttl: number; // milliseconds
+    title?: string; // Optional title for notification
+    action?: NotificationAction; // Optional action button
+}
+
+export interface NotificationAction {
+    label: string;
+    onClick: () => void;
+}
+
+// Pre-defined notification templates for common scenarios
+export interface NotificationTemplate {
+  message: string;
+  type: NotificationType;
+  ttl?: number;
+  title?: string;
+}
+
+export interface NotificationOptions {
+  ttl?: number;
+  title?: string;
+  action?: NotificationAction;
 }

@@ -761,7 +761,17 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       message += `• User Agent: ${navigator.userAgent.slice(0, 50)}...\n`;
       message += `• Mobile: ${isMobile() ? 'YES' : 'NO'}`;
       
-      notify.push('Camera test complete – check console for details', cameraCheck.supported ? 'success' : 'error');
+      if (cameraCheck.supported) {
+        notify.success('Camera test hoàn tất – kiểm tra console để biết chi tiết', { 
+          title: '✅ Camera OK',
+          ttl: 4000 
+        });
+      } else {
+        notify.error('Camera test thất bại – kiểm tra console để biết chi tiết', {
+          title: '❌ Lỗi camera',
+          ttl: 5000
+        });
+      }
       
       // Also set error message if camera not supported
       if (!cameraCheck.supported) {
@@ -789,7 +799,10 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       setError('');
       await faceRecognizeService.registerFace(videoRef.current, personId, personName);
       faceRecognizeService.saveFacesToStorage();
-      notify.push(`Đã đăng ký thành công khuôn mặt cho ${personName}`, 'success');
+      notify.success(`Đã đăng ký thành công khuôn mặt cho ${personName}!`, {
+        title: '👤 Đăng ký khuôn mặt',
+        ttl: 4000
+      });
     } catch (err) {
       const errorMsg = 'Lỗi khi đăng ký: ' + (err as Error).message;
       emitError(errorMsg);

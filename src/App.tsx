@@ -38,7 +38,7 @@ function App() {
             }
             // Chỉ hiển thị thông báo khi lần đầu load app (page reload)
             if (isInitialLoad) {
-              notify.push('Chào mừng trở lại!', 'success');
+              notify.success('Chào mừng trở lại!', { ttl: 3000 });
             }
           } else {
             // Token không hợp lệ, xóa session và về login
@@ -100,7 +100,10 @@ function App() {
       localStorage.removeItem('registeredFaces');
       localStorage.removeItem('capturedFaceImages');
       console.log('🗑️ Đã reset localStorage registeredFaces và capturedFaceImages');
-      notify.push('✅ Đã reset dữ liệu khuôn mặt! Bạn có thể đăng ký lại từ đầu.', 'success');
+      notify.success('Đã reset dữ liệu khuôn mặt! Bạn có thể đăng ký lại từ đầu.', {
+        title: '🔄 Reset thành công',
+        ttl: 4000
+      });
       
       // Xóa parameter khỏi URL sau khi reset
       const newUrl = new URL(window.location.href);
