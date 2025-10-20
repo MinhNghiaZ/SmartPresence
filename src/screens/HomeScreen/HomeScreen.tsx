@@ -12,6 +12,7 @@ import { subjectService } from '../../Services/SubjectService/SubjectService';
 import { attendanceService } from '../../Services/AttendanceService';
 import { UnifiedCheckInService } from '../../Services/UnifiedCheckInService/UnifiedCheckInService';
 import { logger } from '../../utils/logger';
+import { consoleLogger } from '../../utils/consoleLogger';
 import { GPSService } from '../../Services/GPSService/GpsService';
 
 interface HomeScreenProps {
@@ -29,6 +30,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const [showFaceModal, setShowFaceModal] = useState<boolean>(false);
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [faceRegistrationStatus, setFaceRegistrationStatus] = useState<'unknown' | 'registered' | 'not_registered'>('unknown');
+
+  // Loading state for modal
+  const [modalLoadingState, setModalLoadingState] = useState({
+    isLoading: false,
+    message: '',
+    progress: 0
+  });
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [attendanceHistory, setAttendanceHistory] = useState<HomeAttendanceRecord[]>([]);
@@ -300,6 +308,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     // Batch update states để tránh multiple re-renders
     requestAnimationFrame(() => {
       setShowFaceModal(false);
+      setModalLoadingState({ isLoading: false, message: '', progress: 0 });
       setGpsStatus('');
       setIsProcessing(false);
       setIsCheckingIn(false);
@@ -322,21 +331,48 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     setIsCheckingIn(true);
 
     try {
-      // Initialize face recognition models
+      // 🚀 PROGRESSIVE LOADING: Mở modal với loading overlay
+      setShowFaceModal(true);
+      setModalLoadingState({
+        isLoading: true,
+        message: '🔄 Đang khởi tạo hệ thống đăng ký...',
+        progress: 0
+      });
+
+      // Step 1: Initialize face recognition models
       if (!faceRecognizeService.isReady()) {
-        setGpsStatus('🤖 Đang tải mô hình trí tuệ nhân tạo...');
+        setModalLoadingState({
+          isLoading: true,
+          message: '🤖 Đang tải AI models nhận diện khuôn mặt... (1/2)',
+          progress: 50
+        });
         await faceRecognizeService.initializeModels();
+        logger.face.info('Face recognition models loaded for registration');
       }
 
-      // Set to registration mode and open camera modal
+      // Step 2: Preparing camera
+      setModalLoadingState({
+        isLoading: true,
+        message: '📹 Đang khởi động camera... (2/2)',
+        progress: 100
+      });
+
+      // Set to registration mode
       setIsRegisterMode(true);
       setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để đăng ký khuôn mặt...`);
       logger.ui.debug('Opening camera modal for registration');
-      setShowFaceModal(true);
       setIsProcessing(false);
+
+      // Hide loading overlay after a short delay
+      setTimeout(() => {
+        setModalLoadingState({ isLoading: false, message: '', progress: 0 });
+      }, 800);
 
     } catch (error) {
       logger.face.error('Face registration error during modal operation', error);
+      
+      // Reset loading state
+      setModalLoadingState({ isLoading: false, message: '', progress: 0 });
       
       // Batch update states để tránh re-render liên tục
       const resetStates = () => {
@@ -431,9 +467,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
 
       // 🔥 Log để verify GPS là mới (không phải cache)
       const gpsAge = Date.now() - position.timestamp;
-      console.log(`✅ Got GPS position: timestamp=${position.timestamp}, age=${gpsAge}ms, accuracy=${position.coords.accuracy}m`);
+      consoleLogger.log(`✅ Got GPS position: timestamp=${position.timestamp}, age=${gpsAge}ms, accuracy=${position.coords.accuracy}m`);
       if (gpsAge > 5000) {
-        console.warn(`⚠️ GPS data might be cached (age: ${gpsAge}ms)`);
+        consoleLogger.warn(`⚠️ GPS data might be cached (age: ${gpsAge}ms)`);
       }
 
       // BƯỚC 3: Validate GPS + Time trước (không cần camera)
@@ -457,7 +493,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
       }
 
       // BƯỚC 4: GPS + Time validation passed → Mở camera modal
-      setGpsStatus('✅ Thời gian và vị trí hợp lệ! Mở camera để nhận diện khuôn mặt...');
+      setGpsStatus('✅ Thời gian và vị trí hợp lệ! Đang chuẩn bị camera...');
       setIsCheckingIn(false); // Reset flag để có thể tiếp tục với face recognition
 
       // Lưu location data để dùng sau
@@ -467,21 +503,34 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         locationResult
       };
 
-      // Mở camera modal
-      logger.ui.debug('Opening camera modal');
+      // 🚀 PROGRESSIVE LOADING: Mở modal với loading overlay
+      logger.ui.debug('Opening camera modal with progressive loading');
       setShowFaceModal(true);
-      setIsProcessing(false);
+      setModalLoadingState({
+        isLoading: true,
+        message: '🔄 Đang khởi tạo hệ thống...',
+        progress: 0
+      });
       
-      // Initialize face recognition
+      // Step 1: Initialize face recognition models (33%)
       if (!faceRecognizeService.isReady()) {
-        setGpsStatus('🤖 Đang tải mô hình trí tuệ nhân tạo cho nhận diện khuôn mặt...');
+        setModalLoadingState({
+          isLoading: true,
+          message: '🤖 Đang tải AI models nhận diện khuôn mặt... (1/3)',
+          progress: 33
+        });
         await faceRecognizeService.initializeModels();
+        logger.face.info('Face recognition models loaded');
       }
       
-      // Check registration status from backend
-      setGpsStatus('📋 Đang kiểm tra trạng thái đăng ký khuôn mặt...');
-      let isUserRegistered = false;
+      // Step 2: Check registration status (66%)
+      setModalLoadingState({
+        isLoading: true,
+        message: '📋 Đang kiểm tra trạng thái đăng ký... (2/3)',
+        progress: 66
+      });
       
+      let isUserRegistered = false;
       try {
         isUserRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
         logger.face.info('Registration check completed', { 
@@ -490,18 +539,35 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         });
       } catch (registrationError) {
         logger.face.error('Error checking registration status', registrationError);
+        setModalLoadingState({ isLoading: false, message: '', progress: 0 });
+        setShowFaceModal(false);
         throw new Error('Không thể kiểm tra trạng thái đăng ký. Vui lòng thử lại.');
       }
       
       // CHẶN nếu user chưa đăng ký khuôn mặt
       if (!isUserRegistered) {
+        setModalLoadingState({ isLoading: false, message: '', progress: 0 });
+        setShowFaceModal(false);
         throw new Error('⚠️ Bạn chưa đăng ký khuôn mặt. Vui lòng bấm nút "Đăng Ký Khuôn Mặt" trước khi điểm danh.');
       }
+
+      // Step 3: Preparing camera (100%)
+      setModalLoadingState({
+        isLoading: true,
+        message: '📹 Đang khởi động camera... (3/3)',
+        progress: 100
+      });
 
       // User đã đăng ký -> chế độ xác thực
       logger.face.info('User is registered - switching to verification mode');
       setIsRegisterMode(false);
       setGpsStatus(`Xin chào ${currentUser.name}! Vui lòng nhìn vào camera để xác thực...`);
+      setIsProcessing(false);
+
+      // Hide loading overlay after a short delay to show camera
+      setTimeout(() => {
+        setModalLoadingState({ isLoading: false, message: '', progress: 0 });
+      }, 800);
       
     } catch (error) {
       logger.face.error('Pre-validation error', error);
@@ -911,7 +977,43 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           }}
           tabIndex={0}
         >
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
+            
+            {/* 🚀 LOADING OVERLAY */}
+            {modalLoadingState.isLoading && (
+              <div className="absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-50 rounded-lg">
+                <div className="text-center space-y-6 p-8">
+                  {/* Spinner */}
+                  <div className="flex justify-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600"></div>
+                  </div>
+                  
+                  {/* Loading Message */}
+                  <div className="space-y-2">
+                    <p className="text-lg font-medium text-gray-800">
+                      {modalLoadingState.message}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Vui lòng đợi trong giây lát...
+                    </p>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-64 bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${modalLoadingState.progress}%` }}
+                    ></div>
+                  </div>
+                  
+                  {/* Progress Percentage */}
+                  <p className="text-xs font-mono text-gray-600">
+                    {modalLoadingState.progress}%
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="text-xl font-semibold text-gray-800">

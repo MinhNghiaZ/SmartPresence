@@ -4,6 +4,7 @@ import { faceRecognizeService } from '../../Services/FaceRecognizeService/FaceRe
 import { CameraPolyfill } from '../../Services/CameraPolyfill';
 import CameraRequirements from '../CameraRequirements'; // Fixed case
 import type { FaceRecognitionResult } from '../../models';;
+import { consoleLogger, faceLogger, cameraLogger } from '../../utils/consoleLogger';
 import './FaceRecognition.css';
 
 interface FaceRecognitionProps {
@@ -361,7 +362,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         });
       }
     } catch (err) {
-      console.error('📹 Camera Error:', err);
+      cameraLogger.error(err);
       let errorMsg = 'Không thể truy cập camera';
       
       if (err instanceof Error) {
@@ -578,7 +579,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       
       if (detections.length === 0) {
         setIsFaceAligned(false);
-        console.log('❌ No face detected');
+        consoleLogger.debug('❌ No face detected');
         return false;
       }
 
@@ -602,7 +603,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         guideRadiusY
       );
 
-      console.log(`📊 Face overlap: ${overlapPercentage.toFixed(1)}% (minimum required: 80%)`);
+      consoleLogger.debug(`📊 Face overlap: ${overlapPercentage.toFixed(1)}% (minimum required: 80%)`);
 
       // ✨ Yêu cầu ít nhất 80% khuôn mặt nằm trong oval
       const MINIMUM_OVERLAP_PERCENTAGE = 80;
@@ -618,20 +619,20 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       
       if (!aligned) {
         if (!isOverlapOk) {
-          console.log(`⚠️ Face alignment failed: Only ${overlapPercentage.toFixed(1)}% of face is inside oval (need ${MINIMUM_OVERLAP_PERCENTAGE}%)`);
+          faceLogger.alignment(false, `Only ${overlapPercentage.toFixed(1)}% of face is inside oval (need ${MINIMUM_OVERLAP_PERCENTAGE}%)`);
         }
         if (!isSizeOk) {
-          console.log(`⚠️ Face size check failed: Face ratio ${(faceRatio * 100).toFixed(1)}% (acceptable: 8-50%)`);
+          faceLogger.alignment(false, `Face ratio ${(faceRatio * 100).toFixed(1)}% (acceptable: 8-50%)`);
         }
       } else {
-        console.log(`✅ Face aligned! Overlap: ${overlapPercentage.toFixed(1)}%, Size: ${(faceRatio * 100).toFixed(1)}%`);
+        faceLogger.alignment(true, `Overlap: ${overlapPercentage.toFixed(1)}%, Size: ${(faceRatio * 100).toFixed(1)}%`);
       }
 
       setIsFaceAligned(aligned);
       
       return aligned;
     } catch (err) {
-      console.warn('Face alignment check failed:', err);
+      consoleLogger.warn('Face alignment check failed:', err);
       setIsFaceAligned(false);
       return false;
     }
@@ -639,20 +640,34 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
 
   /**
    * Animation loop để vẽ guide và check alignment
+   * 🚀 LAZY LOAD: Đợi 1 giây sau khi camera sẵn sàng mới bắt đầu
    */
   useEffect(() => {
     if (!isCameraActive || !isModelLoaded) return;
 
     let animationFrameId: number;
     let lastAlignmentCheck = 0;
-    const ALIGNMENT_CHECK_INTERVAL = 500; // Check alignment every 500ms
+    let isGuideReady = false;
+    
+    // 🎯 Dynamic interval based on device
+    const ALIGNMENT_CHECK_INTERVAL = isMobile() ? 1500 : 500; // 1.5s mobile, 0.5s desktop
+    
+    consoleLogger.debug(`🎨 Face guide animation starting with interval: ${ALIGNMENT_CHECK_INTERVAL}ms`);
+
+    // 🚀 LAZY LOAD: Đợi 1 giây trước khi bắt đầu vẽ guide (giảm load khi khởi tạo)
+    const lazyLoadTimer = setTimeout(() => {
+      isGuideReady = true;
+      consoleLogger.debug('✅ Face guide overlay ready');
+    }, 1000); // Delay 1 second
 
     const animate = async (timestamp: number) => {
-      // Draw guide overlay
-      drawFaceGuide();
+      // Only draw guide after lazy load completes
+      if (isGuideReady) {
+        drawFaceGuide();
+      }
 
       // Check alignment periodically (not every frame for performance)
-      if (timestamp - lastAlignmentCheck >= ALIGNMENT_CHECK_INTERVAL) {
+      if (isGuideReady && timestamp - lastAlignmentCheck >= ALIGNMENT_CHECK_INTERVAL) {
         await checkFaceAlignment();
         lastAlignmentCheck = timestamp;
       }
@@ -663,6 +678,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     animationFrameId = requestAnimationFrame(animate);
 
     return () => {
+      clearTimeout(lazyLoadTimer);
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
       }
@@ -678,14 +694,14 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     const isCurrentlyAligned = await checkFaceAlignment();
     
     if (!isCurrentlyAligned) {
-      console.log('🚫 FACE RECOGNITION SKIPPED: Face not aligned (need 80% inside oval)');
-      console.log('   → Recognition will NOT run until face is properly aligned');
-      console.log('   → Current state: isFaceAligned =', isFaceAligned, '(may be stale)');
+      faceLogger.skipped('Face not aligned (need 80% inside oval)');
+      consoleLogger.debug('   → Recognition will NOT run until face is properly aligned');
+      consoleLogger.debug('   → Current state: isFaceAligned =', isFaceAligned, '(may be stale)');
       return;
     }
 
     // ✅ Face đã aligned, bắt đầu nhận diện
-    console.log('🎯 FACE RECOGNITION STARTING: Face is aligned!');
+    faceLogger.start('Face is aligned!');
 
     try {
       setIsRecognizing(true);
@@ -694,7 +710,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       const result = await faceRecognizeService.recognizeFace(videoRef.current);
       const results = [result]; // Wrap single result in array for compatibility
       
-      console.log('✅ FACE RECOGNITION COMPLETED:', results);
+      faceLogger.completed(results);
       
       // Vẽ kết quả lên overlay canvas
       const overlayCanvas = overlayCanvasRef.current;
@@ -709,10 +725,10 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     } catch (err) {
   const errorMsg = 'Lỗi khi nhận dạng: ' + (err as Error).message;
   emitError(errorMsg);
-  console.error('❌ FACE RECOGNITION ERROR:', err);
+  faceLogger.error(err);
     } finally {
       setIsRecognizing(false);
-      console.log('🏁 FACE RECOGNITION FINISHED');
+      faceLogger.finished();
     }
   }, [isModelLoaded, isRecognizing, isFaceAligned, checkFaceAlignment, onRecognitionResult, emitError]);
 
@@ -755,7 +771,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       }
       
     } catch (error) {
-      console.error('🔧 Camera test failed:', error);
+      cameraLogger.error('Camera test failed:', error);
       const errorMsg = `Camera test failed: ${(error as Error).message}`;
       emitError(errorMsg);
     }
@@ -777,7 +793,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
     } catch (err) {
       const errorMsg = 'Lỗi khi đăng ký: ' + (err as Error).message;
       emitError(errorMsg);
-      console.error(err);
+      consoleLogger.error(err);
       // Parent will surface error; avoid duplicate notification
     }
   };
