@@ -19,26 +19,42 @@ interface Logger {
  * Development logger - logs everything
  */
 const devLogger: Logger = {
-  log: (...args: any[]) => console.log(...args),
-  info: (...args: any[]) => console.info(...args),
-  warn: (...args: any[]) => console.warn(...args),
-  error: (...args: any[]) => console.error(...args),
-  debug: (...args: any[]) => console.debug(...args),
-  group: (label: string) => console.group(label),
-  groupEnd: () => console.groupEnd(),
+  log(...args: any[]) {
+    console.log(...args);
+  },
+  info(...args: any[]) {
+    console.info(...args);
+  },
+  warn(...args: any[]) {
+    console.warn(...args);
+  },
+  error(...args: any[]) {
+    console.error(...args);
+  },
+  debug(...args: any[]) {
+    console.debug(...args);
+  },
+  group(label: string) {
+    console.group(label);
+  },
+  groupEnd() {
+    console.groupEnd();
+  },
 };
 
 /**
  * Production logger - only logs errors
  */
 const prodLogger: Logger = {
-  log: () => {}, // No-op
-  info: () => {}, // No-op
-  warn: () => {}, // No-op
-  error: (...args: any[]) => console.error(...args), // Always log errors
-  debug: () => {}, // No-op
-  group: () => {}, // No-op
-  groupEnd: () => {}, // No-op
+  log() {}, // No-op
+  info() {}, // No-op
+  warn() {}, // No-op
+  error(...args: any[]) {
+    console.error(...args);
+  }, // Always log errors
+  debug() {}, // No-op
+  group() {}, // No-op
+  groupEnd() {}, // No-op
 };
 
 /**
@@ -50,12 +66,22 @@ export const consoleLogger = isDevelopment ? devLogger : prodLogger;
  * Specialized logger for face recognition with emoji prefixes
  */
 export const faceLogger = {
-  start: (...args: any[]) => consoleLogger.log('🎯 FACE RECOGNITION STARTING:', ...args),
-  completed: (...args: any[]) => consoleLogger.log('✅ FACE RECOGNITION COMPLETED:', ...args),
-  skipped: (...args: any[]) => consoleLogger.log('🚫 FACE RECOGNITION SKIPPED:', ...args),
-  error: (...args: any[]) => consoleLogger.error('❌ FACE RECOGNITION ERROR:', ...args),
-  finished: () => consoleLogger.log('🏁 FACE RECOGNITION FINISHED'),
-  alignment: (aligned: boolean, details: string) => {
+  start(...args: any[]) {
+    consoleLogger.log('🎯 FACE RECOGNITION STARTING:', ...args);
+  },
+  completed(...args: any[]) {
+    consoleLogger.log('✅ FACE RECOGNITION COMPLETED:', ...args);
+  },
+  skipped(...args: any[]) {
+    consoleLogger.log('🚫 FACE RECOGNITION SKIPPED:', ...args);
+  },
+  error(...args: any[]) {
+    consoleLogger.error('❌ FACE RECOGNITION ERROR:', ...args);
+  },
+  finished() {
+    consoleLogger.log('🏁 FACE RECOGNITION FINISHED');
+  },
+  alignment(aligned: boolean, details: string) {
     if (aligned) {
       consoleLogger.log(`✅ Face aligned! ${details}`);
     } else {
@@ -68,23 +94,33 @@ export const faceLogger = {
  * Specialized logger for camera operations
  */
 export const cameraLogger = {
-  start: (...args: any[]) => consoleLogger.log('📹 Camera starting...', ...args),
-  success: (...args: any[]) => consoleLogger.log('📹 Camera started successfully', ...args),
-  error: (...args: any[]) => consoleLogger.error('📹 Camera Error:', ...args),
-  strategy: (num: number, total: number) => consoleLogger.log(`📹 Trying camera strategy ${num}/${total}`),
-  info: (message: string, data?: any) => consoleLogger.log(`📹 ${message}`, data || ''),
+  start(...args: any[]) {
+    consoleLogger.log('📹 Camera starting...', ...args);
+  },
+  success(...args: any[]) {
+    consoleLogger.log('📹 Camera started successfully', ...args);
+  },
+  error(...args: any[]) {
+    consoleLogger.error('📹 Camera Error:', ...args);
+  },
+  strategy(num: number, total: number) {
+    consoleLogger.log(`📹 Trying camera strategy ${num}/${total}`);
+  },
+  info(message: string, data?: any) {
+    consoleLogger.log(`📹 ${message}`, data || '');
+  },
 };
 
 /**
  * Performance logger
  */
 export const perfLogger = {
-  mark: (name: string) => {
+  mark(name: string) {
     if (isDevelopment && performance) {
       performance.mark(name);
     }
   },
-  measure: (name: string, startMark: string, endMark: string) => {
+  measure(name: string, startMark: string, endMark: string) {
     if (isDevelopment && performance) {
       try {
         performance.measure(name, startMark, endMark);
