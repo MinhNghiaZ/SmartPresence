@@ -5,6 +5,9 @@
 
 import cron from 'node-cron';
 import { ClassSessionService } from '../ClassSessionService/ClassSessionService';
+import { ImageCleanupService } from '../StorageService/ImageCleanupService';
+import { AttendanceMonitoringService } from '../FaceService/AttendanceMonitoringService';
+import { SmartLogger } from '../../utils/smartLogger';
 
 export class CronJobService {
     
@@ -25,6 +28,13 @@ export class CronJobService {
         
         // Clean up old sessions weekly
         this.startCleanupOldSessions();
+        
+        // ✨ NEW: Clean up old images (2 weeks) - weekly & on startup
+        this.startCleanupOldImages();
+        this.cleanupImagesOnStartup();
+        
+        // ✨ NEW: Monitor success rate và alert nếu < 90%
+        this.startDailySuccessRateMonitoring();
         
         console.log('✅ All CronJob services started');
     }
@@ -132,6 +142,148 @@ export class CronJobService {
         });
         
         console.log('🧹 [CRON] Cleanup old sessions job started (weekly on Sunday at 02:00)');
+    }
+    
+    /**
+     * ✨ NEW: Clean up old images from captured_images table
+     * Runs weekly on Sunday at 03:00 AM to remove images older than 14 days (2 weeks)
+     */
+    private static startCleanupOldImages(): void {
+        cron.schedule('0 3 * * 0', async () => {
+            try {
+                console.log('🧹 [CRON] Cleaning up old images (older than 2 weeks)...');
+                
+                // Get stats before cleanup
+                const statsBefore = await ImageCleanupService.getImageStats();
+                console.log(`📊 [CRON] Current stats: ${statsBefore.totalImages} images (${statsBefore.totalSizeMB} MB)`);
+                console.log(`📊 [CRON] Images older than 2 weeks: ${statsBefore.imagesOlderThan2Weeks} (${statsBefore.sizeOlderThan2WeeksMB} MB)`);
+                
+                // Clean up images older than 14 days (2 weeks)
+                const result = await ImageCleanupService.cleanupOldImages(14);
+                
+                if (result.success) {
+                    console.log(`✅ [CRON] ${result.message}`);
+                    console.log(`🗑️ [CRON] Deleted ${result.deletedCount} images, freed ${result.details?.totalSizeMB} MB`);
+                } else {
+                    console.error(`❌ [CRON] ${result.message}`);
+                }
+                
+                // Get stats after cleanup
+                const statsAfter = await ImageCleanupService.getImageStats();
+                console.log(`📊 [CRON] After cleanup: ${statsAfter.totalImages} images (${statsAfter.totalSizeMB} MB)`);
+                
+            } catch (error) {
+                console.error('❌ [CRON] Error in cleanup old images:', error);
+            }
+        }, {
+            timezone: "Asia/Ho_Chi_Minh"
+        });
+        
+        console.log('🧹 [CRON] Cleanup old images job started (weekly on Sunday at 03:00, removes images >14 days old)');
+    }
+    
+    /**
+     * ✨ NEW: Clean up old images immediately on server startup
+     * Ensures old images are removed when server starts
+     */
+    private static async cleanupImagesOnStartup(): Promise<void> {
+        try {
+            console.log('🚀 [STARTUP] Cleaning up old images (older than 2 weeks)...');
+            
+            // Get stats before cleanup
+            const statsBefore = await ImageCleanupService.getImageStats();
+            console.log(`📊 [STARTUP] Current stats: ${statsBefore.totalImages} images (${statsBefore.totalSizeMB} MB)`);
+            console.log(`📊 [STARTUP] Images older than 2 weeks: ${statsBefore.imagesOlderThan2Weeks} (${statsBefore.sizeOlderThan2WeeksMB} MB)`);
+            
+            if (statsBefore.imagesOlderThan2Weeks === 0) {
+                console.log('✅ [STARTUP] No old images to clean up');
+                return;
+            }
+            
+            // Clean up images older than 14 days (2 weeks)
+            const result = await ImageCleanupService.cleanupOldImages(14);
+            
+            if (result.success) {
+                console.log(`✅ [STARTUP] ${result.message}`);
+                console.log(`🗑️ [STARTUP] Deleted ${result.deletedCount} images, freed ${result.details?.totalSizeMB} MB`);
+                
+                // Get stats after cleanup
+                const statsAfter = await ImageCleanupService.getImageStats();
+                console.log(`📊 [STARTUP] After cleanup: ${statsAfter.totalImages} images (${statsAfter.totalSizeMB} MB)`);
+            } else {
+                console.error(`❌ [STARTUP] ${result.message}`);
+            }
+            
+        } catch (error) {
+            console.error('❌ [STARTUP] Error cleaning up images on startup:', error);
+        }
+    }
+    
+    /**
+     * ✨ NEW: Monitor success rate hàng ngày
+     * Chạy 3 lần/ngày: 12:00, 18:00, 23:00
+     * Alert admin nếu success rate < 90%
+     */
+    private static startDailySuccessRateMonitoring(): void {
+        // Chạy lúc 12:00 (giữa trưa)
+        cron.schedule('0 12 * * *', async () => {
+            try {
+                SmartLogger.dev('📊 [CRON] Checking midday success rate...');
+                await AttendanceMonitoringService.checkAndAlertLowSuccessRate();
+            } catch (error) {
+                SmartLogger.logCriticalError('CronJob.successRateMonitoring', error);
+            }
+        }, {
+            timezone: "Asia/Ho_Chi_Minh"
+        });
+        
+        // Chạy lúc 18:00 (chiều)
+        cron.schedule('0 18 * * *', async () => {
+            try {
+                SmartLogger.dev('📊 [CRON] Checking evening success rate...');
+                await AttendanceMonitoringService.checkAndAlertLowSuccessRate();
+            } catch (error) {
+                SmartLogger.logCriticalError('CronJob.successRateMonitoring', error);
+            }
+        }, {
+            timezone: "Asia/Ho_Chi_Minh"
+        });
+        
+        // Chạy lúc 23:00 (cuối ngày - summary cuối cùng)
+        cron.schedule('0 23 * * *', async () => {
+            try {
+                SmartLogger.dev('📊 [CRON] Daily success rate summary...');
+                await AttendanceMonitoringService.checkAndAlertLowSuccessRate();
+                
+                // Log problematic students (cần hỗ trợ)
+                const problematicStudents = await AttendanceMonitoringService.getProblematicStudents(7, 3);
+                if (problematicStudents.length > 0) {
+                    SmartLogger.warn('⚠️ Students with low success rate (need support):', {
+                        count: problematicStudents.length,
+                        students: problematicStudents.slice(0, 5) // Top 5
+                    });
+                }
+                
+                // Log hourly failure pattern
+                const hourlyPattern = await AttendanceMonitoringService.getHourlyFailurePattern(7);
+                const peakFailureHours = hourlyPattern
+                    .filter(h => h.failureRate > 0.15) // >15% failure rate
+                    .sort((a, b) => b.failureRate - a.failureRate);
+                    
+                if (peakFailureHours.length > 0) {
+                    SmartLogger.warn('⚠️ Peak failure hours:', {
+                        hours: peakFailureHours.map(h => `${h.hour}:00 (${(h.failureRate * 100).toFixed(1)}% failure)`)
+                    });
+                }
+                
+            } catch (error) {
+                SmartLogger.logCriticalError('CronJob.dailySummary', error);
+            }
+        }, {
+            timezone: "Asia/Ho_Chi_Minh"
+        });
+        
+        SmartLogger.success('📊 [CRON] Success rate monitoring started (12:00, 18:00, 23:00 daily)');
     }
     
     /**

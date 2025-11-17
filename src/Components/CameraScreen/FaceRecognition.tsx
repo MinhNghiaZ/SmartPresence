@@ -260,7 +260,7 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       // console.log('📹 Available cameras:', cameraCheck.cameras.length);
 
       let stream: MediaStream | null = null;
-      
+
       // Try multiple camera access strategies using polyfill
       const strategies = [
         // Strategy 1: Mobile optimized with polyfill
@@ -580,7 +580,6 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       
       if (detections.length === 0) {
         setIsFaceAligned(false);
-        console.log('❌ No face detected');
         return false;
       }
 
@@ -604,11 +603,22 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
         guideRadiusY
       );
 
-      console.log(`📊 Face overlap: ${overlapPercentage.toFixed(1)}% (minimum required: 80%)`);
-
-      // ✨ Yêu cầu ít nhất 80% khuôn mặt nằm trong oval
-      const MINIMUM_OVERLAP_PERCENTAGE = 80;
-      const isOverlapOk = overlapPercentage >= MINIMUM_OVERLAP_PERCENTAGE;
+      // ✨ ADAPTIVE OVERLAP REQUIREMENT - More lenient for better usability
+      const MINIMUM_OVERLAP_PERCENTAGE = 65; // Reduced from 80% to 65% 
+      
+      // Progressive tolerance - more lenient over time to handle user frustration
+      const timeSinceStart = Date.now() - ((window as any).__faceAlignmentStartTime || Date.now());
+      const progressiveTolerance = timeSinceStart > 15000 ? 55 : // After 15s, very lenient
+                                  timeSinceStart > 10000 ? 60 : // After 10s, more lenient  
+                                  timeSinceStart > 5000 ? 65 : // After 5s, slightly lenient
+                                  MINIMUM_OVERLAP_PERCENTAGE; // Normal requirement
+      
+      const isOverlapOk = overlapPercentage >= progressiveTolerance;
+      
+      // Initialize timing if not set
+      if (!(window as any).__faceAlignmentStartTime) {
+        (window as any).__faceAlignmentStartTime = Date.now();
+      }
 
       // Check if face size is appropriate (not too small or too large)
       const faceArea = box.width * box.height;
@@ -618,17 +628,6 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
 
       const aligned = isOverlapOk && isSizeOk;
       
-      if (!aligned) {
-        if (!isOverlapOk) {
-          console.log(`⚠️ Face alignment failed: Only ${overlapPercentage.toFixed(1)}% of face is inside oval (need ${MINIMUM_OVERLAP_PERCENTAGE}%)`);
-        }
-        if (!isSizeOk) {
-          console.log(`⚠️ Face size check failed: Face ratio ${(faceRatio * 100).toFixed(1)}% (acceptable: 8-50%)`);
-        }
-      } else {
-        console.log(`✅ Face aligned! Overlap: ${overlapPercentage.toFixed(1)}%, Size: ${(faceRatio * 100).toFixed(1)}%`);
-      }
-
       setIsFaceAligned(aligned);
       
       return aligned;
@@ -696,8 +695,6 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
       const result = await faceRecognizeService.recognizeFace(videoRef.current);
       const results = [result]; // Wrap single result in array for compatibility
       
-      console.log('✅ FACE RECOGNITION COMPLETED:', results);
-      
       // Vẽ kết quả lên overlay canvas
       const overlayCanvas = overlayCanvasRef.current;
       overlayCanvas.width = videoRef.current.videoWidth;
@@ -714,7 +711,6 @@ const FaceRecognition = forwardRef<FaceRecognitionRef, FaceRecognitionProps>(({
   console.error('❌ FACE RECOGNITION ERROR:', err);
     } finally {
       setIsRecognizing(false);
-      console.log('🏁 FACE RECOGNITION FINISHED');
     }
   }, [isModelLoaded, isRecognizing, isFaceAligned, checkFaceAlignment, onRecognitionResult, emitError]);
 

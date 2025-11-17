@@ -17,9 +17,10 @@
     "preview": "vite preview",
     "preview:https": "vite preview --host",
     "preview:prod": "vite preview --config vite.config.production.ts --host",
-    "start:fullstack": "concurrently \"npm run preview:https\" \"npm run start:backend\"",
-    "start:fullstack:prod": "concurrently \"npm run preview:prod\" \"npm run start:backend\"",
-    "start:backend": "cd backend && npm run start"
+    "start:fullstack": "concurrently \"npm run preview:https\" \"npm run start:backend:prod\"",
+    "start:fullstack:prod": "concurrently \"npm run preview:prod\" \"npm run start:backend:prod\"",
+    "start:backend": "cd backend && npm run start",
+    "start:backend:prod": "cd backend && npm run start:prod"
   },
   "dependencies": {
     "bootstrap": "^5.3.3",

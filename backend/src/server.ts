@@ -4,12 +4,21 @@ import dotenv from 'dotenv';
 
 // Import routes
 import { authRoutes, gpsRoutes, faceRoutes, storageRoutes, subjectRoutes, attendanceRoutes } from './routes';
+import monitoringRoutes from './routes/monitoringRoutes';
 
 // Import services
 import { CronJobService } from './services/CronJobService';
 
 // Load environment variables
 dotenv.config();
+
+// 🔇 Disable verbose logging in production mode
+if (process.env.NODE_ENV === 'production') {
+    console.log = () => {};
+    console.info = () => {};
+    console.debug = () => {};
+    // Keep console.error and console.warn for important messages
+}
 
 // Create Express app
 const app = express();
@@ -39,14 +48,6 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' })); // Increased limit for face images
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-    console.log(`📝 ${new Date().toISOString()} - ${req.method} ${req.url}`);
-    console.log('📝 Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('📝 Body:', JSON.stringify(req.body, null, 2));
-    next();
-});
-
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/gps', gpsRoutes);
@@ -54,6 +55,7 @@ app.use('/api/face', faceRoutes);
 app.use('/api/storage', storageRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/monitoring', monitoringRoutes); // ✨ NEW: Success rate monitoring
 
 // Start Cron Jobs for automated tasks
 console.log('🚀 Starting automated services...');
@@ -91,57 +93,7 @@ app.listen(PORT, () => {
     console.log('✅ SmartPresence Backend Server is RUNNING!');
     console.log(`🌐 URL: http://localhost:${PORT}`);
     console.log(`⏰ Started at: ${new Date().toLocaleString()}`);
-    console.log('\n📋 Available API Endpoints:\n');
-
-    console.log('🔐 Authentication:');
-    console.log(`   POST http://localhost:${PORT}/api/auth/login`);
-    console.log(`   POST http://localhost:${PORT}/api/auth/logout`);
-    console.log(`   GET  http://localhost:${PORT}/api/auth/me (Protected)`);
-    console.log(`   GET  http://localhost:${PORT}/api/auth/admin/dashboard (Admin only)`);
-    console.log(`   GET  http://localhost:${PORT}/api/auth/student/profile (Student only)`);
-    console.log(`   POST http://localhost:${PORT}/api/auth/admin/create-student (Admin only)`);
-    
-    console.log('\n📍 GPS Validation:');
-    console.log(`   POST http://localhost:${PORT}/api/gps/validate-location`);
-    
-    console.log('\n👤 Face Recognition:');
-    console.log(`   POST http://localhost:${PORT}/api/face/register`);
-    console.log(`   POST http://localhost:${PORT}/api/face/recognize`);
-    console.log(`   GET  http://localhost:${PORT}/api/face/check/:studentId`);
-    console.log(`   POST http://localhost:${PORT}/api/face/validate`);
-    console.log(`   GET  http://localhost:${PORT}/api/face/stats (Admin)`);
-    console.log(`   DELETE http://localhost:${PORT}/api/face/:studentId (Admin)`);
-    
-    console.log('\n📦 Storage - Captured Images:');
-    console.log(`   GET  http://localhost:${PORT}/api/storage/captured-images`);
-    console.log(`   GET  http://localhost:${PORT}/api/storage/captured-images/stats`);
-    console.log(`   GET  http://localhost:${PORT}/api/storage/captured-images/student/:studentId`);
-    console.log(`   GET  http://localhost:${PORT}/api/storage/captured-images/:imageId`);
-    console.log(`   DELETE http://localhost:${PORT}/api/storage/captured-images/:imageId`);
-    console.log(`   DELETE http://localhost:${PORT}/api/storage/captured-images (Admin)`);
-    console.log(`   GET  http://localhost:${PORT}/api/storage/captured-images/date-range`);
-    console.log(`   POST http://localhost:${PORT}/api/storage/cleanup (Admin)`);
-    
-    console.log('\n📚 Subject Management:');
-    console.log(`   GET  http://localhost:${PORT}/api/subjects`);
-    console.log(`   GET  http://localhost:${PORT}/api/subjects/student/:studentId`);
-    console.log(`   GET  http://localhost:${PORT}/api/subjects/:subjectId/current-timeslot`);
-    console.log(`   GET  http://localhost:${PORT}/api/subjects/:subjectId/room-info`);
-    console.log(`   GET  http://localhost:${PORT}/api/subjects/:subjectId/enrollment/:studentId`);
-    
-    console.log('\n✅ Attendance System:');
-    console.log(`   POST http://localhost:${PORT}/api/attendance/check-in`);
-    console.log(`   GET  http://localhost:${PORT}/api/attendance/history/:studentId`);
-    console.log(`   GET  http://localhost:${PORT}/api/attendance/stats/:studentId`);
-    console.log(`   GET  http://localhost:${PORT}/api/attendance/today/:studentId`);
-    console.log(`   GET  http://localhost:${PORT}/api/attendance/subject/:subjectId/session-status`);
-    console.log(`   GET  http://localhost:${PORT}/api/attendance/subject/:subjectId/students-stats`);
-    console.log(`   DELETE http://localhost:${PORT}/api/attendance/:attendanceId (Admin)`);
-    
-    console.log('\n🏥 Health Check:');
-    console.log(`   GET  http://localhost:${PORT}/api/health`);
-    
-    console.log('\n🎯 Ready for frontend connections!');
+    console.log('✅ Health check: http://localhost:' + PORT + '/api/health');
 });
 
 // Global error handler

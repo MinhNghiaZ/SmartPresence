@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { StorageController } from '../controllers/StorageController/storageController';
+import { ImageCleanupController } from '../controllers/StorageController/ImageCleanupController';
 import { authenticateToken, requireAdmin, requireAuth, requireOwnershipOrAdmin } from '../middleware/jwtMiddleware/authmiddleware';
 
 const router = Router();
@@ -31,5 +32,18 @@ router.delete('/captured-images', authenticateToken, requireAdmin, StorageContro
 
 // Clean up old images (admin only)
 router.post('/cleanup', authenticateToken, requireAdmin, StorageController.cleanupOldImages);
+
+// ✨ NEW: Image Cleanup Management API (Admin only)
+// Get cleanup statistics
+router.get('/cleanup/stats', authenticateToken, requireAdmin, ImageCleanupController.getCleanupStats);
+
+// Manual cleanup trigger
+router.post('/cleanup/images', authenticateToken, requireAdmin, ImageCleanupController.cleanupOldImages);
+
+// Cleanup by recognition result
+router.post('/cleanup/by-result', authenticateToken, requireAdmin, ImageCleanupController.cleanupByResult);
+
+// Cleanup user images
+router.post('/cleanup/user/:studentId', authenticateToken, requireAdmin, ImageCleanupController.cleanupUserImages);
 
 export default router;

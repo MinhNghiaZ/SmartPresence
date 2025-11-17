@@ -1,11 +1,15 @@
 // src/Services/SubjectService/SubjectService.ts
 
 import { authService } from '../AuthService/AuthService';
-import type { 
+import type {
     SubjectInfo, 
     Subject, 
     SubjectWithSchedule, 
-    StudentSubjectsResponse 
+    StudentSubjectsResponse,
+    TimeSlotResponse,
+    EnrollmentResponse,
+    RoomInfoResponse,
+    EnrolledStudent
 } from '../../models';
 
 // ======================================
@@ -24,8 +28,6 @@ class SubjectServiceClass {
      */
     async getAllSubjects(): Promise<Subject[]> {
         try {
-            console.log('🔍 SubjectService.getAllSubjects called');
-
             const token = authService.getToken();
             const response = await fetch(`${this.baseURL}/subjects`, {
                 method: 'GET',
@@ -40,7 +42,6 @@ class SubjectServiceClass {
             }
 
             const data = await response.json();
-            console.log('✅ All subjects fetched:', data);
 
             return data.subjects || [];
         } catch (error) {
@@ -54,17 +55,13 @@ class SubjectServiceClass {
      */
     async getStudentSubjects(studentId: string): Promise<SubjectWithSchedule[]> {
         try {
-            console.log('🔍 SubjectService.getStudentSubjects called for:', studentId);
-
             const token = authService.getToken();
-            console.log('🔑 Token:', token ? `${token.substring(0, 20)}...` : 'null');
 
             if (!token) {
                 throw new Error('No authentication token available');
             }
 
             const url = `${this.baseURL}/subjects/student/${studentId}`;
-            console.log('📞 Calling URL:', url);
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -74,15 +71,11 @@ class SubjectServiceClass {
                 },
             });
 
-            console.log('📡 Response status:', response.status);
-            console.log('📡 Response ok:', response.ok);
-
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data: StudentSubjectsResponse = await response.json();
-            console.log('✅ Student subjects fetched:', data);
 
             return data.subjects || [];
         } catch (error) {
@@ -98,14 +91,11 @@ class SubjectServiceClass {
      */
     async getStudentSubjectsFormatted(studentId: string): Promise<SubjectInfo[]> {
         try {
-            console.log('🔍 SubjectService.getStudentSubjectsFormatted called for:', studentId);
-
             const rawSubjects = await this.getStudentSubjects(studentId);
 
             // Transform backend data to HomeScreen format WITH today's session times
             const formattedSubjects = await this.transformToSubjectInfoWithTodayTimes(rawSubjects);
 
-            console.log('✅ Formatted subjects for HomeScreen with today times:', formattedSubjects);
             return formattedSubjects;
 
         } catch (error) {
@@ -144,11 +134,8 @@ class SubjectServiceClass {
 
             let todaySessions: any[] = [];
             if (todaySessionsResponse.ok) {
-                const sessionData = await todaySessionsResponse.json();
-                todaySessions = sessionData.success ? sessionData.sessions || [] : [];
-                console.log('📅 Today sessions loaded:', todaySessions);
-            } else {
-                console.warn('⚠️ Could not load today sessions, using TimeSlot times');
+                const sessionsData = await todaySessionsResponse.json();
+                todaySessions = sessionsData.sessions || [];
             }
 
             // Transform with today's session times
@@ -186,11 +173,9 @@ class SubjectServiceClass {
             if (todaySession) {
                 // Use today's session time (may be different from TimeSlot)
                 formattedTime = this.formatTimeRange(todaySession.start_time, todaySession.end_time);
-                console.log(`🕒 Using TODAY'S session time for ${firstSlot.subjectName}: ${formattedTime}`);
             } else {
                 // Fallback to TimeSlot time
                 formattedTime = this.formatTimeRange(firstSlot.start_time, firstSlot.end_time);
-                console.log(`🕒 Using TimeSlot time for ${firstSlot.subjectName}: ${formattedTime} (no session today)`);
             }
 
             // Format schedule (combine all days)
@@ -205,8 +190,6 @@ class SubjectServiceClass {
             // Find timeslot for today
             const todaySlot = timeSlots.find(slot => slot.day_of_week === currentDayName);
             const room = todaySlot ? (todaySlot.roomId || 'TBA') : (firstSlot.roomId || 'TBA');
-
-            console.log(`📅 Room for ${firstSlot.subjectName} today (${currentDayName}): ${room}`);
 
             return {
                 subjectId: firstSlot.subjectId,
@@ -253,8 +236,6 @@ class SubjectServiceClass {
             // Find timeslot for today
             const todaySlot = timeSlots.find(slot => slot.day_of_week === currentDayName);
             const room = todaySlot ? (todaySlot.roomId || 'TBA') : (firstSlot.roomId || 'TBA');
-
-            console.log(`📅 Room for ${firstSlot.subjectName} today (${currentDayName}): ${room}`);
 
             return {
                 subjectId: firstSlot.subjectId,
@@ -304,10 +285,8 @@ class SubjectServiceClass {
     /**
      * Get current active timeslot for subject
      */
-    async getCurrentTimeSlot(subjectId: string): Promise<any> {
+    async getCurrentTimeSlot(subjectId: string): Promise<TimeSlotResponse> {
         try {
-            console.log('🔍 SubjectService.getCurrentTimeSlot called for:', subjectId);
-
             const token = authService.getToken();
             const response = await fetch(`${this.baseURL}/subjects/${subjectId}/current-timeslot`, {
                 method: 'GET',
@@ -327,17 +306,15 @@ class SubjectServiceClass {
             return data;
         } catch (error) {
             console.error('❌ Error fetching current timeslot:', error);
-            return null;
+            return { success: false, message: 'Failed to fetch timeslot' };
         }
     }
 
     /**
      * Check if student is enrolled in subject
      */
-    async checkEnrollment(subjectId: string, studentId: string): Promise<boolean> {
+    async checkEnrollment(subjectId: string, studentId: string): Promise<EnrollmentResponse> {
         try {
-            console.log('🔍 SubjectService.checkEnrollment called for:', { subjectId, studentId });
-
             const token = authService.getToken();
             const response = await fetch(`${this.baseURL}/subjects/${subjectId}/enrollment/${studentId}`, {
                 method: 'GET',
@@ -354,20 +331,18 @@ class SubjectServiceClass {
             const data = await response.json();
             console.log('✅ Enrollment checked:', data);
 
-            return data.isEnrolled || false;
+            return data;
         } catch (error) {
             console.error('❌ Error checking enrollment:', error);
-            return false;
+            return { success: false, enrolled: false, message: 'Failed to check enrollment' };
         }
     }
 
     /**
      * Get room info for GPS validation
      */
-    async getRoomInfo(subjectId: string): Promise<any> {
+    async getRoomInfo(subjectId: string): Promise<RoomInfoResponse> {
         try {
-            console.log('🔍 SubjectService.getRoomInfo called for:', subjectId);
-
             const token = authService.getToken();
             const response = await fetch(`${this.baseURL}/subjects/${subjectId}/room-info`, {
                 method: 'GET',
@@ -387,17 +362,15 @@ class SubjectServiceClass {
             return data;
         } catch (error) {
             console.error('❌ Error fetching room info:', error);
-            return null;
+            return { success: false, message: 'Failed to fetch room info' };
         }
     }
 
     /**
  * Get all enrolled students for a subject (Admin use)
  */
-    async getEnrolledStudents(subjectId: string): Promise<any[]> {
+    async getEnrolledStudents(subjectId: string): Promise<EnrolledStudent[]> {
         try {
-            console.log('🔍 SubjectService.getEnrolledStudents called for:', subjectId);
-
             const token = authService.getToken();
             const response = await fetch(`${this.baseURL}/subjects/${subjectId}/enrolled-students`, {
                 method: 'GET',

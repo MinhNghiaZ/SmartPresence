@@ -196,7 +196,7 @@ export class AttendanceService {
             }
             
             query += ` ORDER BY a.checked_in_at DESC LIMIT ? OFFSET ?`;
-            params.push(limit, offset);
+            params.push(parseInt(limit.toString()), parseInt(offset.toString()));
             
             const [rows] = await db.execute(query, params);
             

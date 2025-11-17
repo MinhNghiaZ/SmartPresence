@@ -39,3 +39,28 @@ export interface StudentSubjectsResponse {
     count: number;
     subjects: SubjectWithSchedule[];
 }
+
+// API Response types
+export interface TimeSlotResponse {
+    success: boolean;
+    currentTimeSlot?: any;
+    message?: string;
+}
+
+export interface EnrollmentResponse {
+    success: boolean;
+    enrolled: boolean;
+    message?: string;
+}
+
+export interface RoomInfoResponse {
+    success: boolean;
+    roomInfo?: any;
+    message?: string;
+}
+
+export interface EnrolledStudent {
+    studentId: string;
+    studentName: string;
+    email: string;
+}
