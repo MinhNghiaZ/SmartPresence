@@ -60,14 +60,25 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         const isRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
         setFaceRegistrationStatus(isRegistered ? 'registered' : 'not_registered');
         logger.face.info('Face registration status', { userId: currentUser.id, isRegistered });
-      } catch (error) {
+      } catch (error: any) {
         logger.face.error('Error checking face registration status', error);
+        
+        // Nếu lỗi token, force logout
+        if (error.message?.includes('token') || error.message?.includes('login')) {
+          logger.auth.error('Token error detected, forcing re-login');
+          alert('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+          if (onLogout) {
+            onLogout();
+          }
+          return;
+        }
+        
         setFaceRegistrationStatus('unknown');
       }
     };
 
     checkFaceRegistrationStatus();
-  }, [currentUser?.id]);
+  }, [currentUser?.id, onLogout]);
 
   // Redirect to login if no user is logged in | Chuyển hướng đến login nếu chưa đăng nhập
   useEffect(() => {

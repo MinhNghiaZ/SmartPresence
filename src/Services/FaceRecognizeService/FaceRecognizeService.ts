@@ -99,6 +99,12 @@ export class FaceRecognizeService {
     try {
       console.log(`🔍 Registering face for student: ${studentId} (${studentName})`);
 
+      // Kiểm tra token trước khi làm gì
+      const token = authService.getToken();
+      if (!token) {
+        throw new Error('Không tìm thấy token đăng nhập. Vui lòng đăng nhập lại.');
+      }
+
       const detections = await this.detectFace(imageElement);
 
       if (detections.length === 0) {
@@ -121,7 +127,6 @@ export class FaceRecognizeService {
         imageData
       };
 
-      const token = authService.getToken();
       const response = await fetch(`${this.API_BASE}/register`, {
         method: 'POST',
         headers: {
@@ -130,6 +135,13 @@ export class FaceRecognizeService {
         },
         body: JSON.stringify(request)
       });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+        }
+        throw new Error(`Lỗi server: ${response.status}`);
+      }
 
       const result = await response.json();
 
@@ -244,6 +256,11 @@ export class FaceRecognizeService {
   async isUserRegistered(studentId: string): Promise<boolean> {
     try {
       const token = authService.getToken();
+      
+      if (!token) {
+        console.error('❌ No token found - user may need to re-login');
+        throw new Error('Authentication token not found. Please login again.');
+      }
 
       const response = await fetch(`${this.API_BASE}/check/${studentId}`, {
         method: 'GET',
@@ -253,12 +270,20 @@ export class FaceRecognizeService {
         }
       });
 
+      if (!response.ok) {
+        console.error('❌ API error:', response.status, response.statusText);
+        if (response.status === 401) {
+          throw new Error('Session expired. Please login again.');
+        }
+        throw new Error(`API error: ${response.status}`);
+      }
+
       const result = await response.json();
 
       return result.success && result.registered;
     } catch (error) {
       console.error('❌ Error checking registration:', error);
-      return false;
+      throw error; // Re-throw để UI có thể handle
     }
   }
 
@@ -267,7 +292,13 @@ export class FaceRecognizeService {
    */
   async getStudentFaceInfo(studentId: string): Promise<StudentFaceInfo> {
     try {
-      const token = authService.getToken()
+      const token = authService.getToken();
+      
+      if (!token) {
+        console.error('❌ No token found - user may need to re-login');
+        throw new Error('Authentication token not found. Please login again.');
+      }
+      
       const response = await fetch(`${this.API_BASE}/check/${studentId}`, {
         method: 'GET',
         headers: {
@@ -275,6 +306,15 @@ export class FaceRecognizeService {
           'Authorization': `Bearer ${token}`
         }
       });
+
+      if (!response.ok) {
+        console.error('❌ API error:', response.status, response.statusText);
+        if (response.status === 401) {
+          throw new Error('Session expired. Please login again.');
+        }
+        throw new Error(`API error: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (result.success) {
