@@ -15,6 +15,10 @@ export class FaceRecognizeService {
   private readonly API_BASE = '/api/face';
   // Cache key prefix for face registration status
   private readonly REG_CACHE_PREFIX = 'faceRegistrationStatus:';
+  // Cache version - increment this when cache format changes
+  private readonly CACHE_VERSION = 2;
+  // Cache TTL - 24 hours in milliseconds
+  private readonly CACHE_TTL = 24 * 60 * 60 * 1000;
   // Default timeout for network requests (ms)
   private readonly DEFAULT_TIMEOUT = 8000;
 
@@ -152,7 +156,11 @@ export class FaceRecognizeService {
       if (result.success) {
         // Update cached registration status for offline/slow devices
         try {
-          localStorage.setItem(`${this.REG_CACHE_PREFIX}${studentId}`, JSON.stringify({ registered: true, ts: Date.now() }));
+          localStorage.setItem(`${this.REG_CACHE_PREFIX}${studentId}`, JSON.stringify({ 
+            registered: true, 
+            ts: Date.now(),
+            version: this.CACHE_VERSION 
+          }));
         } catch (_) {
           // ignore localStorage write errors
         }
@@ -304,7 +312,11 @@ export class FaceRecognizeService {
 
           // Cache the value for offline/slow clients
           try {
-            localStorage.setItem(`${this.REG_CACHE_PREFIX}${studentId}`, JSON.stringify({ registered: !!(result.success && result.registered), ts: Date.now() }));
+            localStorage.setItem(`${this.REG_CACHE_PREFIX}${studentId}`, JSON.stringify({ 
+              registered: !!(result.success && result.registered), 
+              ts: Date.now(),
+              version: this.CACHE_VERSION
+            }));
           } catch (_) {
             // ignore localStorage errors on quota or privacy mode
           }
@@ -326,8 +338,23 @@ export class FaceRecognizeService {
         if (cached) {
           const parsed = JSON.parse(cached);
           if (parsed && typeof parsed.registered === 'boolean') {
-            console.warn('Falling back to cached registration status for', studentId);
-            return parsed.registered;
+            // Check cache version and TTL
+            const isValidVersion = parsed.version === this.CACHE_VERSION;
+            const isNotExpired = parsed.ts && (Date.now() - parsed.ts) < this.CACHE_TTL;
+            
+            if (isValidVersion && isNotExpired) {
+              console.warn('✅ Using valid cached registration status for', studentId, `(age: ${Math.round((Date.now() - parsed.ts) / 1000 / 60)} minutes)`);
+              return parsed.registered;
+            } else {
+              console.warn('❌ Cache is stale or outdated for', studentId, { 
+                version: parsed.version, 
+                expectedVersion: this.CACHE_VERSION,
+                age: parsed.ts ? Math.round((Date.now() - parsed.ts) / 1000 / 60 / 60) : 'unknown',
+                maxAge: 24
+              });
+              // Clear stale cache
+              localStorage.removeItem(`${this.REG_CACHE_PREFIX}${studentId}`);
+            }
           }
         }
       } catch (cacheErr) {
@@ -340,6 +367,20 @@ export class FaceRecognizeService {
     } catch (error) {
       console.error('❌ Error checking registration:', error);
       throw error; // Re-throw để UI có thể handle
+    }
+  }
+
+  /**
+   * Xóa cache trạng thái đăng ký khuôn mặt cho một student cụ thể
+   * Dùng khi user bị stuck với cache cũ
+   */
+  clearCachedRegistrationStatus(studentId: string): void {
+    try {
+      const key = `${this.REG_CACHE_PREFIX}${studentId}`;
+      localStorage.removeItem(key);
+      console.log(`🗑️ Đã xóa cache đăng ký khuôn mặt cho ${studentId}`);
+    } catch (error) {
+      console.error('Lỗi khi xóa cache:', error);
     }
   }
 

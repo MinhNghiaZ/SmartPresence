@@ -80,6 +80,49 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     checkFaceRegistrationStatus();
   }, [currentUser?.id, onLogout]);
 
+  /**
+   * Làm mới trạng thái đăng ký khuôn mặt - Xóa cache và kiểm tra lại từ server
+   */
+  const refreshFaceRegistrationStatus = async () => {
+    if (!currentUser) return;
+    
+    try {
+      logger.face.info('Refreshing face registration status (clearing cache)', { userId: currentUser.id });
+      
+      // Xóa cache cũ
+      faceRecognizeService.clearCachedRegistrationStatus(currentUser.id);
+      
+      // Set loading state
+      setFaceRegistrationStatus('unknown');
+      
+      // Kiểm tra lại từ server
+      const isRegistered = await faceRecognizeService.isUserRegistered(currentUser.id);
+      setFaceRegistrationStatus(isRegistered ? 'registered' : 'not_registered');
+      
+      logger.face.info('Face registration status refreshed', { userId: currentUser.id, isRegistered });
+      
+      // Thông báo cho user
+      if (isRegistered) {
+        notify.success('✅ Đã tìm thấy dữ liệu khuôn mặt của bạn!', { 
+          title: 'Làm mới thành công',
+          ttl: 4000 
+        });
+      } else {
+        notify.info('⚠️ Bạn chưa đăng ký khuôn mặt. Vui lòng đăng ký để sử dụng tính năng điểm danh.', { 
+          title: 'Chưa có dữ liệu',
+          ttl: 5000 
+        });
+      }
+    } catch (error: any) {
+      logger.face.error('Error refreshing face registration status', error);
+      notify.error('Không thể làm mới trạng thái. Vui lòng thử lại sau.', { 
+        title: 'Lỗi',
+        ttl: 4000 
+      });
+      setFaceRegistrationStatus('unknown');
+    }
+  };
+
   // Redirect to login if no user is logged in | Chuyển hướng đến login nếu chưa đăng nhập
   useEffect(() => {
     if (!currentUser) {
@@ -914,23 +957,47 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
                   {/* Face Registration Status & Button */}
                   <div className="space-y-2">
                     {/* Status Display */}
-                    <div className="flex items-center justify-center p-3 rounded-lg bg-gray-50">
-                      {faceRegistrationStatus === 'registered' ? (
-                        <div className="flex items-center text-green-600">
-                          <span className="mr-2">✅</span>
-                          <span className="font-medium">Đã đăng ký khuôn mặt</span>
-                        </div>
-                      ) : faceRegistrationStatus === 'not_registered' ? (
-                        <div className="flex items-center text-orange-600">
-                          <span className="mr-2">⚠️</span>
-                          <span className="font-medium">Chưa đăng ký khuôn mặt</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-gray-500">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
-                          <span>Đang kiểm tra...</span>
-                        </div>
-                      )}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                      <div className="flex items-center">
+                        {faceRegistrationStatus === 'registered' ? (
+                          <>
+                            <span className="mr-2">✅</span>
+                            <span className="font-medium text-green-600">Đã đăng ký khuôn mặt</span>
+                          </>
+                        ) : faceRegistrationStatus === 'not_registered' ? (
+                          <>
+                            <span className="mr-2">⚠️</span>
+                            <span className="font-medium text-orange-600">Chưa đăng ký khuôn mặt</span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
+                            <span className="text-gray-500">Đang kiểm tra...</span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Refresh Button */}
+                      <button
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={refreshFaceRegistrationStatus}
+                        disabled={faceRegistrationStatus === 'unknown' || isCheckingIn}
+                        title="Làm mới trạng thái đăng ký khuôn mặt"
+                      >
+                        <svg 
+                          className="w-5 h-5" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                          />
+                        </svg>
+                      </button>
                     </div>
 
                     {/* Registration Button - Chỉ hiển thị khi chưa đăng ký */}
