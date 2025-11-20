@@ -13,6 +13,10 @@ export class FaceRecognizeService {
   private isModelsLoaded = false;
   private readonly MODEL_URL = '/models';
   private readonly API_BASE = '/api/face';
+  // Cache key prefix for face registration status
+  private readonly REG_CACHE_PREFIX = 'faceRegistrationStatus:';
+  // Default timeout for network requests (ms)
+  private readonly DEFAULT_TIMEOUT = 8000;
 
   /**
    * Khởi tạo và tải các model cần thiết cho face-api.js
@@ -146,6 +150,12 @@ export class FaceRecognizeService {
       const result = await response.json();
 
       if (result.success) {
+        // Update cached registration status for offline/slow devices
+        try {
+          localStorage.setItem(`${this.REG_CACHE_PREFIX}${studentId}`, JSON.stringify({ registered: true, ts: Date.now() }));
+        } catch (_) {
+          // ignore localStorage write errors
+        }
         console.log(`✅ Face registered successfully for ${studentName}`);
         return true;
       } else {
@@ -255,32 +265,78 @@ export class FaceRecognizeService {
    */
   async isUserRegistered(studentId: string): Promise<boolean> {
     try {
+      // Use a retry + timeout strategy so weak devices/networks have better chance
       const token = authService.getToken();
-      
       if (!token) {
         console.error('❌ No token found - user may need to re-login');
         throw new Error('Authentication token not found. Please login again.');
       }
 
-      const response = await fetch(`${this.API_BASE}/check/${studentId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const maxRetries = 3;
+      let attempt = 0;
+      let lastError: any = null;
 
-      if (!response.ok) {
-        console.error('❌ API error:', response.status, response.statusText);
-        if (response.status === 401) {
-          throw new Error('Session expired. Please login again.');
+      while (attempt < maxRetries) {
+        attempt++;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.DEFAULT_TIMEOUT);
+
+        try {
+          const response = await fetch(`${this.API_BASE}/check/${studentId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            signal: controller.signal
+          });
+
+          clearTimeout(timeout);
+
+          if (!response.ok) {
+            if (response.status === 401) {
+              throw new Error('Session expired. Please login again.');
+            }
+            throw new Error(`API error: ${response.status}`);
+          }
+
+          const result = await response.json();
+
+          // Cache the value for offline/slow clients
+          try {
+            localStorage.setItem(`${this.REG_CACHE_PREFIX}${studentId}`, JSON.stringify({ registered: !!(result.success && result.registered), ts: Date.now() }));
+          } catch (_) {
+            // ignore localStorage errors on quota or privacy mode
+          }
+
+          return result.success && result.registered;
+        } catch (err) {
+          lastError = err;
+          console.warn(`Attempt ${attempt} failed checking registration for ${studentId}:`, err);
+          // small backoff
+          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        } finally {
+          try { clearTimeout; } catch {};
         }
-        throw new Error(`API error: ${response.status}`);
       }
 
-      const result = await response.json();
+      // If all network attempts fail, fallback to a cached value if available
+      try {
+        const cached = localStorage.getItem(`${this.REG_CACHE_PREFIX}${studentId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed.registered === 'boolean') {
+            console.warn('Falling back to cached registration status for', studentId);
+            return parsed.registered;
+          }
+        }
+      } catch (cacheErr) {
+        // ignore cache parsing errors
+      }
 
-      return result.success && result.registered;
+      // If no cached info, rethrow last network error
+      console.error('❌ Error checking registration:', lastError);
+      throw lastError || new Error('Unknown network error');
     } catch (error) {
       console.error('❌ Error checking registration:', error);
       throw error; // Re-throw để UI có thể handle
