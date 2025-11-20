@@ -1,7 +1,5 @@
 import * as faceapi from 'face-api.js';
 import { authService } from '../AuthService/AuthService';
-import { StorageHelper } from '../../utils/storageHelper';
-import { ErrorTracker, ErrorCategory, ErrorSeverity } from '../../utils/ErrorTracker';
 import type {
   FaceRegistrationRequest,
   FaceRecognitionRequest,
@@ -38,17 +36,6 @@ export class FaceRecognizeService {
       this.isModelsLoaded = true;
       console.log('✅ Tất cả Face Recognition models đã được tải thành công');
     } catch (error) {
-      ErrorTracker.trackError({
-        category: ErrorCategory.FACE_RECOGNITION,
-        severity: ErrorSeverity.CRITICAL,
-        message: 'Failed to load face recognition models',
-        error: error as Error,
-        context: {
-          service: 'FaceRecognizeService',
-          method: 'initializeModels',
-          modelUrl: this.MODEL_URL
-        }
-      });
       console.error('❌ Lỗi khi tải models:', error);
       throw new Error('Không thể tải models cho face recognition');
     }
@@ -115,16 +102,6 @@ export class FaceRecognizeService {
       // Kiểm tra token trước khi làm gì
       const token = authService.getToken();
       if (!token) {
-        ErrorTracker.trackError({
-          category: ErrorCategory.AUTHENTICATION,
-          severity: ErrorSeverity.HIGH,
-          message: 'Token not found during face registration',
-          context: {
-            service: 'FaceRecognizeService',
-            method: 'registerFace',
-            studentId
-          }
-        });
         throw new Error('Không tìm thấy token đăng nhập. Vui lòng đăng nhập lại.');
       }
 
@@ -139,7 +116,7 @@ export class FaceRecognizeService {
       }
 
       // Convert Float32Array to regular array for JSON
-      const descriptor: number[] = Array.from(detections[0].descriptor);
+      const descriptor = Array.from(detections[0].descriptor);
 
       // Get image data as base64
       const imageData = this.imageToBase64(imageElement);
@@ -177,18 +154,6 @@ export class FaceRecognizeService {
       }
 
     } catch (error) {
-      ErrorTracker.trackError({
-        category: ErrorCategory.FACE_RECOGNITION,
-        severity: ErrorSeverity.HIGH,
-        message: 'Face registration failed',
-        error: error as Error,
-        context: {
-          service: 'FaceRecognizeService',
-          method: 'registerFace',
-          studentId,
-          studentName
-        }
-      });
       console.error('❌ Error registering face:', error);
       throw error;
     }
@@ -215,14 +180,14 @@ export class FaceRecognizeService {
       }
 
       // Convert Float32Array to regular array for JSON
-      const descriptor: number[] = Array.from(detections[0].descriptor);
+      const descriptor = Array.from(detections[0].descriptor);
 
       // Get image data as base64
       const imageData = this.imageToBase64(imageElement);
 
-      // ✅ LẤY CURRENT USER ID từ authService thay vì trực tiếp localStorage
-      const currentUser = authService.getCurrentUser();
-      const studentId = currentUser?.id;
+      // ✅ LẤY CURRENT USER ID
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      const studentId = currentUser.id;
 
       if (!studentId) {
         console.error('❌ No current user found');
@@ -529,7 +494,7 @@ export class FaceRecognizeService {
     adminId: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      const token = StorageHelper.getItem('token');
+      const token = localStorage.getItem('token');
       const response = await fetch(
         `${this.API_BASE}/delete-embedding/${studentId}`,
         {

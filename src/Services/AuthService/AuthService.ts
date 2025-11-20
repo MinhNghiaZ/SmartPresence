@@ -1,8 +1,6 @@
 // AuthService.ts - Quản lý xác thực và thông tin sinh viên
 
 import type { User, LoginResult } from '../../models';
-import { StorageHelper } from '../../utils/storageHelper';
-import { ErrorTracker, ErrorCategory, ErrorSeverity } from '../../utils/ErrorTracker';
 
 export class AuthService {
     private static readonly API_BASE = '/api';
@@ -29,7 +27,7 @@ export class AuthService {
 
             if (result.success && result.token) {
                 // Login successful - save to localStorage and memory
-                StorageHelper.setItem('token', result.token);
+                localStorage.setItem('token', result.token);
                 
                 // Map backend User structure to frontend User structure
                 const mappedUser = {
@@ -37,7 +35,7 @@ export class AuthService {
                     id: result.User.studentId || result.User.id // Map studentId to id
                 };
                 
-                StorageHelper.setItem('currentUser', JSON.stringify(mappedUser));
+                localStorage.setItem('currentUser', JSON.stringify(mappedUser));
                 this.currentUser = mappedUser;
                 
                 console.log('current user from backend:', this.currentUser); // Debug log
@@ -51,8 +49,8 @@ export class AuthService {
             } else {
                 // Login failed - clear any existing data
                 this.currentUser = null;
-                StorageHelper.removeItem('token');
-                StorageHelper.removeItem('currentUser');
+                localStorage.removeItem('token');
+                localStorage.removeItem('currentUser');
                 
                 console.log('login failed:', result.message);
                 return {
@@ -64,21 +62,8 @@ export class AuthService {
         } catch (error) {
             // Network/system error - clear any existing data
             this.currentUser = null;
-            StorageHelper.removeItem('token');
-            StorageHelper.removeItem('currentUser');
-            
-            // Track error
-            ErrorTracker.trackError({
-                category: ErrorCategory.AUTHENTICATION,
-                severity: ErrorSeverity.HIGH,
-                message: 'Login failed due to network or system error',
-                error: error as Error,
-                context: {
-                    userId: id,
-                    service: 'AuthService',
-                    method: 'login'
-                }
-            });
+            localStorage.removeItem('token');
+            localStorage.removeItem('currentUser');
             
             console.error('API error: ', error);
             return {
@@ -108,14 +93,14 @@ export class AuthService {
             console.error('logout api error: ', error)
         } finally {
             this.currentUser = null;
-            StorageHelper.removeItem('token');
-            StorageHelper.removeItem('currentUser');
+            localStorage.removeItem('token');
+            localStorage.removeItem('currentUser');
             console.log('logged out success');
         }
     }
 
     static getToken(): string | null {
-        return StorageHelper.getItem('token');
+        return localStorage.getItem('token');
     }
     /**
      * Lấy thông tin sinh viên hiện tại từ ram và localstorage
@@ -127,7 +112,7 @@ export class AuthService {
         }
 
         try {
-            const userStr = StorageHelper.getItem('currentUser');
+            const userStr = localStorage.getItem('currentUser');
 
             if (userStr) {
                 this.currentUser = JSON.parse(userStr);
@@ -143,7 +128,7 @@ export class AuthService {
             }
         } catch (error) {
             console.error('parsing error', error);
-            StorageHelper.removeItem('currentUser');
+            localStorage.removeItem('currentUser');
         }
 
         return null;
@@ -177,7 +162,7 @@ export class AuthService {
                     id: result.User.studentId || result.User.id // Map studentId to id
                 };
                 
-                StorageHelper.setItem('currentUser', JSON.stringify(mappedUser));
+                localStorage.setItem('currentUser', JSON.stringify(mappedUser));
                 this.currentUser = mappedUser;
             }
             return result;
@@ -211,11 +196,11 @@ export class AuthService {
         if (!token || !user) {
             // Clear any incomplete data
             if (!token) {
-                StorageHelper.removeItem('currentUser');
+                localStorage.removeItem('currentUser');
                 this.currentUser = null;
             }
             if (!user) {
-                StorageHelper.removeItem('token');
+                localStorage.removeItem('token');
             }
             return false;
         }
@@ -228,8 +213,8 @@ export class AuthService {
      */
     static clearAuthData(): void {
         this.currentUser = null;
-        StorageHelper.removeItem('token');
-        StorageHelper.removeItem('currentUser');
+        localStorage.removeItem('token');
+        localStorage.removeItem('currentUser');
         console.log('Auth data cleared');
     }
 
