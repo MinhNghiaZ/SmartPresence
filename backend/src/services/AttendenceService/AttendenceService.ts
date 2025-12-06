@@ -19,11 +19,9 @@ import { ClassSessionService } from '../ClassSessionService/ClassSessionService'
 export class AttendanceService {
     
     /**
-     * Process check-in for student - Updated to use ClassSession with TRANSACTION
+     * Process check-in for student - Updated to use ClassSession
      */
     static async checkIn(request: CheckInRequest): Promise<CheckInResponse> {
-        const connection = await db.getConnection();
-        
         try {
             console.log('🔍 AttendanceService.checkIn called:', {
                 studentId: request.studentId,
@@ -33,11 +31,10 @@ export class AttendanceService {
             
             const { studentId, subjectId, location } = request;
             
-            // 1. ✅ Get current active session (outside transaction - read-only)
+            // 1. ✅ Get current active session
             const sessionResponse = await ClassSessionService.getCurrentActiveSession(subjectId);
             
             if (!sessionResponse.success || !sessionResponse.session) {
-                connection.release();
                 return {
                     success: false,
                     status: 'FAILED',
@@ -48,10 +45,9 @@ export class AttendanceService {
             
             const activeSession = sessionResponse.session;
             
-            // 2. ✅ Validate student enrollment (outside transaction - read-only)
+            // 2. ✅ Validate student enrollment
             const isEnrolled = await SubjectService.isStudentEnrolled(studentId, subjectId);
             if (!isEnrolled) {
-                connection.release();
                 return {
                     success: false,
                     status: 'FAILED',
@@ -60,14 +56,13 @@ export class AttendanceService {
                 };
             }
             
-            // 3. ✅ Check if already checked in for this session (outside transaction - read-only)
+            // 3. ✅ Check if already checked in for this session
             const existingAttendance = await this.getExistingAttendanceForSession(
                 studentId, 
                 activeSession.sessionId
             );
             
             if (existingAttendance) {
-                connection.release();
                 return {
                     success: false,
                     status: 'FAILED',
@@ -92,7 +87,6 @@ export class AttendanceService {
                 locationValid = distance <= allowedRadius;
                 
                 if (!locationValid) {
-                    connection.release();
                     return {
                         success: false,
                         status: 'FAILED',
@@ -108,7 +102,6 @@ export class AttendanceService {
             
             // 5.1 ✅ Check if exceeded check-in time (30 minutes)
             if (attendanceStatus === null) {
-                connection.release();
                 return {
                     success: false,
                     status: 'FAILED',
@@ -118,63 +111,46 @@ export class AttendanceService {
                 };
             }
             
-            // ✅ START TRANSACTION - All write operations must succeed or fail together
-            await connection.beginTransaction();
-            console.log('🔄 Transaction started for check-in');
+            // 6. ✅ Create attendance record with sessionId FIRST (without imageId)
+            const attendanceId = await this.createAttendanceRecordWithSession({
+                studentId,
+                subjectId,
+                sessionId: activeSession.sessionId,
+                status: attendanceStatus,
+                imageId: undefined // Will be updated later if image is provided
+            });
             
-            try {
-                // 6. ✅ Create attendance record with sessionId FIRST (without imageId)
-                const attendanceId = await this.createAttendanceRecordWithSessionInTransaction(connection, {
+            // 7. ✅ Save image to captured_images table if provided (with attendanceId)
+            let imageId = null;
+            if (request.imageData) {
+                imageId = await this.saveAttendanceImageWithAttendanceId({
                     studentId,
+                    imageData: request.imageData,
                     subjectId,
-                    sessionId: activeSession.sessionId,
-                    status: attendanceStatus,
-                    imageId: undefined // Will be updated later if image is provided
+                    attendanceId, // Now we have the attendanceId
+                    confidence: request.confidence // Pass face recognition confidence
                 });
                 
-                // 7. ✅ Save image to captured_images table if provided (with attendanceId)
-                let imageId = null;
-                if (request.imageData) {
-                    imageId = await this.saveAttendanceImageWithAttendanceIdInTransaction(connection, {
-                        studentId,
-                        imageData: request.imageData,
-                        subjectId,
-                        attendanceId, // Now we have the attendanceId
-                        confidence: request.confidence // Pass face recognition confidence
-                    });
-                    
-                    // Update attendance record with imageId
-                    await this.updateAttendanceImageIdInTransaction(connection, attendanceId, imageId);
-                    console.log(`✅ Image saved with ID: ${imageId} and linked to attendance ${attendanceId} (confidence: ${request.confidence || 0}%)`);
-                }
-                
-                // ✅ COMMIT TRANSACTION
-                await connection.commit();
-                console.log(`✅ Transaction committed - Check-in successful: ${attendanceId} - Status: ${attendanceStatus}`);
-                
-                connection.release();
-                
-                return {
-                    success: true,
-                    attendanceId: attendanceId,
-                    sessionId: activeSession.sessionId,
-                    status: attendanceStatus,
-                    message: `Check-in successful! Status: ${attendanceStatus}`,
-                    timestamp: new Date(),
-                    locationValid: locationValid,
-                    faceRecognitionSuccess: !!request.faceDescriptor
-                };
-                
-            } catch (transactionError) {
-                // ✅ ROLLBACK on any error
-                await connection.rollback();
-                console.error('❌ Transaction rolled back due to error:', transactionError);
-                throw transactionError;
+                // Update attendance record with imageId
+                await this.updateAttendanceImageId(attendanceId, imageId);
+                console.log(`✅ Image saved with ID: ${imageId} and linked to attendance ${attendanceId} (confidence: ${request.confidence || 0}%)`);
             }
+            
+            console.log(`✅ Check-in successful: ${attendanceId} - Status: ${attendanceStatus}`);
+            
+            return {
+                success: true,
+                attendanceId: attendanceId,
+                sessionId: activeSession.sessionId,
+                status: attendanceStatus,
+                message: `Check-in successful! Status: ${attendanceStatus}`,
+                timestamp: new Date(),
+                locationValid: locationValid,
+                faceRecognitionSuccess: !!request.faceDescriptor
+            };
             
         } catch (error) {
             console.error('❌ AttendanceService.checkIn error:', error);
-            connection.release();
             return {
                 success: false,
                 status: 'FAILED',
@@ -692,136 +668,7 @@ export class AttendanceService {
     }
 
     /**
-     * Create attendance record with sessionId (TRANSACTION VERSION)
-     */
-    private static async createAttendanceRecordWithSessionInTransaction(connection: any, data: {
-        studentId: string;
-        subjectId: string;
-        sessionId: string;
-        status: 'PRESENT' | 'LATE';
-        imageId?: string;
-    }): Promise<string> {
-        try {
-            // Get enrollment record
-            const [enrollmentRows] = await connection.execute(`
-                SELECT enrollmentId 
-                FROM enrollment 
-                WHERE studentId = ? AND subjectId = ?
-            `, [data.studentId, data.subjectId]);
-            
-            if ((enrollmentRows as any[]).length === 0) {
-                throw new Error('Enrollment record not found');
-            }
-            
-            const enrollmentId = (enrollmentRows as any[])[0].enrollmentId;
-            const attendanceId = `ATT_${Date.now()}_${data.studentId}_${Math.random().toString(36).substr(2, 9)}`;
-            
-            await connection.execute(`
-                INSERT INTO attendance (
-                    AttendanceId, 
-                    studentId, 
-                    subjectId, 
-                    sessionId,        -- ✅ Use sessionId
-                    enrollmentId, 
-                    checked_in_at, 
-                    status,
-                    imageId
-                ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)
-            `, [
-                attendanceId,
-                data.studentId,
-                data.subjectId,
-                data.sessionId,   // ✅ sessionId instead of timeSlotId
-                enrollmentId,
-                data.status,
-                data.imageId || null
-            ]);
-            
-            return attendanceId;
-        } catch (error) {
-            console.error('❌ Error creating attendance record:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Save attendance image to captured_images table WITH attendanceId (TRANSACTION VERSION)
-     * Returns imageId to be stored in Attendance.imageId
-     */
-    private static async saveAttendanceImageWithAttendanceIdInTransaction(connection: any, data: {
-        studentId: string;
-        imageData: string; // Base64 image
-        subjectId: string;
-        attendanceId: string; // ✅ Now we have attendanceId
-        confidence?: number; // Face recognition confidence
-    }): Promise<string> {
-        try {
-            // Generate unique imageId
-            const imageId = `ATT_IMG_${Date.now()}_${data.studentId}_${Math.random().toString(36).substr(2, 9)}`;
-            
-            // Convert base64 to buffer (remove data URL prefix if exists)
-            const base64Data = data.imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-            const imageBuffer = Buffer.from(base64Data, 'base64');
-            
-            // Validate image size
-            const maxSizeBytes = 5 * 1024 * 1024; // 5MB limit
-            if (imageBuffer.length > maxSizeBytes) {
-                throw new Error(`Image too large: ${imageBuffer.length} bytes (max: ${maxSizeBytes})`);
-            }
-            
-            // ✅ Save to captured_images table WITH attendanceId from the start
-            await connection.execute(`
-                INSERT INTO captured_images (
-                    imageId, 
-                    studentId, 
-                    attendanceId,
-                    imageData,
-                    confidence,
-                    recognition_result,
-                    subjectId,
-                    captured_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-            `, [
-                imageId,
-                data.studentId,
-                data.attendanceId, // ✅ Now we have the real attendanceId
-                imageBuffer,
-                data.confidence || 0, // Default confidence if not provided
-                'SUCCESS', // Assuming successful attendance check-in
-                data.subjectId
-            ]);
-            
-            console.log(`✅ Attendance image saved: ${imageId} (${imageBuffer.length} bytes) for attendance ${data.attendanceId}`);
-            return imageId;
-            
-        } catch (error) {
-            console.error('❌ Error saving attendance image:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Update Attendance.imageId after image is saved (TRANSACTION VERSION)
-     */
-    private static async updateAttendanceImageIdInTransaction(connection: any, attendanceId: string, imageId: string): Promise<void> {
-        try {
-            await connection.execute(`
-                UPDATE attendance 
-                SET imageId = ? 
-                WHERE AttendanceId = ?
-            `, [imageId, attendanceId]);
-            
-            console.log(`✅ Updated attendance ${attendanceId} with imageId: ${imageId}`);
-            
-        } catch (error) {
-            console.error('❌ Error updating attendance imageId:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Create attendance record with sessionId (NON-TRANSACTION VERSION - DEPRECATED)
-     * @deprecated Use createAttendanceRecordWithSessionInTransaction instead
+     * Create attendance record with sessionId
      */
     private static async createAttendanceRecordWithSession(data: {
         studentId: string;
@@ -1006,7 +853,7 @@ export class AttendanceService {
     }
 
     /**
-     * Admin function: Create new attendance record (when changing Absent → Present/Late) with TRANSACTION
+     * Admin function: Create new attendance record (when changing Absent → Present/Late)
      */
     static async adminCreateAttendanceRecord(
         studentId: string,
@@ -1015,16 +862,14 @@ export class AttendanceService {
         adminId: string,
         sessionDate?: string // Optional: YYYY-MM-DD format, defaults to today
     ): Promise<{ success: boolean; message: string; attendanceId?: string }> {
-        const connection = await db.getConnection();
-        
         try {
             console.log(`🔍 AttendanceService.createAttendanceRecord: ${studentId} in ${subjectId} → ${status} by admin ${adminId} for date: ${sessionDate || 'today'}`);
             
             // Use provided date or default to today
             const targetDate = sessionDate || new Date().toISOString().split('T')[0];
             
-            // ✅ Read-only queries outside transaction
             // Get current active or completed session for the subject on the specific date
+            // Admin can edit attendance for both active and completed sessions
             const [sessionRows] = await db.execute(`
                 SELECT sessionId FROM classsession 
                 WHERE subjectId = ? 
@@ -1034,7 +879,6 @@ export class AttendanceService {
             `, [subjectId, targetDate]);
             
             if ((sessionRows as any[]).length === 0) {
-                connection.release();
                 return { success: false, message: `No active or completed session found for this subject on ${targetDate}` };
             }
             
@@ -1048,7 +892,6 @@ export class AttendanceService {
             `, [studentId, subjectId]);
             
             if ((enrollmentRows as any[]).length === 0) {
-                connection.release();
                 return { success: false, message: 'Student is not enrolled in this subject' };
             }
             
@@ -1063,67 +906,49 @@ export class AttendanceService {
                 LIMIT 1
             `, [studentId, subjectId, sessionId]);
             
-            // ✅ START TRANSACTION
-            await connection.beginTransaction();
-            console.log('🔄 Transaction started for admin attendance record');
-            
-            try {
-                let attendanceId: string;
-                const rows = existingRows as any[];
+            if ((existingRows as any[]).length > 0) {
+                // Record already exists - UPDATE instead of INSERT
+                const existingAttendanceId = (existingRows as any[])[0].AttendanceId;
+                console.log(`🔄 Updating existing attendance record: ${existingAttendanceId}`);
                 
-                if (rows.length > 0) {
-                    // Record already exists - UPDATE instead of INSERT
-                    attendanceId = rows[0].AttendanceId;
-                    console.log(`🔄 Updating existing attendance record: ${attendanceId}`);
-                    
-                    await connection.execute(`
-                        UPDATE attendance 
-                        SET status = ? 
-                        WHERE AttendanceId = ?
-                    `, [status, attendanceId]);
-                    
-                    console.log(`✅ Updated existing attendance record: ${attendanceId} → ${status}`);
-                    
-                } else {
-                    // Generate attendance ID for new record
-                    const timestamp = Date.now();
-                    attendanceId = `ATT_${timestamp}_${studentId}_ADMIN`;
-                    
-                    // ✅ Create checked_in_at timestamp based on target date (not current time)
-                    const checkedInAt = `${targetDate} ${new Date().toTimeString().split(' ')[0]}`;
-
-                    // Insert new attendance with checked_in_at set to target date
-                    await connection.execute(`
-                        INSERT INTO attendance (AttendanceId, studentId, subjectId, sessionId, enrollmentId, status, checked_in_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    `, [attendanceId, studentId, subjectId, sessionId, enrollmentId, status, checkedInAt]);
-                    
-                    console.log(`✅ Created new attendance record: ${attendanceId}`);
-                }
+                await db.execute(`
+                    UPDATE attendance 
+                    SET status = ? 
+                    WHERE AttendanceId = ?
+                `, [status, existingAttendanceId]);
                 
-                // ✅ COMMIT TRANSACTION
-                await connection.commit();
-                console.log(`✅ Transaction committed - Admin attendance record ${attendanceId} ${rows.length > 0 ? 'updated' : 'created'} successfully`);
-                
-                connection.release();
-                
+                console.log(`✅ Updated existing attendance record: ${existingAttendanceId} → ${status}`);
                 return { 
                     success: true, 
-                    message: `Attendance record ${rows.length > 0 ? 'updated' : 'created'} successfully`,
-                    attendanceId: attendanceId
+                    message: 'Attendance record updated successfully',
+                    attendanceId: existingAttendanceId
                 };
-                
-            } catch (transactionError) {
-                // ✅ ROLLBACK on any error
-                await connection.rollback();
-                console.error('❌ Transaction rolled back due to error:', transactionError);
-                throw transactionError;
             }
+            
+            // Generate attendance ID for new record
+            const timestamp = Date.now();
+            const attendanceId = `ATT_${timestamp}_${studentId}_ADMIN`;
+            
+            // ✅ Create checked_in_at timestamp based on target date (not current time)
+            // This ensures the record appears when querying by date
+            const checkedInAt = `${targetDate} ${new Date().toTimeString().split(' ')[0]}`;
+
+            // Insert new attendance with checked_in_at set to target date
+            await db.execute(`
+                INSERT INTO attendance (AttendanceId, studentId, subjectId, sessionId, enrollmentId, status, checked_in_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [attendanceId, studentId, subjectId, sessionId, enrollmentId, status, checkedInAt]);
+            
+            console.log(`✅ Created new attendance record: ${attendanceId}`);
+            return { 
+                success: true, 
+                message: 'Attendance record created successfully',
+                attendanceId: attendanceId
+            };
             
         } catch (error) {
             console.error('❌ Error creating attendance record:', error);
             console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
-            connection.release();
             return { success: false, message: `Failed to create attendance record: ${error instanceof Error ? error.message : 'Unknown error'}` };
         }
     }

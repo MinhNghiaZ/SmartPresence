@@ -38,7 +38,7 @@ export class AuthService {
             if (!user) {
                 try {
                     const [AdminRow] = await db.execute(
-                        'SELECT * FROM adminaccount WHERE username = ?',
+                        'SELECT * FROM adminaccount WHERE id = ?',
                         [userId]
                     );
 
@@ -82,14 +82,14 @@ export class AuthService {
             
             // Generate JWT token với thêm thông tin xác thực
             const tokenPayload: JWTPayload = {
-                userId: user.studentId || user.username,
+                userId: user.studentId || user.id,
                 userType: userType, // Server quyết định userType, client không thể thay đổi
                 name: user.name,
                 // Thêm timestamp để tránh replay attack
                 iat: Math.floor(Date.now() / 1000),
                 // Thêm hash của một số thông tin cố định để verify
                 authHash: require('crypto').createHash('sha256')
-                    .update(`${user.studentId || user.username}_${userType}_${user.name}`)
+                    .update(`${user.studentId || user.id}_${userType}_${user.name}`)
                     .digest('hex')
             };
 
@@ -101,7 +101,7 @@ export class AuthService {
                 message: 'welcome',
                 User: {
                     ...userWithoutPassword,
-                    id: user.studentId || user.username, // Ensure 'id' field exists for both student and admin
+                    id: user.studentId || user.id, // Ensure 'id' field exists for both student and admin
                     userType: userType
                 } as any, // Type assertion since admin and student have different schemas
                 token: token
@@ -175,7 +175,7 @@ export class AuthService {
             if (decoded.userType === 'admin') {
                 // Double check admin status from database
                 const [adminCheck] = await db.execute(
-                    'SELECT id, username FROM adminaccount WHERE username = ?',
+                    'SELECT id FROM adminaccount WHERE id = ?',
                     [decoded.userId]
                 );
                 if ((adminCheck as any[]).length === 0) {
@@ -272,7 +272,7 @@ export class AuthService {
             if (!user) {
                 try {
                     const [adminRow] = await db.execute(
-                        'SELECT * FROM adminaccount WHERE username = ?',
+                        'SELECT * FROM adminaccount WHERE id = ?',
                         [studentId]
                     );
 

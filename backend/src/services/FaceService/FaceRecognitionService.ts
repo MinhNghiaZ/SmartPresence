@@ -11,11 +11,9 @@ import {
 export class FaceRecognitionService {
     
     /**
-     * Register face descriptor for student (only if faceEmbedding is NULL) with TRANSACTION
+     * Register face descriptor for student (only if faceEmbedding is NULL)
      */
     static async registerStudentFace(request: FaceRegistrationRequest): Promise<boolean> {
-        const connection = await db.getConnection();
-        
         try {
             const { studentId, descriptor, imageData } = request;
 
@@ -23,23 +21,20 @@ export class FaceRecognitionService {
 
             // ✅ Validate descriptor thoroughly
             if (!Array.isArray(descriptor) || descriptor.length === 0) {
-                connection.release();
                 throw new Error('Invalid face descriptor: must be non-empty array');
             }
 
             const hasValidNumbers = descriptor.every(val => typeof val === 'number' && !isNaN(val));
             if (!hasValidNumbers) {
-                connection.release();
                 throw new Error('Invalid face descriptor: must contain valid numbers');
             }
 
-            // Check if student exists (outside transaction - read-only)
+            // Check if student exists
             const [studentRows] = await db.execute(`
                 SELECT studentId, name, faceEmbedding FROM studentaccount WHERE studentId = ?
             `, [studentId]);
 
             if ((studentRows as any[]).length === 0) {
-                connection.release();
                 console.error(`❌ Student ${studentId} not found`);
                 throw new Error('Student not found');
             }
@@ -48,60 +43,37 @@ export class FaceRecognitionService {
 
             // ✅ BLOCK registration if face already exists
             if (student.faceEmbedding !== null && student.faceEmbedding !== '') {
-                connection.release();
                 console.warn(`❌ Student ${studentId} already has face registered`);
                 throw new Error('Face already registered. Contact admin to reset before re-registering.');
             }
 
-            // ✅ START TRANSACTION - Both operations must succeed or fail together
-            await connection.beginTransaction();
-            console.log('🔄 Transaction started for face registration');
+            // ✅ Only allow registration when faceEmbedding is NULL
+            await db.execute(`
+                UPDATE studentaccount 
+                SET faceEmbedding = ?
+                WHERE studentId = ? AND faceEmbedding IS NULL
+            `, [JSON.stringify(descriptor), studentId]);
 
-            try {
-                // ✅ Only allow registration when faceEmbedding is NULL
-                const [updateResult] = await connection.execute(`
-                    UPDATE studentaccount 
-                    SET faceEmbedding = ?
-                    WHERE studentId = ? AND faceEmbedding IS NULL
-                `, [JSON.stringify(descriptor), studentId]);
+            // ✅ Verify the update was successful
+            const [verifyRows] = await db.execute(`
+                SELECT faceEmbedding FROM studentaccount WHERE studentId = ?
+            `, [studentId]);
 
-                // Check if update was successful
-                if ((updateResult as any).affectedRows === 0) {
-                    throw new Error('Failed to register face - race condition or already registered');
-                }
-
-                // ✅ Verify the update was successful
-                const [verifyRows] = await connection.execute(`
-                    SELECT faceEmbedding FROM studentaccount WHERE studentId = ?
-                `, [studentId]);
-
-                const updatedStudent = (verifyRows as any[])[0];
-                if (!updatedStudent.faceEmbedding) {
-                    throw new Error('Failed to register face - database update failed');
-                }
-
-                // Log registration image if provided
-                if (imageData) {
-                    await this.logRegistrationImageInTransaction(connection, studentId, imageData);
-                }
-
-                // ✅ COMMIT TRANSACTION
-                await connection.commit();
-                console.log(`✅ Transaction committed - Face registered successfully for student: ${studentId}`);
-                
-                connection.release();
-                return true;
-
-            } catch (transactionError) {
-                // ✅ ROLLBACK on any error
-                await connection.rollback();
-                console.error('❌ Transaction rolled back due to error:', transactionError);
-                throw transactionError;
+            const updatedStudent = (verifyRows as any[])[0];
+            if (!updatedStudent.faceEmbedding) {
+                throw new Error('Failed to register face - database update failed');
             }
+
+            // Log registration image if provided
+            if (imageData) {
+                await this.logRegistrationImage(studentId, imageData);
+            }
+
+            console.log(`✅ Face registered successfully for student: ${studentId}`);
+            return true;
 
         } catch (error) {
             console.error('❌ Face registration error:', error);
-            connection.release();
             return false;
         }
     }
@@ -511,41 +483,7 @@ export class FaceRecognitionService {
     }
 
     /**
-     * Log face registration image (TRANSACTION VERSION)
-     */
-    private static async logRegistrationImageInTransaction(connection: any, studentId: string, imageData: string): Promise<void> {
-        try {
-            // ✅ Tạo imageId unique hơn
-            const imageId = `REG_${Date.now()}_${studentId}_${Math.random().toString(36).substr(2, 5)}`;
-            
-            const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-            const imageBuffer = Buffer.from(base64Data, 'base64');
-            
-            // Check image size
-            if (imageBuffer.length > FACE_CONSTANTS.MAX_IMAGE_SIZE) {
-                console.warn(`⚠️ Registration image too large: ${imageBuffer.length} bytes`);
-                return;
-            }
-            
-            await connection.execute(`
-                INSERT INTO captured_images (
-                    imageId, studentId, imageData, confidence, 
-                    recognition_result, captured_at
-                ) VALUES (?, ?, ?, 100, 'SUCCESS', NOW())
-            `, [imageId, studentId, imageBuffer]);
-            
-            console.log(`✅ Logged registration image for student: ${studentId}`);
-            
-        } catch (error) {
-            console.error('❌ Error logging registration image:', error);
-            console.error('❌ Registration details:', { studentId });
-            throw error;
-        }
-    }
-
-    /**
-     * Log face registration image (NON-TRANSACTION VERSION - DEPRECATED)
-     * @deprecated Use logRegistrationImageInTransaction instead
+     * Log face registration image
      */
     private static async logRegistrationImage(studentId: string, imageData: string): Promise<void> {
         try {
